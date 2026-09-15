@@ -1,0 +1,41 @@
+name: sitd_hilux
+description: "Telemetria, odometria y diagnostico mecanico - Toyota Hilux 3.0"
+publish_to: 'none'
+
+# versionName / versionCode del APK. El sello legible de la tanda vive en
+# lib/core/version.dart y es el que se muestra en pantalla.
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # SQLite crudo, sin generacion de codigo.
+  #
+  # Por que no drift ni sqflite:
+  #  - drift resuelve bien los isolates pero exige build_runner, y eso ata
+  #    cualquier cambio de esquema a una maquina con la cadena de compilacion
+  #    puesta. Este proyecto ya carga con un paso de build; no se le agrega uno
+  #    mas para tocar cuatro tablas.
+  #  - sqflite no es seguro entre isolates concurrentes, y la aplicacion tiene
+  #    tres productores en paralelo (GPS, analisis, interfaz).
+  # sqlite3 abre una conexion por isolate contra el mismo archivo y deja que
+  # SQLite resuelva la concurrencia en modo WAL, que es para lo que existe.
+  # La 3.x ya trae la biblioteca nativa empaquetada: sqlite3_flutter_libs
+  # quedo marcado como fin de vida ("Not used anymore, update to version 3.x
+  # of package:sqlite3 instead") y no entra.
+  sqlite3: ^3.6.0
+
+  path: ^1.9.0
+  path_provider: ^2.1.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

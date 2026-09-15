@@ -1,0 +1,139 @@
+/// Esquema de la base local.
+///
+/// Se escribe en SQL a mano, sin generación de código, a propósito: el
+/// proyecto ya carga con un paso de compilación que los otros del ecosistema
+/// no tienen, y agregarle `build_runner` significaría que ningún cambio de
+/// esquema se puede hacer sin regenerar archivos —algo que no se puede hacer
+/// desde un teléfono.
+///
+/// La concurrencia entre hilos la resuelve SQLite, no Dart: la base se abre en
+/// modo WAL, que admite un escritor y varios lectores simultáneos, con
+/// `busy_timeout` para que un hilo que llega tarde espere en vez de fallar.
+/// Ver `base.dart`.
+library;
+
+/// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
+const int versionEsquema = 1;
+
+/// Cada elemento son las sentencias que llevan el esquema de la versión
+/// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
+/// agrega otra abajo. Una base en un teléfono no se puede volver a crear.
+const List<List<String>> migraciones = [
+  // ── 0 → 1 ──────────────────────────────────────────────────────────────
+  [
+    '''
+    CREATE TABLE viajes (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      inicio            INTEGER NOT NULL,
+      fin               INTEGER,
+      metros            REAL    NOT NULL DEFAULT 0,
+      metros_haversine  REAL    NOT NULL DEFAULT 0,
+      odo_tablero_ini   REAL,
+      odo_tablero_fin   REAL,
+      cortes            INTEGER NOT NULL DEFAULT 0,
+      notas             TEXT
+    )
+    ''',
+    'CREATE INDEX idx_viajes_inicio ON viajes (inicio DESC)',
+
+    // Las muestras crudas se guardan enteras. Ocupan poco (~30 bytes) y son lo
+    // único que no se puede reconstruir: si mañana mejora el filtro, se puede
+    // recalcular la distancia de todos los viajes viejos. Un derivado se
+    // vuelve a calcular; una muestra perdida, no.
+    '''
+    CREATE TABLE puntos (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      viaje         INTEGER NOT NULL REFERENCES viajes (id) ON DELETE CASCADE,
+      t             INTEGER NOT NULL,
+      lat           REAL    NOT NULL,
+      lon           REAL    NOT NULL,
+      alt           REAL,
+      velocidad     REAL    NOT NULL,
+      precision_m   REAL    NOT NULL,
+      precision_vel REAL
+    )
+    ''',
+    'CREATE INDEX idx_puntos_viaje ON puntos (viaje, t)',
+
+    // El estado de pago, el consumo y la autonomía NO se guardan: se calculan
+    // al leer. Acá sólo entra lo que Mauro tecleó en la estación de servicio.
+    // Y cada moneda es un sistema aparte: UYU y USD no se suman nunca.
+    '''
+    CREATE TABLE cargas (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      t            INTEGER NOT NULL,
+      litros       REAL    NOT NULL,
+      costo        REAL,
+      moneda       TEXT    NOT NULL DEFAULT 'UYU',
+      odo_tablero  REAL    NOT NULL,
+      tanque_lleno INTEGER NOT NULL DEFAULT 1,
+      estacion     TEXT,
+      notas        TEXT
+    )
+    ''',
+    'CREATE INDEX idx_cargas_t ON cargas (t DESC)',
+
+    '''
+    CREATE TABLE ajustes (
+      clave TEXT PRIMARY KEY,
+      valor TEXT NOT NULL
+    )
+    ''',
+  ],
+];
+
+/// Comprobaciones del esquema que no dependen de que haya un SQLite cargado,
+/// para que el banco de pruebas corra en cualquier lado.
+///
+/// Devuelve la lista de problemas encontrados; vacía significa que está bien.
+List<String> revisarEsquema() {
+  final problemas = <String>[];
+
+  if (migraciones.length != versionEsquema) {
+    problemas.add(
+      'versionEsquema es $versionEsquema pero hay ${migraciones.length} '
+      'migraciones: cada versión nueva tiene que traer la suya',
+    );
+  }
+
+  for (var i = 0; i < migraciones.length; i++) {
+    if (migraciones[i].isEmpty) {
+      problemas.add('la migración $i → ${i + 1} está vacía');
+    }
+    for (final sql in migraciones[i]) {
+      if (sql.trim().isEmpty) {
+        problemas.add('la migración $i → ${i + 1} tiene una sentencia vacía');
+      }
+    }
+  }
+
+  // Toda tabla creada tiene que tener su índice, salvo las de clave única.
+  final sinIndice = <String>{'ajustes'};
+  final creadas = <String>{};
+  final indexadas = <String>{};
+  final reTabla = RegExp(r'CREATE TABLE\s+(\w+)', caseSensitive: false);
+  final reIndice = RegExp(
+    r'CREATE INDEX\s+\w+\s+ON\s+(\w+)',
+    caseSensitive: false,
+  );
+
+  for (final paso in migraciones) {
+    for (final sql in paso) {
+      final t = reTabla.firstMatch(sql);
+      if (t != null) creadas.add(t.group(1)!);
+      final x = reIndice.firstMatch(sql);
+      if (x != null) indexadas.add(x.group(1)!);
+    }
+  }
+
+  for (final tabla in creadas) {
+    if (!indexadas.contains(tabla) && !sinIndice.contains(tabla)) {
+      problemas.add(
+        'la tabla "$tabla" no tiene índice y no está en la lista de las que '
+        'no lo necesitan',
+      );
+    }
+  }
+
+  return problemas;
+}

@@ -1,0 +1,112 @@
+# Compila el APK y lo deja donde se pueda instalar desde el teléfono.
+#
+# Es lo primero que se armó del proyecto, antes que cualquier función, y el
+# motivo es el mismo que ordena el resto del ecosistema: **Mauro trabaja desde
+# un teléfono.** Flutter necesita una cadena de compilación que un teléfono no
+# tiene, así que sin esto el proyecto entero dependería de estar sentado
+# frente a una PC. Acá corre el build, y del teléfono sale un enlace directo al
+# APK.
+#
+# El APK queda en dos lados:
+#  - como *artifact* de la corrida, que sirve para revisar una tanda vieja pero
+#    baja en .zip y hay que estar con sesión iniciada;
+#  - como *release* «ultimo», que da un enlace directo al .apk y se instala
+#    tocándolo desde el navegador del teléfono. Ése es el camino de todos los
+#    días.
+
+name: APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Clavada a propósito: la misma versión con la que se verificó la tanda.
+  # Subirla es un cambio deliberado, no algo que pase solo un martes.
+  FLUTTER_VERSION: '3.47.4'
+
+jobs:
+  construir:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Dependencias
+        run: flutter pub get
+
+      # La verificación previa no es opcional (PROTOCOLO-GENERAL § 2.1 ter).
+      # Si algo de esto falla, no se construye nada.
+      - name: Analizador
+        run: flutter analyze --fatal-infos --fatal-warnings
+
+      - name: Formato
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Banco de pruebas
+        run: flutter test --reporter expanded
+
+      - name: Construir APK
+        run: flutter build apk --release
+
+      - name: Renombrar con el número de corrida
+        run: |
+          mkdir -p entrega
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             "entrega/sitd-hilux-${{ github.run_number }}.apk"
+          ls -lh entrega/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sitd-hilux-${{ github.run_number }}
+          path: entrega/*.apk
+          retention-days: 90
+
+      # El release rodante sólo se toca desde main: un PR no publica nada.
+      - name: Publicar el último APK
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.sha }}
+          CORRIDA: ${{ github.run_number }}
+        run: |
+          # Las notas van por archivo y no por --notes en línea: una cadena
+          # multilínea dentro del YAML arrastra la indentación, y cuatro
+          # espacios en Markdown convierten el texto en un bloque de código.
+          cat > notas.md <<NOTAS
+          Compilado de \`$SHA\` el $(date -u '+%Y-%m-%d %H:%M UTC').
+
+          Se instala tocando el \`.apk\` de acá abajo desde el navegador del
+          teléfono. La primera vez Android va a pedir permiso para instalar
+          desde esa fuente.
+
+          Firmado con la clave de depuración: si ya había una versión instalada
+          firmada con otra clave, hay que desinstalarla antes.
+          NOTAS
+
+          gh release delete ultimo --yes --cleanup-tag || true
+          gh release create ultimo \
+            --title "Último APK (corrida $CORRIDA)" \
+            --notes-file notas.md \
+            --prerelease \
+            entrega/*.apk
