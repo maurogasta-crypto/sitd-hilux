@@ -27,6 +27,18 @@ class EstadoViaje {
   /// Cuántas posiciones llegaron sin velocidad Doppler. Ver [Lectura].
   final int sinDoppler;
 
+  /// La última posición que entregó el receptor, haya servido o no.
+  ///
+  /// **Es distinta de [ultima], y la diferencia es el diagnóstico entero.**
+  /// `ultima` es la última que se pudo usar; ésta es la última que llegó. Si
+  /// hay una cruda nueva cada segundo y `ultima` no se mueve, el GPS está
+  /// hablando y el filtro las está tirando — que no se parece en nada a un
+  /// receptor callado.
+  final Muestra? ultimaCruda;
+
+  /// Por qué se descartó la última, si se descartó.
+  final MotivoDescarte? ultimoMotivo;
+
   /// Por qué no se está midiendo, cuando corresponde decirlo.
   final Disponibilidad? problema;
 
@@ -44,6 +56,8 @@ class EstadoViaje {
     ),
     this.ultima,
     this.sinDoppler = 0,
+    this.ultimaCruda,
+    this.ultimoMotivo,
     this.problema,
   });
 
@@ -62,12 +76,43 @@ class EstadoViaje {
   String? get estadoDeLaSenal {
     if (!midiendo) return null;
     if (odometria.muestrasUsadas > 0) return null;
-    if (odometria.muestrasDescartadas > 0) {
-      return 'Llegan posiciones, pero ninguna sirve todavía: '
-          '${odometria.muestrasDescartadas} descartadas por precisión mala o '
-          'por una velocidad implausible. Pasa con el receptor recién '
-          'encendido o bajo un techo.';
+
+    final descartes = odometria.descartes;
+    if (descartes.isNotEmpty) {
+      final motivo = descartes.entries
+          .reduce((a, b) => a.value >= b.value ? a : b)
+          .key;
+      final cuantas = odometria.muestrasDescartadas;
+      switch (motivo) {
+        case MotivoDescarte.precisionMala:
+          final p = odometria.precisionTipicaDescartada;
+          // Arriba de 200 m no es «mala señal»: es el teléfono entregando
+          // ubicación APROXIMADA, que se elige en el diálogo del permiso y
+          // después no se nota por ningún lado.
+          return p > 200
+              ? 'Llegan posiciones con ${p.toStringAsFixed(0)} m de error. '
+                    'Eso no es mala señal: es ubicación aproximada. Hay que '
+                    'darle permiso de ubicación PRECISA en Ajustes → '
+                    'Aplicaciones → SITD Hilux → Permisos → Ubicación.'
+              : 'Llegan posiciones pero con ${p.toStringAsFixed(0)} m de '
+                    'error, y se descartan ($cuantas hasta ahora). Con cielo '
+                    'abierto suele bajar en un minuto.';
+        case MotivoDescarte.precisionVelMala:
+          return 'El receptor da velocidad, pero dice que no le cree: su '
+              'propio margen de error es más grande de lo tolerado. Pasa '
+              'mientras está fijando satélites.';
+        case MotivoDescarte.velocidadImplausible:
+          return 'Llegan velocidades imposibles para una camioneta, así que '
+              'se descartan. Es un rebote de señal, típico entre edificios.';
+        case MotivoDescarte.relojParaAtras:
+          return 'Llegan muestras con el reloj repetido o para atrás. Es raro: '
+              'anotalo y contámelo.';
+        case MotivoDescarte.datoInvalido:
+          return 'El receptor está entregando datos que no son números. Es '
+              'raro: anotalo y contámelo.';
+      }
     }
+
     if (sinDoppler > 0) {
       return 'El receptor está entregando posiciones sin velocidad, así que '
           'todavía no se puede medir. Es lo normal mientras no fija '
@@ -93,9 +138,12 @@ class EstadoViaje {
     ResultadoOdometria? odometria,
     Muestra? ultima,
     int? sinDoppler,
+    Muestra? ultimaCruda,
+    MotivoDescarte? ultimoMotivo,
     Disponibilidad? problema,
     bool limpiarViaje = false,
     bool limpiarProblema = false,
+    bool limpiarMotivo = false,
   }) => EstadoViaje(
     viaje: limpiarViaje ? null : (viaje ?? this.viaje),
     inicio: limpiarViaje ? null : (inicio ?? this.inicio),
@@ -103,6 +151,8 @@ class EstadoViaje {
     odometria: odometria ?? this.odometria,
     ultima: ultima ?? this.ultima,
     sinDoppler: sinDoppler ?? this.sinDoppler,
+    ultimaCruda: ultimaCruda ?? this.ultimaCruda,
+    ultimoMotivo: limpiarMotivo ? null : (ultimoMotivo ?? this.ultimoMotivo),
     problema: limpiarProblema ? null : (problema ?? this.problema),
   );
 }
@@ -226,6 +276,11 @@ class ServicioOdometria {
     estado.value = estado.value.copiar(
       odometria: _acumulador.resultado,
       ultima: _acumulador.ultima,
+      // La cruda entra SIEMPRE, sirva o no: es la única forma de ver desde la
+      // pantalla que el receptor está hablando aunque el filtro las tire.
+      ultimaCruda: m,
+      ultimoMotivo: _acumulador.ultimoMotivo,
+      limpiarMotivo: aceptada,
     );
   }
 

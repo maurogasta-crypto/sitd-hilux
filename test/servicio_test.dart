@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sitd_hilux/core/db/base.dart';
 import 'package:sitd_hilux/features/odometro/fuente.dart';
+import 'package:sitd_hilux/features/odometro/integrador.dart';
 import 'package:sitd_hilux/features/odometro/muestra.dart';
 import 'package:sitd_hilux/features/odometro/registro.dart';
 import 'package:sitd_hilux/features/odometro/servicio.dart';
@@ -247,11 +248,58 @@ void main() {
       expect(servicio.estado.value.estadoDeLaSenal, contains('sin velocidad'));
     });
 
-    test('con posiciones que no sirven, dice cuantas', () async {
+    // «Descartadas: 412» no se puede diagnosticar. Estas dos son el mismo
+    // contador y dos problemas distintos: uno se arregla saliendo a cielo
+    // abierto y el otro dándole permiso de ubicación precisa.
+    test('con precision mala dice cuanta, y cuantas van', () async {
       await servicio.arrancar();
-      fuente.entregar(m(1000, 20, precision: 500));
-      fuente.entregar(m(2000, 20, precision: 500));
-      expect(servicio.estado.value.estadoDeLaSenal, contains('2 descartadas'));
+      fuente.entregar(m(1000, 20, precision: 80));
+      fuente.entregar(m(2000, 20, precision: 80));
+      final texto = servicio.estado.value.estadoDeLaSenal!;
+      expect(texto, contains('80 m'));
+      expect(texto, contains('2 hasta ahora'));
+      expect(
+        servicio.estado.value.odometria.descartes[MotivoDescarte.precisionMala],
+        2,
+      );
+    });
+
+    test(
+      'con precision de cientos de metros, lo llama por su nombre',
+      () async {
+        await servicio.arrancar();
+        fuente.entregar(m(1000, 20, precision: 1500));
+        expect(
+          servicio.estado.value.estadoDeLaSenal,
+          contains('ubicación aproximada'),
+        );
+      },
+    );
+
+    test(
+      'una velocidad imposible se cuenta como tal, no como precision',
+      () async {
+        await servicio.arrancar();
+        fuente.entregar(m(1000, 300));
+        expect(servicio.estado.value.odometria.descartes, {
+          MotivoDescarte.velocidadImplausible: 1,
+        });
+        expect(servicio.estado.value.estadoDeLaSenal, contains('imposibles'));
+      },
+    );
+
+    // La cruda entra siempre, sirva o no: es la única forma de ver que el
+    // receptor está hablando aunque el filtro tire todo lo que manda.
+    test('la ultima CRUDA se guarda aunque se descarte', () async {
+      await servicio.arrancar();
+      fuente.entregar(m(1000, 20, precision: 900));
+      expect(servicio.estado.value.ultima, isNull);
+      expect(servicio.estado.value.ultimaCruda!.precision, 900);
+      expect(servicio.estado.value.ultimoMotivo, MotivoDescarte.precisionMala);
+
+      fuente.entregar(m(2000, 20));
+      expect(servicio.estado.value.ultima, isNotNull);
+      expect(servicio.estado.value.ultimoMotivo, isNull);
     });
 
     test('con la primera muestra buena, se calla', () async {

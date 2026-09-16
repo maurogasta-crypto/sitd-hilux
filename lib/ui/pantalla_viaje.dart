@@ -12,6 +12,7 @@ import '../features/vibracion/servicio_vibracion.dart';
 import 'formato.dart';
 import 'pantalla_combustible.dart';
 import 'pantalla_diagnostico.dart';
+import 'pantalla_sensores.dart';
 import 'pantalla_vibracion.dart';
 
 /// La pantalla del viaje en curso.
@@ -154,6 +155,10 @@ class _PantallaViajeState extends State<PantallaViaje> {
     return valor;
   }
 
+  void _ir(Widget pantalla) =>
+      Navigator.of(context)
+          .push(MaterialPageRoute<void>(builder: (_) => pantalla));
+
   void _avisar(Disponibilidad problema) {
     final detalle = problema.detalle;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -235,35 +240,50 @@ class _PantallaViajeState extends State<PantallaViaje> {
           IconButton(
             tooltip: 'Combustible',
             icon: const Icon(Icons.local_gas_station),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => PantallaCombustible(
-                  cargas: widget.cargas,
-                  viajes: widget.registro,
-                ),
+            onPressed: () => _ir(
+              PantallaCombustible(
+                cargas: widget.cargas,
+                viajes: widget.registro,
               ),
             ),
           ),
           IconButton(
             tooltip: 'Vibración',
             icon: const Icon(Icons.graphic_eq),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => PantallaVibracion(registro: widget.vibraciones),
-              ),
-            ),
+            onPressed: () =>
+                _ir(PantallaVibracion(registro: widget.vibraciones)),
           ),
-          IconButton(
-            tooltip: 'Estado de la aplicación',
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => PantallaDiagnostico(
-                  registro: widget.registro,
-                  ruta: widget.ruta,
+          // Las dos pantallas de diagnóstico van juntas y detrás de un menú:
+          // cuatro iconos en la barra de un teléfono dejan de leerse, y éstas
+          // se abren cuando algo anda raro, no todos los días.
+          PopupMenuButton<String>(
+            tooltip: 'Diagnóstico',
+            onSelected: (que) => _ir(
+              que == 'sensores'
+                  ? PantallaSensores(servicio: widget.servicio)
+                  : PantallaDiagnostico(
+                      registro: widget.registro,
+                      ruta: widget.ruta,
+                    ),
+            ),
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'sensores',
+                child: ListTile(
+                  leading: Icon(Icons.sensors),
+                  title: Text('Sensores'),
+                  subtitle: Text('Qué ve el teléfono ahora mismo'),
                 ),
               ),
-            ),
+              PopupMenuItem(
+                value: 'estado',
+                child: ListTile(
+                  leading: Icon(Icons.info_outline),
+                  title: Text('Estado'),
+                  subtitle: Text('Versión, base y últimos viajes'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

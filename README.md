@@ -3,13 +3,14 @@
 Telemetría, odometría y diagnóstico mecánico para una **Toyota Hilux 3.0**
 (1KD-FTV, 2008-2011). Android, sin conexión, sin servidor, sin cuenta de nadie.
 
-> **Estado: tanda 5 — la vibración.** Ya mide. Se abre un viaje, el GPS
+> **Estado: tanda 6 — el panel de sensores.** Ya mide. Se abre un viaje, el GPS
 > entrega una muestra por segundo, la distancia se integra de la velocidad
 > Doppler y cada muestra cruda queda guardada en el teléfono. Lleva las cargas
 > de combustible, con el consumo y el factor de neumáticos calculados al leer.
 > Y desde la tanda 5 escucha el acelerómetro: aprende cómo vibra esta
-> camioneta a cada velocidad y avisa cuando algo cambia. Lo que falta es el
-> micrófono.
+> camioneta a cada velocidad y avisa cuando algo cambia. Y tiene un panel de
+> sensores que dice, en vivo, qué ve el teléfono y en qué estado está cada
+> sensor. Lo que falta es el micrófono.
 
 ## Instalar en el teléfono
 
@@ -85,6 +86,13 @@ Una pantalla, tres botones y ningún menú:
 | **Pausar** | suelta el GPS sin cerrar el viaje. Para una parada larga |
 | **Terminar** | cierra el viaje y deja el total escrito |
 
+El menú de los tres puntos lleva a **Sensores**: qué está entregando cada
+sensor del teléfono ahora mismo, a qué frecuencia real, y —para el GPS— por
+qué se descarta lo que se descarta. **Es la primera pantalla que hay que abrir
+cuando un viaje no registra kilómetros**: dice si el receptor está callado, si
+llega sin velocidad, o si llegan posiciones con tanto error que no pasan el
+filtro.
+
 El icono de las ondas lleva a **Vibración**: lo que la aplicación fue
 aprendiendo de cómo vibra la camioneta a cada velocidad, y los avisos si algo
 cambió. No hay nada que tocar ahí — se mide sola mientras el viaje anda.
@@ -143,6 +151,8 @@ lib/
 │   │   ├── carga.dart       Una carga, tal como se teclea en la estación.
 │   │   ├── consumo.dart     Consumo de lleno a lleno, calculado al leer.
 │   │   └── registro_cargas.dart  Cargas y el ajuste del tanque.
+│   ├── sensores/
+│   │   └── sensores.dart    Estado de un sensor y frecuencia medida.
 │   └── vibracion/
 │       ├── espectro.dart    FFT propia, ventana de Hann y energía por banda.
 │       ├── ventana.dart     Las cubetas de velocidad y el vector que se guarda.
@@ -156,10 +166,11 @@ lib/
 │   ├── pantalla_combustible.dart  Consumo, factor y las cargas.
 │   ├── pantalla_carga.dart  El formulario, para llenar al lado del surtidor.
 │   ├── pantalla_vibracion.dart  Qué aprendió, y qué cambió.
+│   ├── pantalla_sensores.dart   Qué ve el teléfono, en vivo.
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        170 casos. Corren sin emulador ni teléfono.
+test/                        185 casos. Corren sin emulador ni teléfono.
 .github/workflows/apk.yml    Verificación previa + APK + release.
 ```
 
@@ -167,7 +178,7 @@ test/                        170 casos. Corren sin emulador ni teléfono.
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-5` | `lib/core/version.dart` |
+| Aplicación | `sitd-6` | `lib/core/version.dart` |
 | Esquema de la base | `2` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
@@ -212,6 +223,15 @@ como «no anduvo» cuando lo que pasó es que nunca llegó una señal. Mientras 
 hay una sola muestra buena, la pantalla dice qué está esperando; y en la lista
 de viajes, uno sin muestras se muestra como **«Sin muestras»** y no como un
 cero. Salió de la primera prueba real, un viaje de 13 segundos puertas adentro.
+
+**Un viaje que no registra nada casi nunca es «el GPS no anda».** Son cuatro
+cosas distintas que desde afuera se ven igual —un cero—: el receptor todavía no
+fijó satélites, llega sin velocidad Doppler, llegan posiciones con más error
+del tolerado, o el permiso quedó en «ubicación aproximada». La pantalla de
+**Sensores** las distingue, y desde `sitd-6` la aplicación guarda el motivo de
+cada descarte en vez de un contador mudo. El filtro de precisión, además, pasó
+de 20 a 50 m: acá se integra la velocidad, no la posición, y un receptor puede
+dar una posición con 40 m de error junto con una velocidad excelente.
 
 **La vibración se compara sólo contra la misma velocidad.** Una falla mecánica
 tiene frecuencia proporcional a las vueltas de la rueda: un desbalanceo a

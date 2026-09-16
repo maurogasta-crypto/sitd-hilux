@@ -2,6 +2,31 @@ import 'dart:math' as math;
 
 import 'muestra.dart';
 
+/// Por qué se descartó una muestra.
+///
+/// **Existe porque «descartadas: 412» no se puede diagnosticar.** Cuatrocientas
+/// doce por precisión mala y cuatrocientas doce por llegar sin velocidad son
+/// dos problemas completamente distintos —uno se arregla saliendo a cielo
+/// abierto y el otro dándole permiso de ubicación PRECISA— y hasta que el
+/// motivo no se guardó, las dos se veían igual.
+enum MotivoDescarte {
+  /// El error de posición informado supera el tolerado.
+  precisionMala,
+
+  /// El error de velocidad informado supera el tolerado.
+  precisionVelMala,
+
+  /// Más rápido de lo que puede ir una camioneta: rebote de señal o salto del
+  /// receptor.
+  velocidadImplausible,
+
+  /// Números que no son números, o coordenadas fuera del mundo.
+  datoInvalido,
+
+  /// Dos muestras con el mismo sello de tiempo, o un reloj que retrocedió.
+  relojParaAtras,
+}
+
 /// Umbrales con los que se acepta o se descarta una muestra del GPS.
 ///
 /// Los valores por defecto son conservadores a propósito: es preferible
@@ -9,6 +34,14 @@ import 'muestra.dart';
 /// distancia no se compensa —siempre suma.
 class CriteriosGps {
   /// Error horizontal máximo tolerado, en metros.
+  ///
+  /// **Cincuenta metros, y es a propósito que sea generoso.** Acá no se integra
+  /// la posición sino la velocidad Doppler, que es un dato aparte y mucho mejor:
+  /// un receptor puede estar dando una posición con 40 m de error y una
+  /// velocidad con 0,2 m/s. Filtrar con la vara de la posición tiraría muestras
+  /// de velocidad perfectamente buenas — y un teléfono apoyado en el tablero,
+  /// bajo un parabrisas con película metalizada, anda justo en esa zona. Lo
+  /// único que se degrada con este número alto es el haversine de control.
   final double precisionMaxima;
 
   /// Error máximo tolerado de la velocidad, en m/s. Las muestras que no lo
@@ -31,7 +64,7 @@ class CriteriosGps {
   final int huecoMaximoMs;
 
   const CriteriosGps({
-    this.precisionMaxima = 20.0,
+    this.precisionMaxima = 50.0,
     this.precisionVelMaxima = 2.0,
     this.velocidadMinima = 0.5,
     this.velocidadMaxima = 60.0,
@@ -59,6 +92,15 @@ class ResultadoOdometria {
   /// Milisegundos efectivamente integrados (no incluye los huecos cortados).
   final int msIntegrados;
 
+  /// Cuántas se descartaron por cada motivo. Es lo que convierte un número
+  /// inútil en un diagnóstico.
+  final Map<MotivoDescarte, int> descartes;
+
+  /// La precisión típica de las que se cayeron por precisión, en metros. Sirve
+  /// para distinguir «está bajo un techo» (30-60 m) de «el teléfono está en
+  /// ubicación APROXIMADA» (cientos o miles).
+  final double precisionTipicaDescartada;
+
   const ResultadoOdometria({
     required this.metros,
     required this.metrosHaversine,
@@ -66,6 +108,8 @@ class ResultadoOdometria {
     required this.muestrasDescartadas,
     required this.cortes,
     required this.msIntegrados,
+    this.descartes = const {},
+    this.precisionTipicaDescartada = 0,
   });
 
   double get kilometros => metros / 1000.0;
@@ -94,16 +138,28 @@ double haversine(Muestra a, Muestra b) {
 
 double _rad(double grados) => grados * math.pi / 180.0;
 
-bool _aceptable(Muestra m, CriteriosGps c) {
-  if (!m.velocidad.isFinite || m.velocidad < 0) return false;
-  if (!m.precision.isFinite || m.precision < 0) return false;
-  if (!m.lat.isFinite || !m.lon.isFinite) return false;
-  if (m.lat.abs() > 90 || m.lon.abs() > 180) return false;
-  if (m.precision > c.precisionMaxima) return false;
-  if (m.velocidad > c.velocidadMaxima) return false;
+/// Devuelve `null` si la muestra sirve, o el motivo por el que no.
+MotivoDescarte? porQueNoSirve(Muestra m, CriteriosGps c) {
   final pv = m.precisionVel;
-  if (pv != null && (!pv.isFinite || pv > c.precisionVelMaxima)) return false;
-  return true;
+  final invalida =
+      !m.velocidad.isFinite ||
+      m.velocidad < 0 ||
+      !m.precision.isFinite ||
+      m.precision < 0 ||
+      !m.lat.isFinite ||
+      !m.lon.isFinite ||
+      m.lat.abs() > 90 ||
+      m.lon.abs() > 180 ||
+      (pv != null && !pv.isFinite);
+  if (invalida) return MotivoDescarte.datoInvalido;
+  if (m.precision > c.precisionMaxima) return MotivoDescarte.precisionMala;
+  if (m.velocidad > c.velocidadMaxima) {
+    return MotivoDescarte.velocidadImplausible;
+  }
+  if (pv != null && pv > c.precisionVelMaxima) {
+    return MotivoDescarte.precisionVelMala;
+  }
+  return null;
 }
 
 double _velocidadEfectiva(Muestra m, CriteriosGps c) =>
@@ -134,11 +190,19 @@ class Acumulador {
   int _cortes = 0;
   int _msIntegrados = 0;
   Muestra? _ant;
+  final Map<MotivoDescarte, int> _descartes = {};
+  double _sumaPrecisionMala = 0;
+  int _nPrecisionMala = 0;
+  MotivoDescarte? _ultimoMotivo;
 
   Acumulador({this.criterios = const CriteriosGps()});
 
   /// La última muestra aceptada, o `null` si todavía no hubo ninguna.
   Muestra? get ultima => _ant;
+
+  /// Por qué se cayó la última que no sirvió. Es lo que la pantalla necesita
+  /// para decir algo útil mientras el número de kilómetros no se mueve.
+  MotivoDescarte? get ultimoMotivo => _ultimoMotivo;
 
   /// Agrega una muestra. Devuelve `true` si se aceptó.
   ///
@@ -147,16 +211,16 @@ class Acumulador {
   /// que sigan siendo todas `false` con el vehículo en movimiento, y por eso
   /// la cuenta de descartadas se muestra en pantalla.
   bool agregar(Muestra m) {
-    if (!_aceptable(m, criterios)) {
-      _descartadas++;
+    final motivo = porQueNoSirve(m, criterios);
+    if (motivo != null) {
+      _anotarDescarte(motivo, m);
       return false;
     }
     final ant = _ant;
     if (ant != null) {
       final dt = m.t - ant.t;
       if (dt <= 0) {
-        // Dos muestras con el mismo sello de tiempo, o un reloj que retrocedió.
-        _descartadas++;
+        _anotarDescarte(MotivoDescarte.relojParaAtras, m);
         return false;
       }
       if (dt > criterios.huecoMaximoMs) {
@@ -173,7 +237,18 @@ class Acumulador {
     }
     _usadas++;
     _ant = m;
+    _ultimoMotivo = null;
     return true;
+  }
+
+  void _anotarDescarte(MotivoDescarte motivo, Muestra m) {
+    _descartadas++;
+    _ultimoMotivo = motivo;
+    _descartes[motivo] = (_descartes[motivo] ?? 0) + 1;
+    if (motivo == MotivoDescarte.precisionMala && m.precision.isFinite) {
+      _sumaPrecisionMala += m.precision;
+      _nPrecisionMala++;
+    }
   }
 
   ResultadoOdometria get resultado => ResultadoOdometria(
@@ -183,6 +258,10 @@ class Acumulador {
     muestrasDescartadas: _descartadas,
     cortes: _cortes,
     msIntegrados: _msIntegrados,
+    descartes: Map.unmodifiable(_descartes),
+    precisionTipicaDescartada: _nPrecisionMala == 0
+        ? 0
+        : _sumaPrecisionMala / _nPrecisionMala,
   );
 }
 

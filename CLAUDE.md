@@ -263,6 +263,44 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   que tiene Android. El día que la medición arranque sola, sin que nadie abra
   la aplicación, hará falta y entra con su explicación.
 
+- **Del GPS se guarda POR QUÉ se descartó cada muestra.** «Descartadas: 412»
+  no se puede diagnosticar: cuatrocientas doce por precisión mala y
+  cuatrocientas doce por llegar sin velocidad son dos problemas distintos —uno
+  se arregla saliendo a cielo abierto y el otro dándole permiso de ubicación
+  PRECISA— y hasta que el motivo no se guardó, las dos se veían igual: un cero
+  en la pantalla. Está en `MotivoDescarte`, y la pantalla de sensores lo
+  muestra desglosado.
+
+- **El filtro de precisión es generoso (50 m) a propósito.** Acá no se integra
+  la posición sino la velocidad Doppler, que es un dato aparte y mucho mejor: un
+  receptor puede estar dando una posición con 40 m de error y una velocidad con
+  0,2 m/s. Filtrar con la vara de la posición tira muestras de velocidad
+  perfectamente buenas, y un teléfono apoyado en el tablero bajo un parabrisas
+  metalizado anda justo en esa zona. Lo único que se degrada con este número
+  alto es el haversine de control. **Era 20 m hasta `sitd-6`**, y es una de las
+  explicaciones posibles del viaje de siete minutos que dio cero.
+
+- **Al GPS se lo escucha UNA vez y nada más.** La pantalla de sensores mira lo
+  que ya tiene el servicio si hay un viaje midiendo, y abre la suya sólo si no
+  lo hay —cerrándola al salir—. Dos suscripciones son dos veces la misma
+  batería y el receptor no entrega el doble por eso.
+
+- **Una pantalla en vivo no se repinta con cada lectura.** El acelerómetro
+  entrega cincuenta veces por segundo: un `setState` por muestra son cincuenta
+  reconstrucciones del árbol por segundo en un Helio G85. Los datos se guardan
+  al vuelo y la pantalla se redibuja dos veces por segundo, que es más rápido
+  de lo que distingue un ojo.
+
+- **La pantalla de sensores NO muestra la posición.** Muestra velocidad,
+  precisión y altitud, pero no latitud ni longitud: es la pantalla que uno
+  fotografía para pedir ayuda, y dónde está la camioneta no tiene por qué
+  viajar en esa foto.
+
+- **Android no avisa que un sensor no existe.** Si el teléfono no tiene
+  barómetro, la suscripción se abre igual y el stream no emite nunca —
+  idéntico a un sensor que está pero se colgó. Por eso el estado sale de un
+  reloj: sin una lectura después del tiempo de gracia, se dice «no contesta».
+
 - **El OBD2 es opcional y va detrás de una interfaz.** Esta Hilux puede hablar
   **MOBD**, el protocolo propio de Toyota, y no OBD2 genérico: el conector
   entra y el ECU no contesta. El régimen del motor se obtiene igual, por
@@ -340,6 +378,12 @@ el teléfono.
 | **C** | Combustible: cargas, consumo derivado, calibración de `k` | **entregado** (`sitd-4`) |
 | **D** | Acelerómetro: línea base por cubeta, anomalías | **entregado** (`sitd-5`) |
 | **E** | Micrófono: FFT, compuerta de audio, escenarios | pendiente |
+| **—** | Panel de sensores: qué ve el teléfono y en qué estado | **entregado** (`sitd-6`) |
+
+El panel de sensores está fuera de la secuencia a propósito: lo pidió Mauro el
+2026-09-16, después de un viaje de siete minutos que terminó en cero
+kilómetros sin que se pudiera saber por qué. No es una etapa, es la
+herramienta con la que se diagnostican las demás.
 
 D antes que E a propósito: el acelerómetro no tiene conflicto con la música, no
 tiene problema de privacidad, y deja probar toda la maquinaria de vectores y
