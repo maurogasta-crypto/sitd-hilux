@@ -295,6 +295,8 @@ lib/
 │   │   └── base.dart        Apertura, WAL, migración, ajustes.
 │   ├── arranque.dart        Lo que se arma una vez al abrir: base,
 │   │                        registro, servicio. No pide permisos.
+│   ├── bitacora.dart        Lo que la app le pidió al sistema y lo que el
+│   │                        sistema contestó. Sin una sola coordenada.
 │   └── version.dart         Sellos, a la vista en «Estado».
 ├── features/
 │   └── odometro/
@@ -318,7 +320,9 @@ lib/
 │   │   └── avisos.dart      El permiso de notificaciones, que hace VISIBLE
 │   │                        la notificación del servicio en primer plano.
 │   ├── sensores/
-│   │   └── sensores.dart    Estado de un sensor y frecuencia medida.
+│   │   ├── sensores.dart    Estado de un sensor y frecuencia medida.
+│   │   └── satelites.dart   Lo que ve la ANTENA: cuántos satélites y con
+│   │                        cuánta señal, antes de que haya una posición.
 │   └── vibracion/
 │       ├── espectro.dart    FFT propia, ventana de Hann y energía por banda.
 │       ├── ventana.dart     Las cubetas de velocidad y el vector que se guarda.
@@ -337,7 +341,10 @@ lib/
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        222 casos. Corren sin emulador ni teléfono.
+test/                        246 casos. Corren sin emulador ni teléfono.
+android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
+                             `GnssStatus`. No lo cubre el banco — ver
+                             «Verificación previa».
 .github/workflows/apk.yml    Verificación previa + APK + release.
 ```
 
@@ -345,7 +352,7 @@ test/                        222 casos. Corren sin emulador ni teléfono.
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-11` | `lib/core/version.dart` |
+| Aplicación | `sitd-12` | `lib/core/version.dart` |
 | Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
@@ -367,6 +374,23 @@ flutter analyze --fatal-infos --fatal-warnings
 dart format --output=none --set-exit-if-changed .
 flutter test
 ```
+
+**Y hay un agujero, que conviene tener presente porque ya costó una corrida.**
+Estos tres comandos corren **sin el SDK de Android**, así que no ven nada de la
+compilación nativa: ni el Kotlin de `MainActivity.kt`, ni las exigencias de
+versión de un paquete. El 2026-09-16 la corrida 17 falló en «Construir APK» con
+los tres en verde — `permission_handler_android` pedía compilar contra la API 37
+y el plugin de Gradle llega hasta la 36 — y el error hablaba de «AAR metadata»,
+que no se parece en nada a un problema de versiones.
+
+Lo que se puede hacer desde una sesión sin ese SDK, y se hace:
+
+- leer el `build.gradle` del paquete en la caché de pub antes de confiar en una
+  versión nueva (`~/.pub-cache/hosted/pub.dev/<paquete>/android/`), que es como
+  se encontró aquel `compileSdk = 37` sin esperar otra corrida;
+- mantener el código nativo **mínimo y defensivo**, y que el lado de Dart trate
+  «el canal no contestó» como un estado normal y no como un error — así un
+  problema en el Kotlin degrada el diagnóstico pero no impide medir.
 
 ## Las cosas que sorprenden
 

@@ -5,7 +5,9 @@ import 'package:sensors_plus/sensors_plus.dart';
 
 import '../features/odometro/fuente.dart';
 import '../features/odometro/fuente_gps.dart';
+import '../core/bitacora.dart';
 import '../features/permisos/avisos.dart';
+import '../features/sensores/satelites.dart';
 import '../features/odometro/integrador.dart';
 import '../features/odometro/muestra.dart';
 import '../features/odometro/servicio.dart';
@@ -60,6 +62,13 @@ class _PantallaSensoresState extends State<PantallaSensores> {
   /// números.
   EstadoAviso? _aviso;
 
+  /// Lo que ve la ANTENA. Es lo último que faltaba: hasta acá todo lo que la
+  /// pantalla sabía era del lado de la aplicación, y con el permiso dado, la
+  /// ubicación encendida y cero posiciones ya no quedaba nada que preguntar
+  /// desde Dart. Ver `satelites.dart`.
+  final _satelites = Satelites();
+  EstadoSatelites _cielo = const EstadoSatelites();
+
   /// En qué anda el enganche al GPS de esta pantalla. Sin esto, «Esperando»
   /// puede querer decir tres cosas distintas —todavía preguntando el permiso,
   /// ya suscripto y en silencio, o ni siquiera intentado— y las tres se veían
@@ -85,8 +94,14 @@ class _PantallaSensoresState extends State<PantallaSensores> {
     // teléfono de destino. Los datos se guardan al vuelo y la pantalla se
     // redibuja dos veces por segundo, que es más rápido de lo que un ojo
     // distingue.
-    _refresco = Timer.periodic(const Duration(milliseconds: 500), (_) {
-      if (mounted) setState(() {});
+    _refresco = Timer.periodic(const Duration(milliseconds: 500), (_) async {
+      if (!mounted) return;
+      // Se relee acá y no en un canal de eventos aparte: la pantalla ya se
+      // redibuja dos veces por segundo, y una segunda cadencia para el mismo
+      // dibujo sería gastar batería en un Helio G85 para no ver más rápido.
+      final cielo = await _satelites.leer();
+      if (!mounted) return;
+      setState(() => _cielo = cielo);
     });
 
     _suscripciones.addAll([
@@ -135,10 +150,12 @@ class _PantallaSensoresState extends State<PantallaSensores> {
     // encendida, y si el sistema tiene una última posición conocida.
     final diagnostico = await fuente.diagnosticar();
     final aviso = await mirarAvisoDelSistema();
+    final cielo = await _satelites.arrancar();
     if (!mounted) return;
     setState(() {
       _diagnostico = diagnostico;
       _aviso = aviso;
+      _cielo = cielo;
     });
 
     final disponible = await fuente.preparar();
@@ -202,6 +219,7 @@ class _PantallaSensoresState extends State<PantallaSensores> {
     }
     _gpsPropio?.cancel();
     _fuentePropia?.detener();
+    _satelites.detener();
     super.dispose();
   }
 
@@ -232,6 +250,8 @@ class _PantallaSensoresState extends State<PantallaSensores> {
             ahora: _ahora,
             criterios: widget.servicio.criterios,
           ),
+          const SizedBox(height: 12),
+          _Cielo(cielo: _cielo),
           const SizedBox(height: 12),
           _Sensor(
             nombre: 'Acelerómetro',
@@ -321,6 +341,8 @@ class _PantallaSensoresState extends State<PantallaSensores> {
                 ? const []
                 : ['${_ultimoBarometro!.pressure.toStringAsFixed(1)} hPa'],
           ),
+          const SizedBox(height: 12),
+          const _Bitacora(),
           const SizedBox(height: 16),
           Text(
             'Esta pantalla escucha los sensores sólo mientras está abierta, y '
@@ -634,5 +656,179 @@ class _Chip extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Lo que ve la antena, antes de que exista una posición.
+///
+/// **Es la tarjeta que contesta la pregunta que las otras no podían.** Con el
+/// permiso dado, la ubicación encendida, las notificaciones concedidas y cero
+/// posiciones en seis minutos, todo lo que se podía preguntar desde la
+/// aplicación ya estaba contestado. Esto es el receptor contando satélites:
+/// separa «los ve y no los puede resolver todavía» de «no ve ninguno», que se
+/// arreglan de formas opuestas y hasta ahora se veían exactamente igual.
+class _Cielo extends StatelessWidget {
+  final EstadoSatelites cielo;
+
+  const _Cielo({required this.cielo});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final (color, icono, rotulo) = switch (cielo) {
+      EstadoSatelites(disponible: false) => (
+        t.colorScheme.outline,
+        Icons.help_outline,
+        'Sin datos',
+      ),
+      EstadoSatelites(huboPrimerFijado: true) => (
+        t.colorScheme.primary,
+        Icons.check_circle_outline,
+        'Fijó',
+      ),
+      EstadoSatelites(vistos: 0) => (
+        t.colorScheme.error,
+        Icons.error_outline,
+        'No ve nada',
+      ),
+      EstadoSatelites(usados: 0) => (
+        t.colorScheme.tertiary,
+        Icons.hourglass_empty,
+        'Viendo, sin fijar',
+      ),
+      _ => (t.colorScheme.primary, Icons.check_circle_outline, 'Fijando'),
+    };
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text('Satélites', style: t.textTheme.titleMedium),
+                ),
+                Icon(icono, size: 18, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  rotulo,
+                  style: t.textTheme.labelLarge?.copyWith(color: color),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (cielo.disponible) ...[
+              Text(
+                'A la vista: ${cielo.vistos} · usados para fijar: '
+                '${cielo.usados}',
+                style: t.textTheme.bodyLarge,
+              ),
+              if (cielo.mejorCn0 > 0)
+                Text(
+                  'Mejor señal ${cielo.mejorCn0.toStringAsFixed(0)} dB-Hz · '
+                  'arriba de 30 es usable, abajo de 25 se ve pero no alcanza',
+                  style: t.textTheme.bodySmall,
+                ),
+              if (cielo.cn0.length > 1)
+                Text(
+                  'Las mejores: '
+                  '${cielo.cn0.map((c) => c.toStringAsFixed(0)).join(" · ")}',
+                  style: t.textTheme.bodySmall?.copyWith(
+                    color: t.colorScheme.outline,
+                  ),
+                ),
+              Text(
+                cielo.evento,
+                style: t.textTheme.bodySmall?.copyWith(
+                  color: t.colorScheme.outline,
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(cielo.veredicto, style: t.textTheme.bodyMedium),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// El registro de lo que la aplicación le pidió al sistema y de lo que el
+/// sistema contestó.
+///
+/// **Lo pidió Mauro, y el porqué es el que importa:** la pantalla dice en qué
+/// estado está ahora, no cómo se llegó. Y mientras se maneja nadie puede
+/// mirarla, así que lo que pasa durante un viaje —un cambio de escalón, un
+/// error, el momento exacto en que el receptor habló— no lo ve nadie. Acá
+/// queda, y viaja en el reporte para desarrollo.
+class _Bitacora extends StatelessWidget {
+  const _Bitacora();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: ValueListenableBuilder<int>(
+          valueListenable: bitacora.cambios,
+          builder: (context, _, _) {
+            final lineas = bitacora.alReves.take(40).toList();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Bitácora con el sistema',
+                        style: t.textTheme.titleMedium,
+                      ),
+                    ),
+                    Text(
+                      '${bitacora.cuantas}',
+                      style: t.textTheme.labelLarge?.copyWith(
+                        color: t.colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Lo último arriba. Va entera en el reporte para desarrollo, '
+                  'que es el que se puede mandar por un chat: acá no entra una '
+                  'sola coordenada.',
+                  style: t.textTheme.bodySmall?.copyWith(
+                    color: t.colorScheme.outline,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (lineas.isEmpty)
+                  Text('Todavía no pasó nada.', style: t.textTheme.bodySmall)
+                else
+                  for (final a in lineas)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        '${_hora(a.t)}  ${nombreDeOrigen(a.origen)} · '
+                        '${a.texto}',
+                        style: t.textTheme.bodySmall,
+                      ),
+                    ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  static String _hora(int ms) {
+    final d = DateTime.fromMillisecondsSinceEpoch(ms);
+    return '${d.hour.toString().padLeft(2, "0")}:'
+        '${d.minute.toString().padLeft(2, "0")}:'
+        '${d.second.toString().padLeft(2, "0")}';
   }
 }

@@ -1,5 +1,6 @@
 import 'package:geolocator/geolocator.dart';
 
+import '../../core/bitacora.dart';
 import 'fuente.dart';
 import 'muestra.dart';
 
@@ -122,6 +123,12 @@ class FuenteGps implements FuenteDeMuestras {
       encendido = await gps.isLocationServiceEnabled();
       permiso = (await gps.checkPermission()).name;
       final ultima = await gps.getLastKnownPosition();
+      bitacora.anotar(
+        Origen.gps,
+        'Diagnóstico: permiso $permiso · ubicación del sistema '
+        '${encendido ? "encendida" : "APAGADA"} · última posición conocida '
+        'del sistema: ${ultima == null ? "NO HAY NINGUNA" : "sí hay"}.',
+      );
       return DiagnosticoGps(
         permiso: permiso,
         servicioEncendido: encendido,
@@ -175,6 +182,7 @@ class FuenteGps implements FuenteDeMuestras {
       if (permiso == LocationPermission.denied) {
         permiso = await gps.requestPermission();
       }
+      bitacora.anotar(Origen.permiso, 'Permiso de ubicación: ${permiso.name}.');
       return switch (permiso) {
         LocationPermission.always ||
         LocationPermission.whileInUse => Disponibilidad.listo,

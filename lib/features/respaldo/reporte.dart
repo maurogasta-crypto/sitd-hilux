@@ -1,7 +1,9 @@
+import '../../core/bitacora.dart';
 import '../../core/db/base.dart';
 import '../../core/db/esquema.dart';
 import '../combustible/registro_cargas.dart';
 import '../odometro/registro.dart';
+import '../sensores/satelites.dart';
 import '../vibracion/registro_vibracion.dart';
 
 /// Cuánto sale del teléfono.
@@ -35,6 +37,8 @@ Map<String, dynamic> armarReporte({
   required String sello,
   required int ahora,
   int cuantosViajes = 20,
+  Bitacora? registro,
+  EstadoSatelites? satelites,
 }) {
   final conRecorrido = alcance == Alcance.respaldoCompleto;
   final losViajes = viajes.ultimos(conRecorrido ? 1000 : cuantosViajes);
@@ -51,6 +55,15 @@ Map<String, dynamic> armarReporte({
     // Lo que hace falta para saber si un número raro es del código o del
     // aparato. Sin esto, «me da 45 Hz» no se puede comparar con nada.
     'aparato': {'tablas': base.tablas},
+    // Lo que ve la ANTENA, que es lo único que separa «el receptor no fijó
+    // todavía» de «el receptor no ve nada». Va en los dos alcances: no lleva
+    // una sola coordenada, sólo cuántos satélites y con cuánta señal.
+    'satelites': (satelites ?? const EstadoSatelites()).aMapa(),
+    // El registro de lo que la aplicación le pidió al sistema y de lo que el
+    // sistema contestó. Lo pidió Mauro el 2026-09-16, y sirve sobre todo para
+    // lo que pasa MIENTRAS SE MANEJA, que es cuando nadie puede mirar la
+    // pantalla. Nunca lleva coordenadas: ver `bitacora.dart`.
+    'bitacora': (registro ?? bitacora).aMapa(),
     'sinRecorrido': !conRecorrido,
     'viajes': [
       for (final v in losViajes)

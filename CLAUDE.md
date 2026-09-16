@@ -345,9 +345,55 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   permiso, o de cómo se le pide al sistema. `ModoGps` tiene `normal` (lo que
   usa un viaje), `sinNotificacion` (sin servicio en primer plano) y
   `receptorDirecto` (`LocationManager` en vez del proveedor de Google, salteando
-  Play Services). Se eligen en la pantalla de sensores y **un viaje usa siempre
-  `normal`**: los otros dos existen para que, parado en la calle, se vea cuál
-  entrega. El que entregue dice dónde estaba el problema.
+  Play Services). El que entregue dice dónde estaba el problema.
+
+  **Se eligen a mano en la pantalla de sensores, y desde `sitd-11` un viaje los
+  recorre solo** — ver el punto de la cascada, más abajo. Los dos mecanismos
+  conviven a propósito: el selector sirve para probar uno a la vista, parado en
+  la calle; la cascada sirve para cuando nadie puede mirar el teléfono.
+
+- **Lo que ve la ANTENA sólo lo dice el sistema operativo, y por eso este
+  proyecto tiene código nativo.** Es la única pieza en Kotlin
+  (`MainActivity.kt`, un puente con `GnssStatus`) y entró el 2026-09-16 con
+  `sitd-12`, después de una medición que dejó todo lo demás contestado: permiso
+  `whileInUse`, ubicación del sistema encendida, notificaciones concedidas,
+  suscripto, **cero posiciones en seis minutos**, y el sistema **sin ninguna
+  posición conocida** —ni de esta aplicación ni de ninguna otra—.
+
+  Mauro propuso registrar el intercambio entre la aplicación y el sistema, y
+  esa mitad se hizo (ver el punto de abajo), pero **ese intercambio no tiene
+  nada más que contar**: `getPositionStream` es una llamada y después silencio.
+  Un registro diría «me suscribí y no llegó nada», que es lo que la pantalla ya
+  decía. Lo que faltaba estaba del otro lado del sistema operativo.
+
+  `GnssStatus` cuenta **qué satélites tiene a la vista el receptor y con cuánta
+  señal, aunque no logre fijar ninguno**, y eso separa dos mundos que se veían
+  idénticos y se arreglan al revés:
+
+  | Lo que dice | Qué es | Qué se hace |
+  |---|---|---|
+  | ve satélites, usa 0 | arranque en frío con la efeméride vieja | esperar QUIETO a cielo abierto, minutos, no segundos |
+  | no ve ninguno | la antena o la radio no entregan | nada, desde esta aplicación |
+
+  Se pregunta por **sondeo** y no por un canal de eventos: la pantalla ya se
+  redibuja dos veces por segundo, y una segunda cadencia para el mismo dibujo
+  es batería gastada en un Helio G85 sin ver más rápido. Y si el canal no
+  contesta —otra plataforma, una versión vieja—, el lado de Dart lo trata como
+  «no disponible» y sigue: **esto diagnostica, no mide**, y no puede impedir
+  que se mida.
+
+- **La bitácora del intercambio con el sistema existe porque manejando no se
+  puede mirar la pantalla.** La pidió Mauro el 2026-09-16 y ésa es su razón de
+  ser, no la que parecía: la pantalla dice en qué estado está *ahora*, pero no
+  cómo se llegó ahí, y durante un viaje nadie la mira. El cambio de escalón de
+  la cascada, un error del receptor, el segundo exacto en que llegó la primera
+  posición: eso queda anotado y viaja en el reporte para desarrollo.
+
+  Es **un anillo de 300 líneas y no una lista que crece** —un viaje largo
+  genera miles de eventos y una lista sin techo es memoria que no vuelve—, se
+  escribe con `anotarSiCambio` cuando la fuente late una vez por segundo, y
+  **no entra una coordenada nunca**: el banco lo comprueba sobre el texto
+  entero del reporte, con la bitácora llena y no vacía.
 
 - **Antes de la primera posición ya se puede saber bastante.** El permiso con
   su nombre, si la ubicación del sistema está encendida, y sobre todo si el
@@ -486,9 +532,21 @@ dart format --output=none --set-exit-if-changed .
 flutter test
 ```
 
-Si las tres no pasan en limpio, no se sube. Y **la documentación sube en la
-misma tanda que el código que describe**: no se registra como entregado nada
-que no se haya entregado.
+Si las tres no pasan en limpio, no se sube.
+
+**Y las tres NO cubren la compilación nativa**, que es el agujero de este
+reglamento y conviene saberlo antes de confiar en un verde: corren sin el SDK
+de Android, así que no ven el Kotlin de `MainActivity.kt` ni las exigencias de
+versión de un paquete. La corrida 17 del 2026-09-16 falló en «Construir APK»
+con las tres en limpio. Desde una sesión no se puede cerrar —el proxy del
+contenedor bloquea la descarga de ese SDK—, así que lo que se hace es: leer el
+`build.gradle` del paquete en `~/.pub-cache` antes de confiar en una versión
+nueva, y mantener el código nativo mínimo y defensivo, con el lado de Dart
+tratando «el canal no contestó» como un estado normal. Está en el `README.md`,
+§ «Verificación previa».
+
+Y **la documentación sube en la misma tanda que el código que describe**: no se
+registra como entregado nada que no se haya entregado.
 
 > **Ojo, sesión nueva.** Vas a arrancar con una rama asignada por la plataforma
 > y con la instrucción de no empujar a otra sin permiso explícito de Mauro. Esa

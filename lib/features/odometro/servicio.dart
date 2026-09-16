@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../core/bitacora.dart';
 import 'fuente.dart';
 import 'integrador.dart';
 import 'muestra.dart';
@@ -223,8 +224,13 @@ class ServicioOdometria {
   Future<bool> arrancar({double? odoTablero}) async {
     if (estado.value.midiendo) return true;
 
+    bitacora.anotar(Origen.viaje, 'Tocaron «Empezar el viaje».');
     final disponible = await fuente.preparar();
     if (!disponible.puedeArrancar) {
+      bitacora.anotar(
+        Origen.viaje,
+        'No se pudo arrancar: ${disponible.mensaje}',
+      );
       estado.value = estado.value.copiar(midiendo: false, problema: disponible);
       return false;
     }
@@ -250,6 +256,10 @@ class ServicioOdometria {
       },
     );
     estado.value = estado.value.copiar(midiendo: true, limpiarProblema: true);
+    bitacora.anotar(
+      Origen.viaje,
+      'Viaje ${estado.value.viaje} midiendo, suscripto al GPS.',
+    );
     return true;
   }
 
@@ -292,6 +302,7 @@ class ServicioOdometria {
   /// para una parada larga: se retoma con [arrancar] y el viaje sigue siendo
   /// el mismo.
   Future<void> pausar() async {
+    bitacora.anotar(Origen.viaje, 'Viaje en pausa.');
     await _suscripcion?.cancel();
     _suscripcion = null;
     await fuente.detener();
@@ -309,6 +320,12 @@ class ServicioOdometria {
   /// Cierra el viaje: deja el total escrito y suelta el GPS.
   Future<Viaje?> terminar({double? odoTablero}) async {
     final viaje = estado.value.viaje;
+    bitacora.anotar(
+      Origen.viaje,
+      'Terminando el viaje $viaje con ${estado.value.odometria.muestrasUsadas} '
+      'muestras usadas y ${estado.value.odometria.muestrasDescartadas} '
+      'descartadas.',
+    );
     await _suscripcion?.cancel();
     _suscripcion = null;
     await fuente.detener();

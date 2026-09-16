@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../core/bitacora.dart';
 import '../permisos/avisos.dart';
 import 'fuente.dart';
 import 'fuente_gps.dart';
@@ -106,6 +107,11 @@ class FuenteEnCascada implements FuenteDeMuestras {
   void _engancharse() {
     final escalon = escalones[_indice];
     modo.value = escalon.modo;
+    bitacora.anotar(
+      Origen.gps,
+      'Pidiendo posiciones en modo ${nombreDeModo(escalon.modo)}. Si no llega '
+      'ninguna en ${escalon.paciencia.inSeconds} s, se baja de escalón.',
+    );
     final fuente = construir(escalon.modo);
     _actual = fuente;
     _suscripcion = fuente.lecturas.listen(
@@ -119,6 +125,14 @@ class FuenteEnCascada implements FuenteDeMuestras {
   }
 
   void _recibir(Lectura l) {
+    if (!_entrego) {
+      bitacora.anotar(
+        Origen.gps,
+        'PRIMERA entrega del receptor, en modo ${nombreDeModo(modo.value)}'
+        '${l.sinDoppler ? " (sin velocidad Doppler, pero el receptor habló)" : ""}. '
+        'La cascada se queda acá.',
+      );
+    }
     _entrego = true;
     _reloj?.cancel();
     _reloj = null;
@@ -126,6 +140,10 @@ class FuenteEnCascada implements FuenteDeMuestras {
   }
 
   void _falla(Object e) {
+    bitacora.anotar(
+      Origen.gps,
+      'El modo ${nombreDeModo(modo.value)} falló: $e',
+    );
     if (_hayMas) {
       _bajarSiSePuede();
       return;
@@ -181,6 +199,10 @@ class FuenteEnCascada implements FuenteDeMuestras {
     // medir —por eso no se mira el resultado para decidir—, pero queda a la
     // vista, que es lo que hoy falta.
     aviso.value = await pedirAviso();
+    bitacora.anotar(
+      Origen.permiso,
+      'Permiso de notificaciones: ${textoDeAviso(aviso.value!)}.',
+    );
     // El permiso de ubicación tampoco depende del modo.
     return (_actual ?? construir(escalones[_indice].modo)).preparar();
   }

@@ -7,7 +7,9 @@ import 'package:sitd_hilux/features/combustible/registro_cargas.dart';
 import 'package:sitd_hilux/features/odometro/integrador.dart';
 import 'package:sitd_hilux/features/odometro/muestra.dart';
 import 'package:sitd_hilux/features/odometro/registro.dart';
+import 'package:sitd_hilux/core/bitacora.dart';
 import 'package:sitd_hilux/features/respaldo/reporte.dart';
+import 'package:sitd_hilux/features/sensores/satelites.dart';
 import 'package:sitd_hilux/features/vibracion/registro_vibracion.dart';
 import 'package:sitd_hilux/features/vibracion/ventana.dart';
 
@@ -80,6 +82,11 @@ void main() {
     base.cerrar();
   });
 
+  /// Una bitácora con contenido de verdad, para que la prueba de coordenadas
+  /// de abajo tenga algo que revisar. Con la bitácora vacía esa prueba pasaría
+  /// sin ejercer nada, que es la peor clase de prueba verde.
+  late Bitacora registro;
+
   Map<String, dynamic> reporte(Alcance alcance) => armarReporte(
     base: base,
     viajes: viajes,
@@ -88,7 +95,22 @@ void main() {
     alcance: alcance,
     sello: 'sitd-7',
     ahora: 99999,
+    registro: registro,
+    satelites: const EstadoSatelites(
+      disponible: true,
+      enganchado: true,
+      vistos: 11,
+      usados: 0,
+      mejorCn0: 24,
+    ),
   );
+
+  setUp(() {
+    registro = Bitacora(reloj: () => 5)
+      ..anotar(Origen.permiso, 'Permiso de ubicación: whileInUse.')
+      ..anotar(Origen.gps, 'Pidiendo posiciones en modo Normal.')
+      ..anotar(Origen.satelites, 'Ve 11, usa 0, mejor señal 24 dB-Hz');
+  });
 
   group('el reporte para desarrollo', () {
     // La prueba que sostiene la regla del proyecto: el recorrido NO se pega en
@@ -101,6 +123,28 @@ void main() {
       expect(texto, isNot(contains('-34.90')));
       expect(texto, isNot(contains('-56.18')));
       expect(texto, contains('"sinRecorrido":true'));
+      // Y la comprobación tiene que estar mirando algo: si la bitácora o los
+      // satélites se fueran del reporte, esta prueba quedaría verde sin
+      // proteger nada.
+      expect(texto, contains('whileInUse'));
+      expect(texto, contains('"vistos":11'));
+    });
+
+    test('lleva la bitácora del intercambio con el sistema', () {
+      final r = reporte(Alcance.paraDesarrollo);
+      final b = r['bitacora'] as List;
+      expect(b.length, 3);
+      expect((b.first as Map)['origen'], 'permiso');
+      expect((b.last as Map)['texto'], contains('24 dB-Hz'));
+    });
+
+    test('lleva lo que ve la antena, que es lo que separa los dos mundos', () {
+      final s = reporte(Alcance.paraDesarrollo)['satelites'] as Map;
+      expect(s['vistos'], 11);
+      expect(s['usados'], 0);
+      expect(s['mejorCn0'], 24);
+      // Cuántos satélites se ven no dice dónde está la camioneta.
+      expect(s.containsKey('lat'), isFalse);
     });
 
     test('pero SÍ lleva lo que hace falta para diagnosticar', () {
