@@ -137,4 +137,50 @@ void main() {
       expect(m.ultimo, isNull);
     });
   });
+
+  group('la gracia del GPS es otra', () {
+    // Un receptor frío tarda entre treinta segundos y un minuto en fijar
+    // satélites. Decirle «no contesta» a los cuatro segundos es acusarlo de
+    // algo que todavía no hizo — y que el aviso llegue siempre enseña a no
+    // mirarlo.
+    test('a los diez segundos un GPS todavía está esperando', () {
+      expect(
+        estadoDeSensor(
+          suscripto: true,
+          lecturas: 0,
+          msDesdeQueArranco: 10000,
+          msDesdeLaUltima: null,
+          gracia: msDeGraciaGps,
+        ),
+        EstadoSensor.esperando,
+      );
+      // El mismo tiempo, para un acelerómetro, ya es mudo.
+      expect(
+        estadoDeSensor(
+          suscripto: true,
+          lecturas: 0,
+          msDesdeQueArranco: 10000,
+          msDesdeLaUltima: null,
+        ),
+        EstadoSensor.mudo,
+      );
+    });
+
+    test('pasado el minuto y medio, el GPS sí no contesta', () {
+      expect(
+        estadoDeSensor(
+          suscripto: true,
+          lecturas: 0,
+          msDesdeQueArranco: msDeGraciaGps + 1,
+          msDesdeLaUltima: null,
+          gracia: msDeGraciaGps,
+        ),
+        EstadoSensor.mudo,
+      );
+    });
+
+    test('la del GPS es más larga que la de los otros, y por bastante', () {
+      expect(msDeGraciaGps, greaterThan(msDeGracia * 10));
+    });
+  });
 }

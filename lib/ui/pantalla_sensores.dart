@@ -9,6 +9,7 @@ import '../features/odometro/integrador.dart';
 import '../features/odometro/muestra.dart';
 import '../features/odometro/servicio.dart';
 import '../features/sensores/sensores.dart';
+import 'formato.dart';
 
 /// Qué ve el teléfono, ahora mismo, y en qué estado está cada sensor.
 ///
@@ -52,6 +53,12 @@ class _PantallaSensoresState extends State<PantallaSensores> {
   MotivoDescarte? _motivoPropio;
   Disponibilidad? _problemaGps;
   DiagnosticoGps? _diagnostico;
+
+  /// En qué anda el enganche al GPS de esta pantalla. Sin esto, «Esperando»
+  /// puede querer decir tres cosas distintas —todavía preguntando el permiso,
+  /// ya suscripto y en silencio, o ni siquiera intentado— y las tres se veían
+  /// exactamente igual.
+  String _pasoGps = 'arrancando';
   ModoGps _modo = ModoGps.normal;
   FuenteGps? _fuentePropia;
   int _desdeElModo = 0;
@@ -113,6 +120,7 @@ class _PantallaSensoresState extends State<PantallaSensores> {
   Future<void> _engancharGps() async {
     if (widget.servicio.estado.value.midiendo) return;
 
+    setState(() => _pasoGps = 'preguntando permiso y última posición');
     final fuente = FuenteGps(modo: _modo);
     _fuentePropia = fuente;
 
@@ -126,10 +134,17 @@ class _PantallaSensoresState extends State<PantallaSensores> {
     final disponible = await fuente.preparar();
     if (!mounted) return;
     if (!disponible.puedeArrancar) {
-      setState(() => _problemaGps = disponible);
+      setState(() {
+        _problemaGps = disponible;
+        _pasoGps = 'no se pudo arrancar';
+      });
       return;
     }
-    setState(() => _problemaGps = null);
+    setState(() {
+      _problemaGps = null;
+      _pasoGps = 'suscripto, esperando que el receptor entregue';
+      _desdeElModo = _ahora;
+    });
 
     _gpsPropio = fuente.lecturas.listen(
       (l) {
@@ -199,6 +214,7 @@ class _PantallaSensoresState extends State<PantallaSensores> {
             motivo: enViaje ? e.ultimoMotivo : _motivoPropio,
             problema: enViaje ? e.problema : _problemaGps,
             diagnostico: _diagnostico,
+            paso: _pasoGps,
             modo: _modo,
             alCambiarModo: enViaje ? null : _cambiarModo,
             desde: enViaje ? _desde : _desdeElModo,
@@ -380,7 +396,8 @@ class _Sensor extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '${medidor.lecturas} lecturas'
-              '${hz == null ? "" : " · ${hz.toStringAsFixed(1)} Hz medidos"}',
+              '${hz == null ? "" : " · ${hz.toStringAsFixed(1)} Hz medidos"}'
+              '${medidor.lecturas == 0 ? " · hace ${formatearDuracion(ahora - desde)} que no llega nada" : ""}',
               style: t.textTheme.labelSmall?.copyWith(
                 color: t.colorScheme.outline,
               ),
@@ -407,6 +424,7 @@ class _Gps extends StatelessWidget {
   final MotivoDescarte? motivo;
   final Disponibilidad? problema;
   final DiagnosticoGps? diagnostico;
+  final String paso;
   final ModoGps modo;
   final Future<void> Function(ModoGps)? alCambiarModo;
   final CriteriosGps criterios;
@@ -421,6 +439,7 @@ class _Gps extends StatelessWidget {
     required this.motivo,
     required this.problema,
     required this.diagnostico,
+    required this.paso,
     required this.modo,
     required this.alCambiarModo,
     required this.criterios,
@@ -455,6 +474,7 @@ class _Gps extends StatelessWidget {
                           msDesdeLaUltima: cruda == null
                               ? null
                               : ahora - cruda!.t,
+                          gracia: msDeGraciaGps,
                         ),
                 ),
               ],
@@ -542,12 +562,16 @@ class _Gps extends StatelessWidget {
                 ),
             ],
             const SizedBox(height: 8),
+            // El reloj es lo que saca la ambigüedad: «Esperando» a los tres
+            // segundos y «Esperando» a los tres minutos son dos cosas muy
+            // distintas, y sin el número se leen igual.
             Text(
               enViaje
                   ? '$lecturas posiciones en este viaje · el viaje está midiendo'
                   : '$lecturas posiciones'
                         '${medidor.hz == null ? "" : " · ${medidor.hz!.toStringAsFixed(2)} Hz medidos"}'
-                        ' · escuchando sólo mientras esta pantalla esté abierta',
+                        ' · ${formatearDuracion(ahora - desde)} en este modo'
+                        '\n$paso',
               style: t.textTheme.labelSmall?.copyWith(
                 color: t.colorScheme.outline,
               ),

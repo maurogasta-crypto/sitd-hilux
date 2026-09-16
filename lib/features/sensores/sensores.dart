@@ -26,7 +26,19 @@ enum EstadoSensor {
 }
 
 /// Cuánto se espera antes de decir que un sensor no contesta.
+///
+/// Cuatro segundos alcanzan para un acelerómetro, que entrega cincuenta veces
+/// por segundo. **Para el GPS no**: un receptor frío tarda entre treinta
+/// segundos y un minuto en fijar satélites, así que decirle «no contesta» a
+/// los cuatro segundos es acusarlo de algo que todavía no hizo. Por eso son
+/// dos números, y por eso la pantalla muestra además hace cuánto que espera:
+/// «esperando» a los tres segundos y «esperando» a los tres minutos son cosas
+/// muy distintas y sin el reloj se leen igual.
 const int msDeGracia = 4000;
+
+/// El del GPS: un minuto y medio, que es más de lo que tarda un arranque frío
+/// a cielo abierto.
+const int msDeGraciaGps = 90000;
 
 /// Cuánto silencio, después de haber entregado, cuenta como corte.
 const int msParaCorte = 5000;
@@ -38,10 +50,11 @@ EstadoSensor estadoDeSensor({
   required int lecturas,
   required int msDesdeQueArranco,
   required int? msDesdeLaUltima,
+  int gracia = msDeGracia,
 }) {
   if (!suscripto) return EstadoSensor.esperando;
   if (lecturas == 0) {
-    return msDesdeQueArranco >= msDeGracia
+    return msDesdeQueArranco >= gracia
         ? EstadoSensor.mudo
         : EstadoSensor.esperando;
   }

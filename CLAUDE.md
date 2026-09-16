@@ -349,6 +349,16 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   no fijó nunca y eso no lo arregla ningún código. Está en `diagnosticar()` y
   se muestra en la pantalla de sensores.
 
+- **Un estado sin reloj al lado no se puede leer.** «Esperando» a los tres
+  segundos y «Esperando» a los tres minutos son cosas muy distintas, y sin el
+  número se ven idénticas — pasó el 2026-09-16, con un «sigue en esperando» que
+  no se podía interpretar. Cada sensor muestra hace cuánto que no llega nada, y
+  el GPS además en qué paso está: preguntando el permiso, suscripto y esperando,
+  o no se pudo arrancar. Y la gracia del GPS es de minuto y medio, no los
+  cuatro segundos de los demás: un receptor frío tarda entre treinta segundos y
+  un minuto en fijar satélites, y un aviso que llega siempre enseña a no
+  mirarlo.
+
 - **Al GPS se lo escucha UNA vez y nada más.** La pantalla de sensores mira lo
   que ya tiene el servicio si hay un viaje midiendo, y abre la suya sólo si no
   lo hay —cerrándola al salir—. Dos suscripciones son dos veces la misma

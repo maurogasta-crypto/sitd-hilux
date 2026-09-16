@@ -3,7 +3,7 @@
 Telemetría, odometría y diagnóstico mecánico para una **Toyota Hilux 3.0**
 (1KD-FTV, 2008-2011). Android, sin conexión, sin servidor, sin cuenta de nadie.
 
-> **Estado: tanda 9 — por qué el GPS no entrega.** Ya mide. Se abre un viaje, el GPS
+> **Estado: tanda 10 — el reloj del GPS.** Ya mide. Se abre un viaje, el GPS
 > entrega una muestra por segundo, la distancia se integra de la velocidad
 > Doppler y cada muestra cruda queda guardada en el teléfono. Lleva las cargas
 > de combustible, con el consumo y el factor de neumáticos calculados al leer.
@@ -205,6 +205,14 @@ Y abajo, un selector con tres formas de pedirlas:
 Se prueba parado en la calle: se elige un modo, se esperan un par de minutos y
 se mira el contador. El que entregue dice cuál era el problema.
 
+**Y la tarjeta dice hace cuánto que espera, y en qué paso está.** «Esperando» a
+los tres segundos y «Esperando» a los tres minutos son cosas muy distintas y sin
+el reloj se leen igual. Los pasos son tres: preguntando el permiso, suscripto y
+esperando que el receptor entregue, o no se pudo arrancar. La gracia del GPS es
+de minuto y medio —no los cuatro segundos de los otros sensores— porque un
+receptor frío tarda entre treinta segundos y un minuto en fijar satélites, y
+acusarlo antes de eso enseña a no mirar el aviso.
+
 ### Lo que el panel de sensores encontró en el Redmi 15
 
 Medido el 2026-09-16, no deducido de una ficha técnica: el acelerómetro entrega
@@ -282,7 +290,7 @@ lib/
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        206 casos. Corren sin emulador ni teléfono.
+test/                        209 casos. Corren sin emulador ni teléfono.
 .github/workflows/apk.yml    Verificación previa + APK + release.
 ```
 
@@ -290,7 +298,7 @@ test/                        206 casos. Corren sin emulador ni teléfono.
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-9` | `lib/core/version.dart` |
+| Aplicación | `sitd-10` | `lib/core/version.dart` |
 | Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
