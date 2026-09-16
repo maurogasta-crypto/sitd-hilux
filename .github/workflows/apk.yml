@@ -67,7 +67,11 @@ jobs:
         run: flutter test --reporter expanded
 
       - name: Construir APK
-        run: flutter build apk --release
+        # El número de corrida entra como versionCode: sube en cada tanda y
+        # nunca retrocede, que es lo que Android exige para tratar una
+        # instalación como actualización. Con el 1 clavado del pubspec, dos
+        # APK distintos decían ser la misma versión.
+        run: flutter build apk --release --build-number=${{ github.run_number }}
 
       - name: Renombrar con el número de corrida
         run: |
@@ -108,8 +112,13 @@ jobs:
           teléfono. La primera vez Android va a pedir permiso para instalar
           desde esa fuente.
 
-          Firmado con la clave de depuración: si ya había una versión instalada
-          firmada con otra clave, hay que desinstalarla antes.
+          ⚠ FIRMA: cada corrida genera su propia clave de depuración, así que
+          este APK NO se puede instalar encima del anterior — Android lo
+          rechaza con «conflicto con un paquete». Hay que desinstalar la
+          versión vieja, y eso BORRA LOS DATOS. Comprobado el 2026-09-16
+          leyendo el certificado del APK: su fecha de emisión es el minuto
+          exacto de la compilación. Se arregla con una clave estable, y está
+          pendiente.
           NOTAS
 
           gh release delete ultimo --yes --cleanup-tag || true

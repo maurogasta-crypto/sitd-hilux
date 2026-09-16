@@ -75,8 +75,16 @@ consume ningún secreto**: el token se lo da GitHub para esa corrida.
 
 | Nombre | Qué hace | Tipo | Dónde vive el valor real | Verificado |
 |---|---|---|---|---|
-| Clave de firma del APK | Firma el release | **hoy es la de depuración** | La genera Gradle sola. No hay clave propia y no hace falta: la aplicación no va a Play Store | leído del repo, 2026-09-15 |
+| Clave de firma del APK | Firma el release | **hoy es la de depuración, y se genera NUEVA en cada corrida** | La genera Gradle en el runner, que arranca limpio. Nadie la guarda y nadie la vuelve a ver | certificado del APK leído el 2026-09-16: `notBefore` = el minuto de la compilación |
 | `GITHUB_TOKEN` | Publica el release `ultimo` | efímero | Lo emite GitHub para cada corrida. No se carga, no se guarda, no se rota | `.github/workflows/apk.yml`, 2026-09-15 |
+
+**Y eso tiene una consecuencia que se paga en cada tanda**: dos APK firmados
+con claves distintas no se pueden instalar uno encima del otro — Android dice
+«conflicto con un paquete»—, así que **actualizar obliga a desinstalar, y
+desinstalar borra la base**. No es un problema del teléfono ni de MIUI: es el
+runner generando una clave nueva cada vez. La salida es una clave estable, y
+como una clave de firma es una credencial y este repositorio es público, **la
+decisión es de Mauro y está planteada en `hilux:F1`**, no resuelta por un chat.
 
 **Si algún día va a Play Store**, hace falta un *keystore* de verdad. Ese
 archivo y su contraseña **no entran a este repositorio**: van como GitHub

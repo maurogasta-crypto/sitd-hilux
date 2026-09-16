@@ -41,9 +41,29 @@ de cada corrida en la pestaña **Actions**.
 > **Enlace directo, para guardar:**
 > `https://github.com/maurogasta-crypto/sitd-hilux/releases/download/ultimo/sitd-hilux.apk`
 
-**Si falla la instalación diciendo que hay un conflicto**, es porque la versión
-instalada se firmó con otra clave de depuración. Se desinstala la vieja y se
-instala de nuevo. No pasa una vez que está andando.
+### ⚠ Hoy cada actualización obliga a desinstalar, y eso borra los datos
+
+**Si la instalación falla diciendo «conflicto con un paquete», no es el
+teléfono: pasa siempre, con todas las tandas.** El APK se firma con la clave de
+depuración que genera Gradle, y **en un runner de GitHub esa clave se genera
+nueva en cada corrida**. Dos APK de dos tandas distintas están firmados con
+claves distintas, y Android no deja actualizar una aplicación con una firma que
+no es la misma con la que se instaló.
+
+Está comprobado, no deducido: el certificado del APK de la corrida 8 dice
+`notBefore = 16-sep-2026 03:58:33 GMT`, que es el minuto exacto en que corrió
+esa compilación. Lo generó ahí.
+
+**Mientras tanto**, actualizar es: desinstalar SITD Hilux y volver a instalar.
+**Eso borra la base** — los viajes, los puntos, las cargas y la vibración. Antes
+de hacerlo conviene sacar un respaldo: menú de los tres puntos → Sacar los
+datos → Respaldo completo. (Todavía no se puede volver a meterlo, así que el
+respaldo sirve para no perder la historia, no para restaurarla en el teléfono.)
+
+**La solución es una clave de firma estable**, y no se puede decidir sola: la
+clave es una credencial, y este repositorio es público. Las opciones están
+planteadas y la decisión es de Mauro — está anotado como `hilux:F1` en el
+panel. Hasta entonces, cada tanda cuesta una desinstalación.
 
 ## Cómo se actualiza
 
