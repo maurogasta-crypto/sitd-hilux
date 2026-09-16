@@ -38,9 +38,11 @@ hubiera que elegir entre dos cosas idénticas. El rastro de cada tanda existe
 igual y está donde corresponde: el *artifact* numerado de cada corrida, en la
 pestaña **Actions**.
 
-El título del release dice el **sello** (`sitd-11 · corrida 17`), que es el mismo
-que muestra la aplicación en «Estado»: si los dos coinciden, lo instalado es lo
-publicado.
+El título del release dice el **sello** seguido del número de corrida —
+`sitd-11 · corrida 16`, por ejemplo—, y ese sello es el mismo que muestra la
+aplicación en «Estado»: si los dos coinciden, lo instalado es lo publicado. El
+número de acá es un ejemplo y no se mantiene a mano: el que vale es el del
+release.
 
 > **Enlace directo, para guardar:**
 > `https://github.com/maurogasta-crypto/sitd-hilux/releases/download/ultimo/sitd-hilux.apk`
