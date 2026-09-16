@@ -30,6 +30,26 @@ concreto y son tres cosas, ninguna de las cuales frena el desarrollo:
 | El techo de muestreo del acelerómetro (etapa D) | un Helio G85 no entrega lo mismo que el chip nuevo |
 | El presupuesto de CPU de la FFT (etapa E) | es donde el aparato viejo se va a notar de verdad |
 
+**Y el 2026-09-16 se dio vuelta una suposición: el que tiene MENOS sensores es
+el nuevo.** El panel de sensores, corriendo en el Redmi 15, dejó esto medido —
+no deducido de una ficha técnica:
+
+| Sensor | Redmi 15 |
+|---|---|
+| Acelerómetro | **72,3 Hz medidos** — bastante más de los 50 que se asumían |
+| Magnetómetro | 5 Hz, módulo 29,1 µT (dentro del campo terrestre) |
+| Giróscopo | **no contesta** |
+| Acelerómetro sin gravedad | **no contesta** |
+| Barómetro | **no contesta** |
+
+Un Redmi de gama de entrada sin giróscopo es normal, y **sin giróscopo Android
+tampoco ofrece la aceleración lineal** —la calcula con él—, así que las dos
+ausencias son la misma. Hoy no rompe nada: ninguna etapa de la hoja de ruta
+depende del giróscopo, y el acelerómetro crudo, que es el titular, entrega de
+sobra. Lo que sí cambia es que **cualquier idea futura que dependa del
+giróscopo no se puede desarrollar en este teléfono**, y que hay que mirar el
+Note 9 antes de prometer nada con él.
+
 Así que **las etapas B y C se dan por buenas con el Redmi 15**, y las D y E no
 se cierran sin una corrida en el Note 9. Eso no es una excusa para dejar el
 viejo para el final: es la lista de lo que hay que volver a mirar cuando
@@ -430,6 +450,16 @@ que no se haya entregado.
   eso todavía se pierden viajes, lo que sigue es un motor de Flutter aparte en
   un servicio propio, que es un cambio grande y se decide a la vista de un caso
   real.
+- **La pantalla se mantiene encendida MIENTRAS SE MIDE, y es un
+  interruptor.** Salió de un viaje real: la pantalla se apagaba sola cada
+  pocos minutos y había que desbloquear el teléfono para ver los kilómetros,
+  manejando. La contra está escrita al lado del interruptor y no se esconde —
+  el teléfono de la cabina vive al sol y enchufado, y una pantalla encendida
+  durante horas es calor que se suma. Por eso se puede apagar, y por eso
+  «encendida» significa **sólo mientras hay un viaje midiendo**: sin viaje, la
+  pantalla se apaga como cualquier otra. Dejar el teléfono despierto para
+  siempre después del primer viaje sería el peor de los dos mundos.
+
 - **El teléfono de la cabina está al sol y enchufado permanente.** Montaje a la
   sombra y carga controlada: una batería de litio hinchada en una cabina
   cerrada es un riesgo real.

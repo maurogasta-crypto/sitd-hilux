@@ -6,6 +6,7 @@ import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/fuente.dart';
 import '../features/odometro/registro.dart';
 import '../core/db/base.dart';
+import '../features/odometro/pantalla_despierta.dart';
 import '../features/odometro/servicio.dart';
 import '../features/vibracion/analisis.dart';
 import '../features/vibracion/registro_vibracion.dart';
@@ -29,6 +30,7 @@ class PantallaViaje extends StatefulWidget {
   final RegistroDeCargas cargas;
   final RegistroDeVibracion vibraciones;
   final ServicioVibracion vibracion;
+  final PantallaDespierta despierta;
   final Base base;
   final String ruta;
 
@@ -39,6 +41,7 @@ class PantallaViaje extends StatefulWidget {
     required this.cargas,
     required this.vibraciones,
     required this.vibracion,
+    required this.despierta,
     required this.base,
     required this.ruta,
   });
@@ -98,11 +101,13 @@ class _PantallaViajeState extends State<PantallaViaje> {
     // ventana, y sin velocidad no hay cubeta con la cual compararla.
     final viaje = widget.servicio.estado.value.viaje;
     if (viaje != null) widget.vibracion.arrancar(viaje);
+    await widget.despierta.segun(midiendo: true);
   }
 
   Future<void> _pausar() async {
     await widget.vibracion.detener();
     await widget.servicio.pausar();
+    await widget.despierta.segun(midiendo: false);
   }
 
   /// Pide una lectura del odómetro sin obligar a darla: devuelve `null` si se
@@ -194,6 +199,7 @@ class _PantallaViajeState extends State<PantallaViaje> {
     if (pedido == null) return;
     await widget.vibracion.detener();
     await widget.servicio.terminar(odoTablero: pedido.valor);
+    await widget.despierta.segun(midiendo: false);
     if (mounted) await _avisarDeLaVibracion();
   }
 
@@ -323,6 +329,12 @@ class _PantallaViajeState extends State<PantallaViaje> {
                 const SizedBox(height: 12),
               ],
               _Detalle(estado: e, vibracion: widget.vibracion),
+              const SizedBox(height: 12),
+              _Despierta(
+                despierta: widget.despierta,
+                midiendo: e.midiendo,
+                alCambiar: () => setState(() {}),
+              ),
               const SizedBox(height: 12),
               Text(
                 'La distancia sale de integrar la velocidad que informa el '
@@ -588,4 +600,47 @@ class _Odometro {
   final double? valor;
 
   const _Odometro(this.valor);
+}
+
+/// El interruptor de la pantalla encendida.
+///
+/// Está en la pantalla del viaje y no escondido en ajustes porque la decisión
+/// se toma justo antes de salir —con la camioneta enchufada o no, al sol o a
+/// la sombra— y no una vez en la vida.
+class _Despierta extends StatelessWidget {
+  final PantallaDespierta despierta;
+  final bool midiendo;
+  final VoidCallback alCambiar;
+
+  const _Despierta({
+    required this.despierta,
+    required this.midiendo,
+    required this.alCambiar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return Card(
+      child: SwitchListTile(
+        value: despierta.preferida,
+        onChanged: (v) async {
+          despierta.preferida = v;
+          await despierta.segun(midiendo: midiendo);
+          alCambiar();
+        },
+        title: const Text('Pantalla encendida mientras mide'),
+        subtitle: Text(
+          despierta.preferida
+              ? 'No se apaga sola durante el viaje. Con el teléfono al sol y '
+                    'enchufado, eso es calor que se suma: apagalo si la '
+                    'cabina se pone brava.'
+              : 'Se apaga sola, como cualquier pantalla. Se sigue midiendo '
+                    'igual, pero hay que desbloquear para mirar los '
+                    'kilómetros.',
+          style: t.textTheme.bodySmall,
+        ),
+      ),
+    );
+  }
 }

@@ -30,6 +30,7 @@ class AppSitd extends StatelessWidget {
     final cargas = arranque.cargas;
     final vibraciones = arranque.vibraciones;
     final vibracion = arranque.vibracion;
+    final despierta = arranque.despierta;
     return MaterialApp(
       title: 'SITD Hilux',
       debugShowCheckedModeBanner: false,
@@ -45,7 +46,8 @@ class AppSitd extends StatelessWidget {
               registro == null ||
               cargas == null ||
               vibraciones == null ||
-              vibracion == null
+              vibracion == null ||
+              despierta == null
           ? _SinBase(error: arranque.error, ruta: arranque.ruta)
           : PantallaViaje(
               servicio: servicio,
@@ -53,6 +55,7 @@ class AppSitd extends StatelessWidget {
               cargas: cargas,
               vibraciones: vibraciones,
               vibracion: vibracion,
+              despierta: despierta,
               base: arranque.base!,
               ruta: arranque.ruta,
             ),

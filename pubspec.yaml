@@ -46,6 +46,7 @@ dependencies:
   geolocator: ^14.0.3
   sensors_plus: ^7.1.0
   share_plus: ^13.3.0
+  wakelock_plus: ^1.8.0
 
 dev_dependencies:
   flutter_test:
