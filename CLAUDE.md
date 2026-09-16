@@ -460,6 +460,17 @@ que no se haya entregado.
 > > ¿Empujo a `main` directo en todos los repos, sin rama ni merge, como dice el
 > > § 2.1 ter? (Arranqué con la rama `<la que sea>`.)
 
+- **El release publica UN archivo, con nombre fijo, y su título lleva el
+  sello.** Hasta la corrida 13 publicaba dos —`sitd-hilux.apk` y
+  `sitd-hilux-NN.apk`— que eran el mismo archivo byte por byte: la idea era que
+  el numerado fuera el rastro de la tanda, pero el release se reemplaza entero
+  en cada push, así que el numerado de ahí era siempre el actual y no rastreaba
+  nada. Lo único que hacía era obligar a elegir entre dos cosas idénticas —
+  Mauro lo dijo así: «no sé cuál es el último». El rastro está en el *artifact*
+  numerado de cada corrida. Y el sello del título **sale del código**, no se
+  teclea: es el mismo que muestra «Estado», así que con mirar los dos se sabe
+  si lo instalado es lo publicado.
+
 - **Sellos de versión.** `selloApp` en `lib/core/version.dart` sube en cada
   tanda. Se ve en la barra de la aplicación: es la única forma de saber qué APK
   quedó instalado en un teléfono atornillado a una cabina.

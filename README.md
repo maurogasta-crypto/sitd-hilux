@@ -19,7 +19,7 @@ Desde el navegador del teléfono, no desde la aplicación de GitHub:
 
 1. Entrar a
    [releases/tag/ultimo](https://github.com/maurogasta-crypto/sitd-hilux/releases/tag/ultimo)
-   y tocar el archivo `sitd-hilux.apk`.
+   y tocar `sitd-hilux.apk`, que es el único archivo que hay.
 2. Al abrir lo descargado, Android dice que no puede instalar apps desconocidas
    de esa fuente. En ese mismo cartel: **Ajustes → Permitir desde esta fuente →
    Atrás**. Es una sola vez.
@@ -31,12 +31,16 @@ Desde el navegador del teléfono, no desde la aplicación de GitHub:
 Desconfía porque el APK está firmado con la clave de depuración, no con una de
 Play Store. Es la nuestra: la compila el workflow de este repositorio.
 
-Cada corrida deja **dos copias del mismo archivo**: `sitd-hilux.apk`, de nombre
-fijo, que es el que se puede enlazar desde afuera —lo hace el panel— y
-`sitd-hilux-NN.apk`, que dice de qué corrida salió y sirve para volver a una
-tanda vieja. El release se reemplaza en cada push a `main`, así que los dos
-enlaces apuntan siempre a lo último; los APK anteriores quedan como *artifacts*
-de cada corrida en la pestaña **Actions**.
+**En el release hay un solo archivo y siempre se llama igual: `sitd-hilux.apk`.**
+Hasta la corrida 13 había dos —ése y `sitd-hilux-NN.apk`— que eran el mismo
+archivo byte por byte, y lo único que lograban era que al abrir la página
+hubiera que elegir entre dos cosas idénticas. El rastro de cada tanda existe
+igual y está donde corresponde: el *artifact* numerado de cada corrida, en la
+pestaña **Actions**.
+
+El título del release dice el **sello** (`sitd-9 · corrida 13`), que es el mismo
+que muestra la aplicación en «Estado»: si los dos coinciden, lo instalado es lo
+publicado.
 
 > **Enlace directo, para guardar:**
 > `https://github.com/maurogasta-crypto/sitd-hilux/releases/download/ultimo/sitd-hilux.apk`

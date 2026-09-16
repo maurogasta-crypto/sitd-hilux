@@ -106,25 +106,37 @@ jobs:
         # APK distintos decían ser la misma versión.
         run: flutter build apk --release --build-number=${{ github.run_number }}
 
-      - name: Renombrar con el número de corrida
+      - name: Preparar la entrega
+        id: entrega
         run: |
           mkdir -p entrega
-          cp build/app/outputs/flutter-apk/app-release.apk \
-             "entrega/sitd-hilux-${{ github.run_number }}.apk"
-          # Y una segunda copia con nombre FIJO. Son el mismo archivo y las dos
-          # tienen razón de ser: el numerado dice de qué corrida salió —sirve
-          # para volver a una tanda vieja—, y el fijo es el único que se puede
-          # enlazar desde afuera. El panel guarda esa dirección, y con sólo el
-          # nombre numerado habría que ir a corregirla en cada tanda; una
-          # dirección que hay que acordarse de actualizar es una dirección que
-          # un día apunta a un archivo que ya no está.
+          # ── UN SOLO ARCHIVO EN EL RELEASE, Y SIEMPRE EL MISMO NOMBRE ──────
+          # Hasta la corrida 13 se publicaban dos —`sitd-hilux.apk` y
+          # `sitd-hilux-NN.apk`— que eran EL MISMO archivo, byte por byte. La
+          # idea era que el numerado sirviera de rastro, pero el release se
+          # reemplaza entero en cada tanda: el numerado que quedaba ahí era
+          # siempre el actual, así que no rastreaba nada y dejaba a quien
+          # abría la página eligiendo entre dos cosas idénticas. Mauro lo dijo
+          # con todas las letras: «no sé cuál es el último».
+          #
+          # El rastro de cada corrida existe igual, y está donde corresponde:
+          # el *artifact* de Actions, que sí guarda el numerado de cada tanda.
           cp build/app/outputs/flutter-apk/app-release.apk entrega/sitd-hilux.apk
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             "sitd-hilux-${{ github.run_number }}.apk"
+
+          # El sello sale del código, no se teclea: es el MISMO que muestra la
+          # aplicación en «Estado», así que con mirar los dos se sabe si lo
+          # instalado es lo publicado.
+          SELLO=$(sed -n "s/.*selloApp = '\(.*\)';/\1/p" lib/core/version.dart)
+          echo "sello=$SELLO" >> "$GITHUB_OUTPUT"
+          echo "Sello: $SELLO"
           ls -lh entrega/
 
       - uses: actions/upload-artifact@v4
         with:
           name: sitd-hilux-${{ github.run_number }}
-          path: entrega/sitd-hilux-${{ github.run_number }}.apk
+          path: sitd-hilux-${{ github.run_number }}.apk
           retention-days: 90
 
       # El release rodante sólo se toca desde main: un PR no publica nada.
@@ -134,6 +146,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ github.sha }}
           CORRIDA: ${{ github.run_number }}
+          SELLO: ${{ steps.entrega.outputs.sello }}
           FIRMA_PROPIA: ${{ steps.firma.outputs.propia }}
         run: |
           if [ "$FIRMA_PROPIA" = "si" ]; then
@@ -145,18 +158,27 @@ jobs:
           # multilínea dentro del YAML arrastra la indentación, y cuatro
           # espacios en Markdown convierten el texto en un bloque de código.
           cat > notas.md <<NOTAS
-          Compilado de \`$SHA\` el $(date -u '+%Y-%m-%d %H:%M UTC').
+          ## Bajá \`sitd-hilux.apk\`
 
-          Se instala tocando el \`.apk\` de acá abajo desde el navegador del
-          teléfono. La primera vez Android va a pedir permiso para instalar
-          desde esa fuente.
+          Es el único archivo acá, y siempre se llama igual. Se instala
+          tocándolo desde el navegador del teléfono; la primera vez Android va
+          a pedir permiso para instalar desde esa fuente.
+
+          **Sello \`$SELLO\`** — es el mismo que muestra la aplicación en
+          «Estado». Si los dos coinciden, lo instalado es esto.
 
           $NOTA_DE_FIRMA
+
+          ---
+
+          Corrida $CORRIDA, de \`$SHA\`, el $(date -u '+%Y-%m-%d %H:%M UTC').
+          El APK numerado de cada tanda queda como *artifact* en la pestaña
+          Actions.
           NOTAS
 
           gh release delete ultimo --yes --cleanup-tag || true
           gh release create ultimo \
-            --title "Último APK (corrida $CORRIDA)" \
+            --title "$SELLO · corrida $CORRIDA" \
             --notes-file notas.md \
             --prerelease \
-            entrega/*.apk
+            entrega/sitd-hilux.apk
