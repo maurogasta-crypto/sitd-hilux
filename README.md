@@ -44,10 +44,12 @@ viajes.
 «Permitir todo el tiempo», a propósito: con un servicio en primer plano de tipo
 `location` no hace falta, y es el diálogo más invasivo que tiene Android.
 
-**MIUI/HyperOS mata los servicios en segundo plano.** En cada teléfono, a mano:
-Ajustes → Aplicaciones → SITD Hilux → **Autostart encendido**, y **Ahorro de
-batería → Sin restricciones**. Sin eso el GPS se apaga con la pantalla y no
-avisa. Es configuración del aparato, no del código.
+**MIUI/HyperOS mata los servicios en segundo plano.** A mano: Ajustes →
+Aplicaciones → SITD Hilux → **Autostart encendido**, y **Ahorro de batería →
+Sin restricciones**. Sin eso el GPS se apaga con la pantalla y no avisa. Es
+configuración **del aparato**, no del código, así que se repite en cada
+teléfono donde se instale — hoy el Redmi 15, y el Redmi Note 9 de la cabina
+cuando esté a mano.
 
 **Y si aun así el sistema mata la aplicación en medio de un viaje, no se pierde
 nada:** cada muestra se guardó apenas llegó, y al volver a abrir el viaje se

@@ -16,9 +16,24 @@ Dos etapas de hardware:
 
 **El aparato que pone la restricción es el viejo, no el nuevo.** El Redmi
 Note 9 es un Helio G85 con Android 10: ése es el `minSdk 29`, ése es el techo
-de frecuencia de muestreo de los sensores y ése es el presupuesto de CPU. Se
-prueba en los dos desde el día uno; dejar el Note 9 para el final es llevarse
-todos los sustos juntos.
+de frecuencia de muestreo de los sensores y ése es el presupuesto de CPU. Eso
+no cambia aunque no se lo tenga a mano: el código se escribe contra el viejo.
+
+**Pero probar en los dos a la vez no se puede, y conviene saber qué queda sin
+verificar.** El Note 9 está en Uruguay y Mauro no; hasta que vuelva, se trabaja
+sobre el Redmi 15 (así lo decidió el 2026-09-15). Lo que eso deja abierto es
+concreto y son tres cosas, ninguna de las cuales frena el desarrollo:
+
+| Qué | Por qué no se ve en el Redmi 15 |
+|---|---|
+| Que MIUI mate el servicio | la configuración de autostart y batería es **de cada aparato**, y hay que repetirla a mano allá |
+| El techo de muestreo del acelerómetro (etapa D) | un Helio G85 no entrega lo mismo que el chip nuevo |
+| El presupuesto de CPU de la FFT (etapa E) | es donde el aparato viejo se va a notar de verdad |
+
+Así que **las etapas B y C se dan por buenas con el Redmi 15**, y las D y E no
+se cierran sin una corrida en el Note 9. Eso no es una excusa para dejar el
+viejo para el final: es la lista de lo que hay que volver a mirar cuando
+aparezca, escrita ahora que se sabe por qué.
 
 ## Este proyecto ROMPE la regla de «se edita desde el teléfono»
 
