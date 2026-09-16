@@ -75,16 +75,25 @@ consume ningún secreto**: el token se lo da GitHub para esa corrida.
 
 | Nombre | Qué hace | Tipo | Dónde vive el valor real | Verificado |
 |---|---|---|---|---|
-| Clave de firma del APK | Firma el release | **hoy es la de depuración, y se genera NUEVA en cada corrida** | La genera Gradle en el runner, que arranca limpio. Nadie la guarda y nadie la vuelve a ver | certificado del APK leído el 2026-09-16: `notBefore` = el minuto de la compilación |
+| `FIRMA_JKS` | El keystore propio, en base64. Es lo que deja instalar una tanda encima de la anterior sin perder los datos | **secreto de infraestructura** | GitHub → Settings → Secrets and variables → Actions. Y el archivo `.jks` original, en el gestor de contraseñas de Mauro | `.github/workflows/apk.yml`, decidido el 2026-09-16 |
+| `FIRMA_STORE_PASS` / `FIRMA_KEY_PASS` / `FIRMA_ALIAS` | Abren ese keystore | **secreto de infraestructura** | Mismo lugar | `.github/workflows/apk.yml` |
+| Clave de firma de depuración | Firma el release **mientras no estén cargados los secretos de arriba** | se genera NUEVA en cada corrida | La genera Gradle en el runner, que arranca limpio. Nadie la guarda y nadie la vuelve a ver | certificado del APK leído el 2026-09-16: `notBefore` = el minuto de la compilación |
 | `GITHUB_TOKEN` | Publica el release `ultimo` | efímero | Lo emite GitHub para cada corrida. No se carga, no se guarda, no se rota | `.github/workflows/apk.yml`, 2026-09-15 |
 
 **Y eso tiene una consecuencia que se paga en cada tanda**: dos APK firmados
 con claves distintas no se pueden instalar uno encima del otro — Android dice
 «conflicto con un paquete»—, así que **actualizar obliga a desinstalar, y
 desinstalar borra la base**. No es un problema del teléfono ni de MIUI: es el
-runner generando una clave nueva cada vez. La salida es una clave estable, y
-como una clave de firma es una credencial y este repositorio es público, **la
-decisión es de Mauro y está planteada en `hilux:F1`**, no resuelta por un chat.
+runner generando una clave nueva cada vez.
+
+**Mauro decidió el 2026-09-16 que la clave propia va en GitHub Secrets**, que
+es lo que este archivo ya decía para el día que hiciera falta. El workflow la
+usa si está y cae en la de depuración si no, avisando en las notas del release
+cuál se usó — así no hay una tanda que falle por una credencial que todavía no
+se cargó. El paso a paso está en el `README.md`; los nombres exactos, en la
+tabla de arriba. **El `.jks` no entra al repositorio ni a un chat**, y si se
+pierde no hay forma de volver a firmar una actualización: eso es lo que hay
+que cuidar, más que las contraseñas.
 
 **Si algún día va a Play Store**, hace falta un *keystore* de verdad. Ese
 archivo y su contraseña **no entran a este repositorio**: van como GitHub

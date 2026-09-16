@@ -1,3 +1,24 @@
+import java.io.FileInputStream
+import java.util.Properties
+
+// ── LA CLAVE DE FIRMA ───────────────────────────────────────────────────────
+// No está en el repositorio y no puede estarlo: este repositorio es público.
+// Llega por GitHub Secrets, y el workflow escribe con ellos un `key.properties`
+// y un `firma.jks` que el `.gitignore` bloquea por partida doble.
+//
+// **Si el archivo no está, se firma con la clave de depuración**, que es lo que
+// pasaba hasta ahora y lo que sigue pasando en una compilación local. La
+// diferencia no es cosmética: la de depuración la genera Gradle nueva cada vez
+// que no la encuentra, y un runner de GitHub arranca limpio, así que dos tandas
+// salían con firmas distintas y Android no dejaba actualizar una sobre la otra
+// — «conflicto con un paquete», y desinstalar borra la base.
+val propiedadesDeFirma = Properties()
+val archivoDeFirma = rootProject.file("key.properties")
+val hayClavePropia = archivoDeFirma.exists()
+if (hayClavePropia) {
+    FileInputStream(archivoDeFirma).use { propiedadesDeFirma.load(it) }
+}
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -31,13 +52,27 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hayClavePropia) {
+            create("propia") {
+                storeFile = file(propiedadesDeFirma.getProperty("storeFile"))
+                storePassword = propiedadesDeFirma.getProperty("storePassword")
+                keyAlias = propiedadesDeFirma.getProperty("keyAlias")
+                keyPassword = propiedadesDeFirma.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Se firma con la clave de depuracion a proposito. La aplicacion no
-            // va a Play Store: se instala por costado desde el APK que compila
-            // GitHub Actions. Si algun dia va a Play Store, aca entra una clave
-            // de verdad, y su contrasena NO entra a este repositorio.
-            signingConfig = signingConfigs.getByName("debug")
+            // La propia si los secretos estan cargados; la de depuracion si no.
+            // Nunca falla por falta de clave: un APK sin firmar no sirve para
+            // nada, y una compilacion que no compila tampoco.
+            signingConfig = if (hayClavePropia) {
+                signingConfigs.getByName("propia")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = false
             isShrinkResources = false
         }

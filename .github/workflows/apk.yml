@@ -66,6 +66,39 @@ jobs:
       - name: Banco de pruebas
         run: flutter test --reporter expanded
 
+      # ── LA FIRMA ─────────────────────────────────────────────────────────
+      # El keystore NO está en el repositorio y no puede estarlo: es público.
+      # Llega por Secrets, cargados por Mauro a mano — un chat nunca pide el
+      # valor de una credencial ni la carga por API.
+      #
+      # Si los secretos todavía no están, NO se rompe nada: se compila con la
+      # clave de depuración, igual que hasta ahora. Lo que cambia es que se
+      # dice en voz alta cuál se usó, porque de eso depende si el APK se puede
+      # instalar encima del anterior.
+      - name: Preparar la firma
+        id: firma
+        env:
+          FIRMA_JKS: ${{ secrets.FIRMA_JKS }}
+          FIRMA_STORE_PASS: ${{ secrets.FIRMA_STORE_PASS }}
+          FIRMA_KEY_PASS: ${{ secrets.FIRMA_KEY_PASS }}
+          FIRMA_ALIAS: ${{ secrets.FIRMA_ALIAS }}
+        run: |
+          if [ -z "$FIRMA_JKS" ]; then
+            echo "propia=no" >> "$GITHUB_OUTPUT"
+            echo "::warning::Sin FIRMA_JKS: se firma con la clave de depuración, que se genera nueva en cada corrida. Este APK NO se va a poder instalar encima del anterior."
+            exit 0
+          fi
+          # `base64 -d` falla con un salto de línea de más; se limpian antes.
+          printf '%s' "$FIRMA_JKS" | tr -d '\n' | base64 -d > android/app/firma.jks
+          cat > android/key.properties <<PROPS
+          storeFile=firma.jks
+          storePassword=$FIRMA_STORE_PASS
+          keyAlias=${FIRMA_ALIAS:-sitd}
+          keyPassword=${FIRMA_KEY_PASS:-$FIRMA_STORE_PASS}
+          PROPS
+          echo "propia=si" >> "$GITHUB_OUTPUT"
+          echo "Firmando con la clave propia."
+
       - name: Construir APK
         # El número de corrida entra como versionCode: sube en cada tanda y
         # nunca retrocede, que es lo que Android exige para tratar una
@@ -101,7 +134,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ github.sha }}
           CORRIDA: ${{ github.run_number }}
+          FIRMA_PROPIA: ${{ steps.firma.outputs.propia }}
         run: |
+          if [ "$FIRMA_PROPIA" = "si" ]; then
+            NOTA_DE_FIRMA="Firmado con la clave propia del proyecto: se instala ENCIMA de la versión anterior, sin desinstalar y sin perder los datos."
+          else
+            NOTA_DE_FIRMA="⚠ Firmado con la clave de DEPURACIÓN, que se genera nueva en cada corrida: este APK no se puede instalar encima del anterior. Android va a decir «conflicto con un paquete», y hay que desinstalar — lo que BORRA los datos. Se arregla cargando el secreto FIRMA_JKS (ver hilux:F1)."
+          fi
           # Las notas van por archivo y no por --notes en línea: una cadena
           # multilínea dentro del YAML arrastra la indentación, y cuatro
           # espacios en Markdown convierten el texto en un bloque de código.
@@ -112,13 +151,7 @@ jobs:
           teléfono. La primera vez Android va a pedir permiso para instalar
           desde esa fuente.
 
-          ⚠ FIRMA: cada corrida genera su propia clave de depuración, así que
-          este APK NO se puede instalar encima del anterior — Android lo
-          rechaza con «conflicto con un paquete». Hay que desinstalar la
-          versión vieja, y eso BORRA LOS DATOS. Comprobado el 2026-09-16
-          leyendo el certificado del APK: su fecha de emisión es el minuto
-          exacto de la compilación. Se arregla con una clave estable, y está
-          pendiente.
+          $NOTA_DE_FIRMA
           NOTAS
 
           gh release delete ultimo --yes --cleanup-tag || true

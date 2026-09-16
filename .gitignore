@@ -49,3 +49,11 @@ app.*.map.json
 
 # Entorno local del contenedor de desarrollo
 /entrega/
+
+# La clave de firma NUNCA entra al repositorio, y esto está repetido a
+# propósito: `android/.gitignore` ya lo dice, pero un archivo dejado un
+# escalón más arriba —al lado del pubspec, por ejemplo— no lo alcanzaría.
+# Este repositorio es público y el historial de git es permanente.
+*.jks
+*.keystore
+key.properties
