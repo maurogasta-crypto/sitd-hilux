@@ -74,12 +74,20 @@ jobs:
           mkdir -p entrega
           cp build/app/outputs/flutter-apk/app-release.apk \
              "entrega/sitd-hilux-${{ github.run_number }}.apk"
+          # Y una segunda copia con nombre FIJO. Son el mismo archivo y las dos
+          # tienen razón de ser: el numerado dice de qué corrida salió —sirve
+          # para volver a una tanda vieja—, y el fijo es el único que se puede
+          # enlazar desde afuera. El panel guarda esa dirección, y con sólo el
+          # nombre numerado habría que ir a corregirla en cada tanda; una
+          # dirección que hay que acordarse de actualizar es una dirección que
+          # un día apunta a un archivo que ya no está.
+          cp build/app/outputs/flutter-apk/app-release.apk entrega/sitd-hilux.apk
           ls -lh entrega/
 
       - uses: actions/upload-artifact@v4
         with:
           name: sitd-hilux-${{ github.run_number }}
-          path: entrega/*.apk
+          path: entrega/sitd-hilux-${{ github.run_number }}.apk
           retention-days: 90
 
       # El release rodante sólo se toca desde main: un PR no publica nada.

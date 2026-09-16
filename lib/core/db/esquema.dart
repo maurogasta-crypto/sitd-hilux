@@ -13,7 +13,7 @@
 library;
 
 /// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
-const int versionEsquema = 1;
+const int versionEsquema = 2;
 
 /// Cada elemento son las sentencias que llevan el esquema de la versión
 /// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
@@ -79,6 +79,42 @@ const List<List<String>> migraciones = [
       valor TEXT NOT NULL
     )
     ''',
+  ],
+
+  // ── 1 → 2 ──────────────────────────────────────────────────────────────
+  // La vibración, que entra con la etapa D (`sitd-5`, 16-sep-2026).
+  //
+  // **Es la primera migración agregada abajo, y muestra para qué está la
+  // regla.** La 0 → 1 ya está instalada en un teléfono: editarla no le
+  // cambiaría nada a esa base —las migraciones no se vuelven a correr— y en
+  // cambio dejaría una instalación nueva distinta de la vieja, con el mismo
+  // número de versión. Por eso se agrega abajo y sube `versionEsquema`.
+  [
+    // NO se guarda la señal cruda del acelerómetro. A 50 Hz por tres ejes son
+    // ~2 MB por hora de manejo, y no hace falta: lo que se compara entre
+    // viajes es el VECTOR de cada ventana —energía por banda de frecuencia—,
+    // que ocupa unos 100 bytes y es lo único que después se puede mirar.
+    //
+    // `bandas` es texto: las energías separadas por coma. Un BLOB ahorraría
+    // la mitad del espacio y costaría poder leer una fila con los ojos, que
+    // en un teléfono sin depurador es lo único que hay.
+    '''
+    CREATE TABLE vibraciones (
+      id       INTEGER PRIMARY KEY AUTOINCREMENT,
+      viaje    INTEGER NOT NULL REFERENCES viajes (id) ON DELETE CASCADE,
+      t        INTEGER NOT NULL,
+      cubeta   INTEGER NOT NULL,
+      hz       REAL    NOT NULL,
+      muestras INTEGER NOT NULL,
+      rms      REAL    NOT NULL,
+      pico     REAL    NOT NULL,
+      bandas   TEXT    NOT NULL
+    )
+    ''',
+    // Por cubeta primero: la comparación SIEMPRE es contra el histórico de la
+    // misma cubeta de velocidad, nunca contra todo junto.
+    'CREATE INDEX idx_vibraciones_cubeta ON vibraciones (cubeta, t)',
+    'CREATE INDEX idx_vibraciones_viaje ON vibraciones (viaje)',
   ],
 ];
 

@@ -3,6 +3,9 @@ import 'package:path_provider/path_provider.dart';
 
 import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/fuente_gps.dart';
+import '../features/vibracion/fuente_vibracion.dart';
+import '../features/vibracion/registro_vibracion.dart';
+import '../features/vibracion/servicio_vibracion.dart';
 import '../features/odometro/registro.dart';
 import '../features/odometro/servicio.dart';
 import 'db/base.dart';
@@ -23,7 +26,9 @@ class Arranque {
 
   final RegistroDeViajes? registro;
   final RegistroDeCargas? cargas;
+  final RegistroDeVibracion? vibraciones;
   final ServicioOdometria? servicio;
+  final ServicioVibracion? vibracion;
 
   const Arranque._({
     required this.ruta,
@@ -31,7 +36,9 @@ class Arranque {
     this.error,
     this.registro,
     this.cargas,
+    this.vibraciones,
     this.servicio,
+    this.vibracion,
   });
 
   bool get anduvo => base != null;
@@ -52,12 +59,21 @@ class Arranque {
       );
       // Si el sistema mató la aplicación en medio de un viaje, acá se retoma.
       servicio.retomarPendiente();
+      final vibraciones = RegistroDeVibracion(base);
       return Arranque._(
         ruta: ruta,
         base: base,
         registro: registro,
         cargas: RegistroDeCargas(base),
+        vibraciones: vibraciones,
         servicio: servicio,
+        // La velocidad sale del servicio de odometría y no de una segunda
+        // suscripción al GPS: el receptor se le pide una sola vez al teléfono.
+        vibracion: ServicioVibracion(
+          registro: vibraciones,
+          fuente: Acelerometro(),
+          velocidadKmh: () => servicio.estado.value.velocidadKmh,
+        ),
       );
     } catch (e) {
       return Arranque._(ruta: ruta, error: '$e');

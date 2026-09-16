@@ -6,9 +6,13 @@ import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/fuente.dart';
 import '../features/odometro/registro.dart';
 import '../features/odometro/servicio.dart';
+import '../features/vibracion/analisis.dart';
+import '../features/vibracion/registro_vibracion.dart';
+import '../features/vibracion/servicio_vibracion.dart';
 import 'formato.dart';
 import 'pantalla_combustible.dart';
 import 'pantalla_diagnostico.dart';
+import 'pantalla_vibracion.dart';
 
 /// La pantalla del viaje en curso.
 ///
@@ -20,6 +24,8 @@ class PantallaViaje extends StatefulWidget {
   final ServicioOdometria servicio;
   final RegistroDeViajes registro;
   final RegistroDeCargas cargas;
+  final RegistroDeVibracion vibraciones;
+  final ServicioVibracion vibracion;
   final String ruta;
 
   const PantallaViaje({
@@ -27,6 +33,8 @@ class PantallaViaje extends StatefulWidget {
     required this.servicio,
     required this.registro,
     required this.cargas,
+    required this.vibraciones,
+    required this.vibracion,
     required this.ruta,
   });
 
@@ -74,10 +82,22 @@ class _PantallaViajeState extends State<PantallaViaje> {
       odometro = pedido.valor;
     }
     final ok = await widget.servicio.arrancar(odoTablero: odometro);
-    if (!ok && mounted) {
-      final problema = widget.servicio.estado.value.problema;
-      if (problema != null) _avisar(problema);
+    if (!ok) {
+      if (mounted) {
+        final problema = widget.servicio.estado.value.problema;
+        if (problema != null) _avisar(problema);
+      }
+      return;
     }
+    // El acelerómetro va pegado al viaje: sin viaje no hay a qué colgarle una
+    // ventana, y sin velocidad no hay cubeta con la cual compararla.
+    final viaje = widget.servicio.estado.value.viaje;
+    if (viaje != null) widget.vibracion.arrancar(viaje);
+  }
+
+  Future<void> _pausar() async {
+    await widget.vibracion.detener();
+    await widget.servicio.pausar();
   }
 
   /// Pide una lectura del odómetro sin obligar a darla: devuelve `null` si se
@@ -163,7 +183,46 @@ class _PantallaViajeState extends State<PantallaViaje> {
       aceptar: 'Terminar',
     );
     if (pedido == null) return;
+    await widget.vibracion.detener();
     await widget.servicio.terminar(odoTablero: pedido.valor);
+    if (mounted) await _avisarDeLaVibracion();
+  }
+
+  /// El aviso de vibración sale al TERMINAR el viaje y en ningún otro momento.
+  ///
+  /// No es una preferencia de diseño: un cartel que aparece manejando es una
+  /// distracción arriba de una camioneta de dos toneladas, y lo que se va a
+  /// avisar viene repitiéndose hace tres viajes — puede esperar cinco minutos.
+  Future<void> _avisarDeLaVibracion() async {
+    final porViaje = widget.vibraciones.porViaje();
+    final avisos = anomalias(porViaje, widget.vibraciones.ultimosViajes());
+    if (avisos.isEmpty || !mounted) return;
+    final a = avisos.first;
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Algo vibra distinto'),
+        content: Text(textoDeAnomalia(a)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Entendido'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(c);
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      PantallaVibracion(registro: widget.vibraciones),
+                ),
+              );
+            },
+            child: const Text('Ver el detalle'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -182,6 +241,15 @@ class _PantallaViajeState extends State<PantallaViaje> {
                   cargas: widget.cargas,
                   viajes: widget.registro,
                 ),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Vibración',
+            icon: const Icon(Icons.graphic_eq),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => PantallaVibracion(registro: widget.vibraciones),
               ),
             ),
           ),
@@ -216,7 +284,7 @@ class _PantallaViajeState extends State<PantallaViaje> {
                 _Senal(texto: e.estadoDeLaSenal!),
                 const SizedBox(height: 12),
               ],
-              _Detalle(estado: e),
+              _Detalle(estado: e, vibracion: widget.vibracion),
               const SizedBox(height: 12),
               Text(
                 'La distancia sale de integrar la velocidad que informa el '
@@ -242,7 +310,7 @@ class _PantallaViajeState extends State<PantallaViaje> {
                   height: 56,
                   child: e.midiendo
                       ? FilledButton.tonalIcon(
-                          onPressed: widget.servicio.pausar,
+                          onPressed: _pausar,
                           icon: const Icon(Icons.pause),
                           label: const Text('Pausar'),
                         )
@@ -406,8 +474,9 @@ class _Aviso extends StatelessWidget {
 
 class _Detalle extends StatelessWidget {
   final EstadoViaje estado;
+  final ServicioVibracion vibracion;
 
-  const _Detalle({required this.estado});
+  const _Detalle({required this.estado, required this.vibracion});
 
   @override
   Widget build(BuildContext context) {
@@ -432,6 +501,10 @@ class _Detalle extends StatelessWidget {
             _Dato(titulo: 'Descartadas', valor: '${o.muestrasDescartadas}'),
             _Dato(titulo: 'Sin velocidad', valor: '${estado.sinDoppler}'),
             _Dato(titulo: 'Cortes', valor: '${o.cortes}'),
+            // Sirve para saber, sin salir de acá, si el acelerómetro está
+            // juntando algo: a velocidad de ciudad no junta nada a propósito,
+            // y eso de afuera se ve igual que un sensor que no anda.
+            _Dato(titulo: 'Vibración', valor: '${vibracion.guardadas}'),
             _Dato(
               titulo: 'Haversine',
               valor: formatearKm(o.metrosHaversine / 1000),

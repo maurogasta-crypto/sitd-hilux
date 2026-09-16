@@ -171,6 +171,36 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   preguntar sin OBD2, y esta camioneta no habla OBD2. Decir «te quedan 180 km»
   sería inventarlo.
 
+- **Del acelerómetro se guarda el MÓDULO, no un eje.** No se sabe cómo quedó
+  puesto el teléfono en la cabina, y con un solo eje el mismo defecto daría
+  números distintos según cómo lo colgaron ese día. `sqrt(x²+y²+z²)` no depende
+  de la orientación. Y se le saca la media antes de transformar: la media de un
+  acelerómetro **es la gravedad**, que taparía todo lo demás.
+
+- **La frecuencia de muestreo que se guarda es la MEDIDA, no la pedida.**
+  Android trata el período como una sugerencia y cada aparato entrega lo que
+  puede — el Helio G85 del Note 9 no va a dar lo mismo que el teléfono nuevo.
+  Las bandas se calculan con ese número, así que sin él un vector viejo no se
+  puede volver a leer. Tiene su prueba: a 45 Hz reales declarados como 50, una
+  vibración de 12,5 Hz se lee como 13,9 y cae en otra banda.
+
+- **La línea base se calcula dejando afuera los viajes que se están
+  evaluando.** Si no, una falla que empieza y se queda se va metiendo de a poco
+  en «lo normal» hasta dejar de verse: es el modo de fallar más silencioso que
+  tiene un detector de anomalías. Y es mediana y desviación absoluta mediana,
+  no promedio y desvío estándar, por lo mismo que el factor de neumáticos — un
+  pozo no puede mover la referencia.
+
+- **Sólo se avisa hacia arriba.** Que una banda vibre MENOS que antes no es una
+  falla mecánica: es un camino mejor, otra carga, o una rueda que se limpió
+  sola.
+
+- **La FFT es propia y se queda.** Son cuarenta líneas de Cooley-Tukey con sus
+  pruebas, y sería el único paquete del proyecto que no habla con el sistema
+  operativo. Entra con ventana de Hann: sin ella, cortar cinco segundos de una
+  vibración continua mete un escalón en los extremos y esa fuga aparece como
+  energía en bandas donde no hay nada.
+
 - **El micrófono es oportunista; el acelerómetro es el titular.** Se muestrea
   audio **sólo** cuando se cumplen las cuatro condiciones: no hay audio
   reproduciéndose (`AudioManager.isMusicActive()` por `MethodChannel`), no hay
@@ -308,7 +338,7 @@ el teléfono.
 | **A** | Esqueleto: base, migraciones, APK que compila y se instala | **entregado** (`sitd-1`) |
 | **B** | Servicio en primer plano y odometría GPS en vivo | **entregado** (`sitd-2`) |
 | **C** | Combustible: cargas, consumo derivado, calibración de `k` | **entregado** (`sitd-4`) |
-| **D** | Acelerómetro: línea base por cubeta, anomalías | pendiente |
+| **D** | Acelerómetro: línea base por cubeta, anomalías | **entregado** (`sitd-5`) |
 | **E** | Micrófono: FFT, compuerta de audio, escenarios | pendiente |
 
 D antes que E a propósito: el acelerómetro no tiene conflicto con la música, no

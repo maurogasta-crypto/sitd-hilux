@@ -3,11 +3,13 @@
 Telemetría, odometría y diagnóstico mecánico para una **Toyota Hilux 3.0**
 (1KD-FTV, 2008-2011). Android, sin conexión, sin servidor, sin cuenta de nadie.
 
-> **Estado: tanda 4 — combustible.** Ya mide. Se abre un viaje, el GPS
+> **Estado: tanda 5 — la vibración.** Ya mide. Se abre un viaje, el GPS
 > entrega una muestra por segundo, la distancia se integra de la velocidad
-> Doppler y cada muestra cruda queda guardada en el teléfono. Y ya lleva las
-> cargas de combustible, con el consumo y el factor de neumáticos calculados
-> al leer. Lo que falta es el acelerómetro y el micrófono.
+> Doppler y cada muestra cruda queda guardada en el teléfono. Lleva las cargas
+> de combustible, con el consumo y el factor de neumáticos calculados al leer.
+> Y desde la tanda 5 escucha el acelerómetro: aprende cómo vibra esta
+> camioneta a cada velocidad y avisa cuando algo cambia. Lo que falta es el
+> micrófono.
 
 ## Instalar en el teléfono
 
@@ -15,7 +17,7 @@ Desde el navegador del teléfono, no desde la aplicación de GitHub:
 
 1. Entrar a
    [releases/tag/ultimo](https://github.com/maurogasta-crypto/sitd-hilux/releases/tag/ultimo)
-   y tocar el archivo `sitd-hilux-NN.apk`.
+   y tocar el archivo `sitd-hilux.apk`.
 2. Al abrir lo descargado, Android dice que no puede instalar apps desconocidas
    de esa fuente. En ese mismo cartel: **Ajustes → Permitir desde esta fuente →
    Atrás**. Es una sola vez.
@@ -27,9 +29,15 @@ Desde el navegador del teléfono, no desde la aplicación de GitHub:
 Desconfía porque el APK está firmado con la clave de depuración, no con una de
 Play Store. Es la nuestra: la compila el workflow de este repositorio.
 
-El release se reemplaza en cada push a `main`, así que ese enlace siempre
-apunta a lo último. Los APK de tandas anteriores quedan como *artifacts* de
-cada corrida en la pestaña **Actions**.
+Cada corrida deja **dos copias del mismo archivo**: `sitd-hilux.apk`, de nombre
+fijo, que es el que se puede enlazar desde afuera —lo hace el panel— y
+`sitd-hilux-NN.apk`, que dice de qué corrida salió y sirve para volver a una
+tanda vieja. El release se reemplaza en cada push a `main`, así que los dos
+enlaces apuntan siempre a lo último; los APK anteriores quedan como *artifacts*
+de cada corrida en la pestaña **Actions**.
+
+> **Enlace directo, para guardar:**
+> `https://github.com/maurogasta-crypto/sitd-hilux/releases/download/ultimo/sitd-hilux.apk`
 
 **Si falla la instalación diciendo que hay un conflicto**, es porque la versión
 instalada se firmó con otra clave de depuración. Se desinstala la vieja y se
@@ -76,6 +84,10 @@ Una pantalla, tres botones y ningún menú:
 | **Empezar el viaje** | pide el permiso de ubicación —la primera vez— y abre un viaje |
 | **Pausar** | suelta el GPS sin cerrar el viaje. Para una parada larga |
 | **Terminar** | cierra el viaje y deja el total escrito |
+
+El icono de las ondas lleva a **Vibración**: lo que la aplicación fue
+aprendiendo de cómo vibra la camioneta a cada velocidad, y los avisos si algo
+cambió. No hay nada que tocar ahí — se mide sola mientras el viaje anda.
 
 El icono del surtidor, arriba, lleva a **Combustible**: ahí se anota cada
 carga —litros, odómetro del tablero, costo, si quedó lleno— y se ven el
@@ -127,19 +139,27 @@ lib/
 │       ├── fuente_gps.dart  El GPS real, con el servicio en primer plano.
 │       ├── registro.dart    Viajes, puntos y los pares de calibración.
 │       └── servicio.dart    Junta las tres piezas y sostiene el viaje.
-│   └── combustible/
-│       ├── carga.dart       Una carga, tal como se teclea en la estación.
-│       ├── consumo.dart     Consumo de lleno a lleno, calculado al leer.
-│       └── registro_cargas.dart  Cargas y el ajuste del tanque.
+│   ├── combustible/
+│   │   ├── carga.dart       Una carga, tal como se teclea en la estación.
+│   │   ├── consumo.dart     Consumo de lleno a lleno, calculado al leer.
+│   │   └── registro_cargas.dart  Cargas y el ajuste del tanque.
+│   └── vibracion/
+│       ├── espectro.dart    FFT propia, ventana de Hann y energía por banda.
+│       ├── ventana.dart     Las cubetas de velocidad y el vector que se guarda.
+│       ├── analisis.dart    Línea base robusta, desvíos e histéresis.
+│       ├── fuente_vibracion.dart  El acelerómetro, detrás de una interfaz.
+│       ├── registro_vibracion.dart  Los vectores en la base.
+│       └── servicio_vibracion.dart  Junta, resume y guarda cada ventana.
 ├── ui/
 │   ├── formato.dart         Cómo se escribe un número para leerlo.
 │   ├── pantalla_viaje.dart  La pantalla del viaje en curso.
 │   ├── pantalla_combustible.dart  Consumo, factor y las cargas.
 │   ├── pantalla_carga.dart  El formulario, para llenar al lado del surtidor.
+│   ├── pantalla_vibracion.dart  Qué aprendió, y qué cambió.
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        124 casos. Corren sin emulador ni teléfono.
+test/                        170 casos. Corren sin emulador ni teléfono.
 .github/workflows/apk.yml    Verificación previa + APK + release.
 ```
 
@@ -147,14 +167,16 @@ test/                        124 casos. Corren sin emulador ni teléfono.
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-4` | `lib/core/version.dart` |
-| Esquema de la base | `1` | `lib/core/db/esquema.dart` |
+| Aplicación | `sitd-5` | `lib/core/version.dart` |
+| Esquema de la base | `2` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
 **manda el archivo**: esta tabla se copia a mano y se desactualiza en silencio.
 
-Ninguna tanda tocó el esquema todavía: `viajes`, `puntos`, `cargas` y
-`ajustes` están las cuatro desde la migración 0 → 1. Se fueron llenando.
+**La tanda 5 es la primera que toca el esquema**, y lo hace como manda la
+regla: la migración 0 → 1 no se editó —ya está instalada en un teléfono— y se
+agregó una 1 → 2 abajo, con la tabla `vibraciones`. Una base vieja migra sola
+al abrir; una nueva corre las dos y queda igual.
 
 ## Verificación previa
 
@@ -191,6 +213,26 @@ hay una sola muestra buena, la pantalla dice qué está esperando; y en la lista
 de viajes, uno sin muestras se muestra como **«Sin muestras»** y no como un
 cero. Salió de la primera prueba real, un viaje de 13 segundos puertas adentro.
 
+**La vibración se compara sólo contra la misma velocidad.** Una falla mecánica
+tiene frecuencia proporcional a las vueltas de la rueda: un desbalanceo a
+60 km/h está cerca de 8 Hz y a 110 cerca de 15. Comparar el espectro de un
+tramo de ruta con el de uno de ciudad haría que todo pareciera una anomalía. Por
+eso la historia se guarda en **cubetas de 10 km/h**, y una ventana cuya
+velocidad cambió de cubeta en el medio se descarta entera.
+
+**Se guarda el módulo del acelerómetro, no un eje.** No se sabe cómo quedó
+puesto el teléfono en la cabina —de costado, boca abajo, en un soporte
+torcido—, y con un solo eje el mismo defecto daría números distintos según cómo
+lo colgaron ese día.
+
+**No se avisa por un viaje raro.** Un camino de tierra, una carga pesada o barro
+pegado a una llanta alcanzan para mover una banda un viaje entero. Hacen falta
+**tres viajes seguidos** con la misma banda de la misma cubeta fuera de lo
+normal, y el aviso sale **al terminar el viaje, nunca manejando**. Además la
+línea base se calcula dejando afuera esos tres viajes: si no, una falla que
+empieza y se queda se iría metiendo de a poco en «lo normal» hasta dejar de
+verse.
+
 **El consumo se calcula de un tanque lleno al siguiente.** Es la única cuenta
 que no depende de adivinar: un tanque sólo se sabe cuánto tiene cuando
 rebalsa, así que entre dos llenados los litros que entraron son exactamente los
@@ -224,9 +266,11 @@ Flutter 3.47.4, JDK 17, SDK de Android. `minSdk` es **29** (Android 10) porque
 el teléfono de destino es un Redmi Note 9, no el Redmi 15 con el que se
 desarrolla.
 
-Dependencias, y son tres: `sqlite3` (base local, sin generación de código),
-`geolocator` (GPS y servicio en primer plano) y `path_provider` (dónde va el
-archivo de la base).
+Dependencias, y son cuatro: `sqlite3` (base local, sin generación de código),
+`geolocator` (GPS y servicio en primer plano), `sensors_plus` (acelerómetro) y
+`path_provider` (dónde va el archivo de la base). La FFT es propia: son
+cuarenta líneas y sería el único paquete del proyecto que no habla con el
+sistema operativo.
 
 ## Reglas del repositorio
 
