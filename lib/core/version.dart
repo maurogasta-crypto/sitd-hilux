@@ -7,7 +7,7 @@
 library;
 
 /// Sello de la aplicación entera. Sube en cada tanda.
-const String selloApp = 'sitd-10';
+const String selloApp = 'sitd-11';
 
 /// Etapa del proyecto, tal como la definió el plan: 1 es desarrollo sobre el
 /// Redmi 15, 2 es producción sobre el Redmi Note 9 montado en la cabina.

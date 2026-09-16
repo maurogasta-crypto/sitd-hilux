@@ -11,8 +11,16 @@ Dos etapas de hardware:
 
 | Etapa | Aparato | Para qué |
 |---|---|---|
-| **1 · desarrollo** | Xiaomi Redmi 15, Android 15 / HyperOS | compilar, depurar, calibrar |
+| **1 · desarrollo** | Xiaomi Redmi 15, **Android 16 / HyperOS 3.0.304.0** | compilar, depurar, calibrar |
 | **2 · producción** | Xiaomi Redmi Note 9, Android 10/11 | montado fijo en la cabina |
+
+**Ojo con el nuevo, que hasta el 2026-09-16 este archivo lo daba por Android
+15.** La captura de «Acerca del teléfono» dice **Android 16**
+(`BP2A.250605.031.A3`, parche de seguridad 2026-07-01) sobre **HyperOS
+3.0.304.0**. No es un detalle de ficha técnica: HyperOS 3 es la capa de Xiaomi
+sobre Android 16, es reciente, y de ahí para arriba el sistema aprieta los
+servicios en primer plano más que cualquier versión anterior. Todo lo que este
+archivo dice sobre MIUI matando servicios vale **más**, no menos.
 
 **El aparato que pone la restricción es el viejo, no el nuevo.** El Redmi
 Note 9 es un Helio G85 con Android 10: ése es el `minSdk 29`, ése es el techo
@@ -433,6 +441,29 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   respaldo guarda la historia pero no la devuelve. Está dicho en la pantalla
   con esas palabras y es `hilux:R2`.
 
+- **Los tres modos del GPS se prueban SOLOS, en cascada, y no a mano.** Hasta
+  `sitd-10` los tres existían pero había que elegirlos en la pantalla de
+  sensores, o sea que para que sirvieran alguien tenía que estar parado mirando
+  el teléfono — y quien está arriba de la camioneta está manejando, no
+  depurando. Desde `sitd-11` un viaje arranca en `normal` y, **si ese modo no
+  entrega ni una posición en noventa segundos**, baja a `sinNotificacion`, y de
+  ahí a `receptorDirecto`. Sólo cuenta hasta la primera lectura: una vez que el
+  receptor habló, la cascada no se mueve más.
+
+  Los noventa segundos del primero no son un número al azar: un receptor frío
+  tarda entre treinta segundos y un minuto en fijar satélites, y bajar antes de
+  eso sería abandonar por impaciencia el único modo que sigue midiendo con la
+  pantalla apagada. Los otros dos escalones miden **menos** que el primero, y
+  esa pérdida está aceptada a propósito: medir de menos es infinitamente más
+  que no medir, que es lo que pasó dos veces a cielo abierto.
+
+  **Y el modo que quedó puesto se muestra en la pantalla del viaje.** Es el
+  dato que hoy falta: si un viaje termina midiendo en «Receptor directo», eso
+  dice que el problema es Play Services; si termina en «Sin notificación», que
+  el problema es el servicio en primer plano —lo más creíble en un HyperOS 3—;
+  y si dice «Normal», la cascada nunca hizo falta. Un solo viaje contesta lo
+  que tres salidas a la calle no contestaron.
+
 - **El OBD2 es opcional y va detrás de una interfaz.** Esta Hilux puede hablar
   **MOBD**, el protocolo propio de Toyota, y no OBD2 genérico: el conector
   entra y el ECU no contesta. El régimen del motor se obtiene igual, por
@@ -496,9 +527,17 @@ que no se haya entregado.
   **Y desde Android 13 su notificación necesita `POST_NOTIFICATIONS` para
   VERSE.** El servicio arranca igual sin ese permiso, pero queda sin cartel — y
   un servicio en primer plano invisible es justo lo que un Xiaomi mata sin que
-  nadie se entere. El permiso está declarado desde `sitd-9`; **falta pedirlo en
-  tiempo de ejecución**, y entra con el micrófono, que necesita el mismo
-  mecanismo.
+  nadie se entere. El permiso está declarado desde `sitd-9`, y el micrófono va a
+  necesitar el mismo mecanismo cuando entre la etapa E.
+
+  **Desde `sitd-11` se pide de verdad**, con `permission_handler`, y se pide
+  **una vez por viaje y no una por escalón**: es un permiso de la aplicación,
+  no del modo, y abrir el mismo diálogo tres veces sería castigar a quien está
+  por salir a manejar. Si sale negado **no se impide medir** —eso sería cambiar
+  un problema de visibilidad por uno de odometría—, pero queda escrito en la
+  pantalla del viaje y en la de sensores. Declarar un permiso en el manifiesto
+  sin pedirlo en tiempo de ejecución no hace absolutamente nada, y entre
+  `sitd-9` y `sitd-10` eso fue exactamente lo que estuvo pasando.
 - **MIUI/HyperOS mata los servicios en segundo plano.** Autostart y batería sin
   restricciones, a mano, en los dos teléfonos. Sin eso el GPS se apaga con la
   pantalla y no avisa. Es configuración del aparato, no del código, y por eso

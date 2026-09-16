@@ -38,7 +38,7 @@ hubiera que elegir entre dos cosas idénticas. El rastro de cada tanda existe
 igual y está donde corresponde: el *artifact* numerado de cada corrida, en la
 pestaña **Actions**.
 
-El título del release dice el **sello** (`sitd-9 · corrida 13`), que es el mismo
+El título del release dice el **sello** (`sitd-11 · corrida 17`), que es el mismo
 que muestra la aplicación en «Estado»: si los dos coinciden, lo instalado es lo
 publicado.
 
@@ -213,6 +213,46 @@ de minuto y medio —no los cuatro segundos de los otros sensores— porque un
 receptor frío tarda entre treinta segundos y un minuto en fijar satélites, y
 acusarlo antes de eso enseña a no mirar el aviso.
 
+### Y desde `sitd-11` no hace falta probarlos a mano: un viaje los prueba solo
+
+Probar los tres modos en la calle sirve, pero exige que alguien esté parado
+mirando el teléfono — y quien está arriba de la camioneta está manejando. Así
+que **un viaje ahora los recorre solo**:
+
+1. arranca en **Normal**, que es el modo bueno;
+2. si a los **90 segundos** no llegó **ni una** posición, baja a **Sin
+   notificación**;
+3. si a los 45 más sigue sin llegar nada, baja a **Receptor directo**, y ahí se
+   queda.
+
+Cuenta **hasta la primera lectura y nada más**: apenas el receptor habla, la
+cascada se queda quieta. Una posición que llega sin velocidad Doppler también
+cuenta — no sirve para medir, pero prueba que el receptor está hablando, que es
+lo que la cascada quiere saber.
+
+Los 90 segundos del primer escalón son a propósito: un receptor frío tarda entre
+treinta segundos y un minuto en fijar satélites, y bajar antes sería abandonar
+por impaciencia el único modo que sigue midiendo con la pantalla apagada. Los
+otros dos miden **menos**, y esa pérdida está aceptada: medir de menos es
+infinitamente más que no medir.
+
+**La pantalla del viaje dice en qué modo quedó.** Si dice «Normal», la cascada
+nunca hizo falta. Si dice otra cosa, ese cartel es la respuesta a la pregunta
+que tres salidas a la calle no contestaron — y conviene contarla.
+
+### El permiso de notificaciones, que hasta `sitd-10` estaba declarado y nunca se pedía
+
+Desde Android 13 la notificación del servicio en primer plano necesita
+`POST_NOTIFICATIONS` para **verse**. Estaba declarado en el manifiesto desde
+`sitd-9`, y declararlo sin pedirlo en tiempo de ejecución no hace absolutamente
+nada: el permiso quedaba negado y el servicio, sin cartel.
+
+Un servicio en primer plano invisible es justo lo que un Xiaomi mata sin que
+nadie se entere, así que desde `sitd-11` se pide —una vez por viaje, no una por
+modo—. Si sale negado **no se impide medir**: eso sería cambiar un problema de
+visibilidad por uno de odometría. Queda escrito en la pantalla del viaje y en la
+de sensores, con dónde se da.
+
 ### Lo que el panel de sensores encontró en el Redmi 15
 
 Medido el 2026-09-16, no deducido de una ficha técnica: el acelerómetro entrega
@@ -261,7 +301,9 @@ lib/
 │       │                    para una lista y `Acumulador` para el vivo.
 │       ├── factor.dart      Corrección del odómetro de fábrica.
 │       ├── fuente.dart      La interfaz del GPS, y por qué es una interfaz.
-│       ├── fuente_gps.dart  El GPS real, con el servicio en primer plano.
+│       ├── fuente_gps.dart  El GPS real, y las tres formas de pedírselo.
+│       ├── cascada.dart     Prueba esas tres formas solo, hasta que una
+│       │                    entregue, y dice cuál quedó puesta.
 │       ├── registro.dart    Viajes, puntos y los pares de calibración.
 │       └── servicio.dart    Junta las tres piezas y sostiene el viaje.
 │   ├── combustible/
@@ -270,6 +312,9 @@ lib/
 │   │   └── registro_cargas.dart  Cargas y el ajuste del tanque.
 │   ├── respaldo/
 │   │   └── reporte.dart     Qué sale del teléfono, y qué no.
+│   ├── permisos/
+│   │   └── avisos.dart      El permiso de notificaciones, que hace VISIBLE
+│   │                        la notificación del servicio en primer plano.
 │   ├── sensores/
 │   │   └── sensores.dart    Estado de un sensor y frecuencia medida.
 │   └── vibracion/
@@ -290,7 +335,7 @@ lib/
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        209 casos. Corren sin emulador ni teléfono.
+test/                        222 casos. Corren sin emulador ni teléfono.
 .github/workflows/apk.yml    Verificación previa + APK + release.
 ```
 
@@ -298,7 +343,7 @@ test/                        209 casos. Corren sin emulador ni teléfono.
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-10` | `lib/core/version.dart` |
+| Aplicación | `sitd-11` | `lib/core/version.dart` |
 | Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

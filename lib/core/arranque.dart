@@ -2,7 +2,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../features/combustible/registro_cargas.dart';
-import '../features/odometro/fuente_gps.dart';
+import '../features/odometro/cascada.dart';
 import '../features/odometro/pantalla_despierta.dart';
 import '../features/vibracion/fuente_vibracion.dart';
 import '../features/vibracion/registro_vibracion.dart';
@@ -32,6 +32,10 @@ class Arranque {
   final ServicioOdometria? servicio;
   final ServicioVibracion? vibracion;
 
+  /// La cascada de modos del GPS, para que la pantalla muestre cuál quedó
+  /// puesto y cómo quedó el permiso de notificaciones.
+  final FuenteEnCascada? gps;
+
   const Arranque._({
     required this.ruta,
     this.base,
@@ -42,6 +46,7 @@ class Arranque {
     this.despierta,
     this.servicio,
     this.vibracion,
+    this.gps,
   });
 
   bool get anduvo => base != null;
@@ -56,10 +61,8 @@ class Arranque {
       ruta = p.join(dir.path, 'sitd.db');
       final base = Base.abrir(ruta);
       final registro = RegistroDeViajes(base);
-      final servicio = ServicioOdometria(
-        registro: registro,
-        fuente: FuenteGps(),
-      );
+      final cascada = FuenteEnCascada();
+      final servicio = ServicioOdometria(registro: registro, fuente: cascada);
       // Si el sistema mató la aplicación en medio de un viaje, acá se retoma.
       servicio.retomarPendiente();
       final vibraciones = RegistroDeVibracion(base);
@@ -71,6 +74,7 @@ class Arranque {
         vibraciones: vibraciones,
         despierta: PantallaDespierta(base),
         servicio: servicio,
+        gps: cascada,
         // La velocidad sale del servicio de odometría y no de una segunda
         // suscripción al GPS: el receptor se le pide una sola vez al teléfono.
         vibracion: ServicioVibracion(

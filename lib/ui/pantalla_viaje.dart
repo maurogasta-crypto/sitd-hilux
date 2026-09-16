@@ -7,6 +7,9 @@ import '../features/odometro/fuente.dart';
 import '../features/odometro/registro.dart';
 import '../core/db/base.dart';
 import '../features/odometro/pantalla_despierta.dart';
+import '../features/odometro/cascada.dart';
+import '../features/odometro/fuente_gps.dart';
+import '../features/permisos/avisos.dart';
 import '../features/odometro/servicio.dart';
 import '../features/vibracion/analisis.dart';
 import '../features/vibracion/registro_vibracion.dart';
@@ -31,6 +34,11 @@ class PantallaViaje extends StatefulWidget {
   final RegistroDeVibracion vibraciones;
   final ServicioVibracion vibracion;
   final PantallaDespierta despierta;
+
+  /// La cascada de modos del GPS. Es opcional porque el banco arma la pantalla
+  /// con una fuente de mentira, que no tiene modos que mostrar.
+  final FuenteEnCascada? gps;
+
   final Base base;
   final String ruta;
 
@@ -42,6 +50,7 @@ class PantallaViaje extends StatefulWidget {
     required this.vibraciones,
     required this.vibracion,
     required this.despierta,
+    this.gps,
     required this.base,
     required this.ruta,
   });
@@ -326,6 +335,10 @@ class _PantallaViajeState extends State<PantallaViaje> {
               ],
               if (e.estadoDeLaSenal != null) ...[
                 _Senal(texto: e.estadoDeLaSenal!),
+                const SizedBox(height: 12),
+              ],
+              if (widget.gps != null && e.midiendo) ...[
+                _Cascada(gps: widget.gps!),
                 const SizedBox(height: 12),
               ],
               _Detalle(estado: e, vibracion: widget.vibracion),
@@ -640,6 +653,72 @@ class _Despierta extends StatelessWidget {
                     'kilómetros.',
           style: t.textTheme.bodySmall,
         ),
+      ),
+    );
+  }
+}
+
+/// En qué escalón de la cascada está el GPS, y cómo quedó el permiso de la
+/// notificación.
+///
+/// **No es un adorno: es el dato que hoy falta.** Si un viaje termina midiendo
+/// y el modo que quedó puesto no es «Normal», eso dice exactamente dónde está
+/// el problema —el servicio en primer plano, o Play Services— sin tener que
+/// volver a salir a probarlo. Y si dice «Normal», la cascada nunca hizo falta.
+class _Cascada extends StatelessWidget {
+  final FuenteEnCascada gps;
+
+  const _Cascada({required this.gps});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return ValueListenableBuilder<ModoGps>(
+      valueListenable: gps.modo,
+      builder: (context, modo, _) => ValueListenableBuilder<EstadoAviso?>(
+        valueListenable: gps.aviso,
+        builder: (context, aviso, _) {
+          final normal = modo == ModoGps.normal;
+          final sinCartel = aviso != null && aviso != EstadoAviso.concedido;
+          return Card(
+            color: normal && !sinCartel
+                ? t.colorScheme.surfaceContainerHighest
+                : t.colorScheme.errorContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'GPS pedido en modo ${nombreDeModo(modo)}',
+                    style: t.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    normal
+                        ? 'Es el modo bueno: servicio en primer plano, sigue '
+                              'midiendo con la pantalla apagada.'
+                        : 'Se bajó a este modo porque el anterior no entregó '
+                              'ni una posición en su plazo. Contámelo: dice '
+                              'dónde está el problema.',
+                    style: t.textTheme.bodySmall,
+                  ),
+                  if (sinCartel) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Permiso de notificaciones: ${textoDeAviso(aviso)}. Sin '
+                      'él el servicio queda sin cartel, y un servicio en '
+                      'primer plano invisible es lo que HyperOS mata sin '
+                      'avisar. Se da en Ajustes → Aplicaciones → SITD Hilux → '
+                      'Notificaciones.',
+                      style: t.textTheme.bodySmall,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

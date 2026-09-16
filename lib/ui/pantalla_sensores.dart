@@ -5,6 +5,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 
 import '../features/odometro/fuente.dart';
 import '../features/odometro/fuente_gps.dart';
+import '../features/permisos/avisos.dart';
 import '../features/odometro/integrador.dart';
 import '../features/odometro/muestra.dart';
 import '../features/odometro/servicio.dart';
@@ -53,6 +54,11 @@ class _PantallaSensoresState extends State<PantallaSensores> {
   MotivoDescarte? _motivoPropio;
   Disponibilidad? _problemaGps;
   DiagnosticoGps? _diagnostico;
+
+  /// Cómo está el permiso de notificaciones. Se MIRA, no se pide: esta
+  /// pantalla informa y no interrumpe con un diálogo a quien vino a ver
+  /// números.
+  EstadoAviso? _aviso;
 
   /// En qué anda el enganche al GPS de esta pantalla. Sin esto, «Esperando»
   /// puede querer decir tres cosas distintas —todavía preguntando el permiso,
@@ -128,8 +134,12 @@ class _PantallaSensoresState extends State<PantallaSensores> {
     // que faltaba: el permiso con su nombre, si la ubicación del sistema está
     // encendida, y si el sistema tiene una última posición conocida.
     final diagnostico = await fuente.diagnosticar();
+    final aviso = await mirarAvisoDelSistema();
     if (!mounted) return;
-    setState(() => _diagnostico = diagnostico);
+    setState(() {
+      _diagnostico = diagnostico;
+      _aviso = aviso;
+    });
 
     final disponible = await fuente.preparar();
     if (!mounted) return;
@@ -214,6 +224,7 @@ class _PantallaSensoresState extends State<PantallaSensores> {
             motivo: enViaje ? e.ultimoMotivo : _motivoPropio,
             problema: enViaje ? e.problema : _problemaGps,
             diagnostico: _diagnostico,
+            aviso: _aviso,
             paso: _pasoGps,
             modo: _modo,
             alCambiarModo: enViaje ? null : _cambiarModo,
@@ -424,6 +435,7 @@ class _Gps extends StatelessWidget {
   final MotivoDescarte? motivo;
   final Disponibilidad? problema;
   final DiagnosticoGps? diagnostico;
+  final EstadoAviso? aviso;
   final String paso;
   final ModoGps modo;
   final Future<void> Function(ModoGps)? alCambiarModo;
@@ -439,6 +451,7 @@ class _Gps extends StatelessWidget {
     required this.motivo,
     required this.problema,
     required this.diagnostico,
+    required this.aviso,
     required this.paso,
     required this.modo,
     required this.alCambiarModo,
@@ -486,7 +499,8 @@ class _Gps extends StatelessWidget {
               // aplicación no lo está pidiendo bien».
               Text(
                 'Permiso: ${diagnostico!.permiso} · ubicación del sistema: '
-                '${diagnostico!.servicioEncendido ? "encendida" : "APAGADA"}',
+                '${diagnostico!.servicioEncendido ? "encendida" : "APAGADA"}'
+                '${aviso == null ? "" : " · notificaciones: ${textoDeAviso(aviso!).toLowerCase()}"}',
                 style: t.textTheme.bodySmall,
               ),
               Text(
