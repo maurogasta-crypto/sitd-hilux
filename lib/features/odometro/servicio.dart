@@ -269,7 +269,11 @@ class ServicioOdometria {
     if (aceptada) {
       registro.guardarPunto(viaje, m);
       if (++_desdeElUltimoVuelco >= cadaCuantosVuelca) {
-        registro.actualizar(viaje, _acumulador.resultado);
+        registro.actualizar(
+          viaje,
+          _acumulador.resultado,
+          sinDoppler: estado.value.sinDoppler,
+        );
         _desdeElUltimoVuelco = 0;
       }
     }
@@ -292,7 +296,13 @@ class ServicioOdometria {
     _suscripcion = null;
     await fuente.detener();
     final viaje = estado.value.viaje;
-    if (viaje != null) registro.actualizar(viaje, _acumulador.resultado);
+    if (viaje != null) {
+      registro.actualizar(
+        viaje,
+        _acumulador.resultado,
+        sinDoppler: estado.value.sinDoppler,
+      );
+    }
     estado.value = estado.value.copiar(midiendo: false);
   }
 
@@ -311,6 +321,7 @@ class ServicioOdometria {
       fin: ahora(),
       odometria: _acumulador.resultado,
       odoTablero: odoTablero,
+      sinDoppler: estado.value.sinDoppler,
     );
     final cerrado = registro.porId(viaje);
     _acumulador = Acumulador(criterios: criterios);

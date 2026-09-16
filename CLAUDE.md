@@ -301,6 +301,57 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   idéntico a un sensor que está pero se colgó. Por eso el estado sale de un
   reloj: sin una lectura después del tiempo de gracia, se dice «no contesta».
 
+- **Sacar los datos son DOS cosas, y no se mezclan nunca.** El *reporte para
+  desarrollo* no lleva una sola coordenada y se puede mandar por un chat; el
+  *respaldo completo* es una copia de la base y lleva dónde estuvo la camioneta
+  minuto a minuto, así que va a Drive o a una computadora y **no a un chat**. La
+  diferencia está escrita en cada botón de la pantalla, no en un archivo de
+  reglas: el que la toca está parado al lado de la camioneta. Y hay una prueba
+  en el banco que busca `"lat"`, `"lon"` y coordenadas sueltas **en el texto
+  entero** del reporte: si alguien agrega un campo sin pensarlo, falla antes de
+  que el archivo salga del teléfono.
+
+- **Antes de copiar la base hay que cerrar el WAL.** En modo WAL lo último que
+  se escribió vive en `sitd.db-wal` hasta que SQLite lo pasa al archivo
+  principal. Copiar `sitd.db` sin un `PRAGMA wal_checkpoint(TRUNCATE)` se lleva
+  una base sin los viajes de hoy, y eso no se nota hasta el día que haga falta
+  el respaldo.
+
+- **El diagnóstico del viaje se GUARDA, no se pierde al cerrarlo.** Los
+  contadores de descarte vivían sólo en la pantalla, así que un viaje que no
+  registró nada dejaba una fila vacía sin explicación — el caso de los siete
+  minutos en cero. Desde `sitd-7` el porqué queda escrito al lado del viaje
+  (esquema 3) y viaja en el reporte: un viaje se puede diagnosticar un mes
+  después, sin salir a repetirlo.
+
+- **No hay servidor que concentre los datos, y no es un pendiente: es una
+  decisión.** La pregunta salió el 2026-09-16 —«una especie de machine learning
+  o algo así web que concentre esa información para ajustar el código»— y vale
+  dejar escrito el razonamiento, porque es de las que alguien deshace de buena
+  fe.
+
+  Lo que este proyecto llama «aprender» ya se aprende **en el teléfono y sin
+  servidor**: el factor de neumáticos sale de la mediana de los cocientes de
+  sus propios viajes, y la línea base de vibración sale de la mediana por
+  cubeta de esta camioneta. Y tiene que ser **de esta camioneta**: lo que se
+  busca no es «cómo vibra una Hilux» sino «cómo vibra ÉSTA comparada con ella
+  misma la semana pasada». Un modelo entrenado con datos de otras camionetas
+  sería peor para eso, no mejor.
+
+  Lo que sí hacía falta era una forma de que los datos lleguen a quien ajusta
+  el código, y eso es el reporte — sin servidor, sin cuenta y sin credenciales,
+  que es la mejor propiedad que tiene el proyecto y la más fácil de perder.
+
+  **Cuándo cambiaría:** si hubiera varias camionetas que comparar entre sí, o
+  si el volumen de vectores creciera tanto que no se pueda analizar en el
+  teléfono. Si ese día llega, el formato del reporte ya es exactamente lo que
+  alimentaría eso, y lo primero que hay que resolver entonces es dónde vive el
+  recorrido y con qué credenciales — no el modelo.
+
+- **Todavía no se puede VOLVER a meter un respaldo en el teléfono.** Está
+  dicho en la pantalla con esas palabras, y es una deuda anotada, no un olvido:
+  guardar es lo urgente porque lo que no se guardó no se restaura después.
+
 - **El OBD2 es opcional y va detrás de una interfaz.** Esta Hilux puede hablar
   **MOBD**, el protocolo propio de Toyota, y no OBD2 genérico: el conector
   entra y el ECU no contesta. El régimen del motor se obtiene igual, por
@@ -379,11 +430,13 @@ el teléfono.
 | **D** | Acelerómetro: línea base por cubeta, anomalías | **entregado** (`sitd-5`) |
 | **E** | Micrófono: FFT, compuerta de audio, escenarios | pendiente |
 | **—** | Panel de sensores: qué ve el teléfono y en qué estado | **entregado** (`sitd-6`) |
+| **—** | Sacar los datos: reporte para desarrollo y respaldo completo | **entregado** (`sitd-7`) |
 
-El panel de sensores está fuera de la secuencia a propósito: lo pidió Mauro el
-2026-09-16, después de un viaje de siete minutos que terminó en cero
-kilómetros sin que se pudiera saber por qué. No es una etapa, es la
-herramienta con la que se diagnostican las demás.
+Las dos filas sin letra están fuera de la secuencia a propósito, y las pidió
+Mauro el 2026-09-16: el panel de sensores después de un viaje de siete minutos
+que terminó en cero sin que se pudiera saber por qué, y la salida de datos para
+que un reporte pueda llegar a quien ajusta el código. No son etapas: son las
+herramientas con las que se diagnostican las demás.
 
 D antes que E a propósito: el acelerómetro no tiene conflicto con la música, no
 tiene problema de privacidad, y deja probar toda la maquinaria de vectores y

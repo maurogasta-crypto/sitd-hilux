@@ -13,7 +13,7 @@
 library;
 
 /// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
-const int versionEsquema = 2;
+const int versionEsquema = 3;
 
 /// Cada elemento son las sentencias que llevan el esquema de la versión
 /// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
@@ -115,6 +115,25 @@ const List<List<String>> migraciones = [
     // misma cubeta de velocidad, nunca contra todo junto.
     'CREATE INDEX idx_vibraciones_cubeta ON vibraciones (cubeta, t)',
     'CREATE INDEX idx_vibraciones_viaje ON vibraciones (viaje)',
+  ],
+
+  // ── 2 → 3 ──────────────────────────────────────────────────────────────
+  // El diagnóstico del viaje, que hasta ahora vivía sólo en la pantalla y se
+  // perdía al cerrarlo (`sitd-7`, 16-sep-2026).
+  //
+  // **Es lo que faltaba para que un viaje se pueda diagnosticar DESPUÉS.** Un
+  // viaje que no registró nada no guardaba ni un punto, así que en la base
+  // quedaba una fila vacía y ninguna explicación: exactamente el caso de los
+  // siete minutos en cero. Ahora el porqué queda escrito al lado del viaje, y
+  // viaja en el reporte.
+  [
+    'ALTER TABLE viajes ADD COLUMN descartadas INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE viajes ADD COLUMN sin_doppler INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE viajes ADD COLUMN precision_descartada REAL',
+    // Los motivos como texto, `motivo=cantidad` separados por coma. Una tabla
+    // aparte para cinco números por viaje sería más prolija y menos legible: en
+    // un teléfono sin depurador, poder leer una fila con los ojos gana.
+    'ALTER TABLE viajes ADD COLUMN motivos TEXT',
   ],
 ];
 

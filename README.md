@@ -3,14 +3,15 @@
 Telemetría, odometría y diagnóstico mecánico para una **Toyota Hilux 3.0**
 (1KD-FTV, 2008-2011). Android, sin conexión, sin servidor, sin cuenta de nadie.
 
-> **Estado: tanda 6 — el panel de sensores.** Ya mide. Se abre un viaje, el GPS
+> **Estado: tanda 7 — sacar los datos.** Ya mide. Se abre un viaje, el GPS
 > entrega una muestra por segundo, la distancia se integra de la velocidad
 > Doppler y cada muestra cruda queda guardada en el teléfono. Lleva las cargas
 > de combustible, con el consumo y el factor de neumáticos calculados al leer.
 > Y desde la tanda 5 escucha el acelerómetro: aprende cómo vibra esta
 > camioneta a cada velocidad y avisa cuando algo cambia. Y tiene un panel de
 > sensores que dice, en vivo, qué ve el teléfono y en qué estado está cada
-> sensor. Lo que falta es el micrófono.
+> sensor. Y desde la tanda 7 los datos pueden salir del teléfono: un reporte
+> para arreglar cosas y un respaldo completo. Lo que falta es el micrófono.
 
 ## Instalar en el teléfono
 
@@ -86,6 +87,19 @@ Una pantalla, tres botones y ningún menú:
 | **Pausar** | suelta el GPS sin cerrar el viaje. Para una parada larga |
 | **Terminar** | cierra el viaje y deja el total escrito |
 
+El menú de los tres puntos lleva también a **Sacar los datos**, que son dos
+cosas distintas y conviene no confundirlas:
+
+| | Qué lleva | A dónde va |
+|---|---|---|
+| **Reporte para desarrollo** | kilómetros, contadores, por qué se descartó cada muestra, resumen de velocidades y precisiones, vectores de vibración y cargas. **Ni una coordenada** | por donde sea: chat, mail, lo que haya |
+| **Respaldo completo** | una copia de la base tal cual está | Drive, una computadora, una tarjeta. **A un chat no**: lleva el recorrido |
+
+El reporte es lo que hay que mandar cuando algo no anda: trae todo lo que hace
+falta para entender qué pasó sin traer dónde estuvo la camioneta. Hay una
+prueba en el banco que busca coordenadas en el texto entero del archivo, así
+que eso no depende de que alguien se acuerde.
+
 El menú de los tres puntos lleva a **Sensores**: qué está entregando cada
 sensor del teléfono ahora mismo, a qué frecuencia real, y —para el GPS— por
 qué se descarta lo que se descarta. **Es la primera pantalla que hay que abrir
@@ -151,6 +165,8 @@ lib/
 │   │   ├── carga.dart       Una carga, tal como se teclea en la estación.
 │   │   ├── consumo.dart     Consumo de lleno a lleno, calculado al leer.
 │   │   └── registro_cargas.dart  Cargas y el ajuste del tanque.
+│   ├── respaldo/
+│   │   └── reporte.dart     Qué sale del teléfono, y qué no.
 │   ├── sensores/
 │   │   └── sensores.dart    Estado de un sensor y frecuencia medida.
 │   └── vibracion/
@@ -167,10 +183,11 @@ lib/
 │   ├── pantalla_carga.dart  El formulario, para llenar al lado del surtidor.
 │   ├── pantalla_vibracion.dart  Qué aprendió, y qué cambió.
 │   ├── pantalla_sensores.dart   Qué ve el teléfono, en vivo.
+│   ├── pantalla_respaldo.dart   Reporte y respaldo, con su advertencia.
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        185 casos. Corren sin emulador ni teléfono.
+test/                        195 casos. Corren sin emulador ni teléfono.
 .github/workflows/apk.yml    Verificación previa + APK + release.
 ```
 
@@ -178,16 +195,17 @@ test/                        185 casos. Corren sin emulador ni teléfono.
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-6` | `lib/core/version.dart` |
-| Esquema de la base | `2` | `lib/core/db/esquema.dart` |
+| Aplicación | `sitd-7` | `lib/core/version.dart` |
+| Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
 **manda el archivo**: esta tabla se copia a mano y se desactualiza en silencio.
 
-**La tanda 5 es la primera que toca el esquema**, y lo hace como manda la
-regla: la migración 0 → 1 no se editó —ya está instalada en un teléfono— y se
-agregó una 1 → 2 abajo, con la tabla `vibraciones`. Una base vieja migra sola
-al abrir; una nueva corre las dos y queda igual.
+**El esquema se toca agregando migraciones abajo, nunca editando una
+publicada.** Van tres: la 0 → 1 con las cuatro tablas del principio, la 1 → 2
+con `vibraciones` (tanda 5) y la 2 → 3 con el diagnóstico del viaje (tanda 7).
+Una base vieja corre las que le faltan al abrir; una nueva corre las tres y
+queda igual.
 
 ## Verificación previa
 
@@ -286,9 +304,10 @@ Flutter 3.47.4, JDK 17, SDK de Android. `minSdk` es **29** (Android 10) porque
 el teléfono de destino es un Redmi Note 9, no el Redmi 15 con el que se
 desarrolla.
 
-Dependencias, y son cuatro: `sqlite3` (base local, sin generación de código),
-`geolocator` (GPS y servicio en primer plano), `sensors_plus` (acelerómetro) y
-`path_provider` (dónde va el archivo de la base). La FFT es propia: son
+Dependencias, y son cinco: `sqlite3` (base local, sin generación de código),
+`geolocator` (GPS y servicio en primer plano), `sensors_plus` (acelerómetro),
+`share_plus` (sacar los datos del teléfono) y `path_provider` (dónde va el
+archivo de la base). La FFT es propia: son
 cuarenta líneas y sería el único paquete del proyecto que no habla con el
 sistema operativo.
 

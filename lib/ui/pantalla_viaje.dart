@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/fuente.dart';
 import '../features/odometro/registro.dart';
+import '../core/db/base.dart';
 import '../features/odometro/servicio.dart';
 import '../features/vibracion/analisis.dart';
 import '../features/vibracion/registro_vibracion.dart';
@@ -12,6 +13,7 @@ import '../features/vibracion/servicio_vibracion.dart';
 import 'formato.dart';
 import 'pantalla_combustible.dart';
 import 'pantalla_diagnostico.dart';
+import 'pantalla_respaldo.dart';
 import 'pantalla_sensores.dart';
 import 'pantalla_vibracion.dart';
 
@@ -27,6 +29,7 @@ class PantallaViaje extends StatefulWidget {
   final RegistroDeCargas cargas;
   final RegistroDeVibracion vibraciones;
   final ServicioVibracion vibracion;
+  final Base base;
   final String ruta;
 
   const PantallaViaje({
@@ -36,6 +39,7 @@ class PantallaViaje extends StatefulWidget {
     required this.cargas,
     required this.vibraciones,
     required this.vibracion,
+    required this.base,
     required this.ruta,
   });
 
@@ -258,14 +262,20 @@ class _PantallaViajeState extends State<PantallaViaje> {
           // se abren cuando algo anda raro, no todos los días.
           PopupMenuButton<String>(
             tooltip: 'Diagnóstico',
-            onSelected: (que) => _ir(
-              que == 'sensores'
-                  ? PantallaSensores(servicio: widget.servicio)
-                  : PantallaDiagnostico(
-                      registro: widget.registro,
-                      ruta: widget.ruta,
-                    ),
-            ),
+            onSelected: (que) => _ir(switch (que) {
+              'sensores' => PantallaSensores(servicio: widget.servicio),
+              'respaldo' => PantallaRespaldo(
+                base: widget.base,
+                viajes: widget.registro,
+                cargas: widget.cargas,
+                vibraciones: widget.vibraciones,
+                ruta: widget.ruta,
+              ),
+              _ => PantallaDiagnostico(
+                registro: widget.registro,
+                ruta: widget.ruta,
+              ),
+            }),
             itemBuilder: (_) => const [
               PopupMenuItem(
                 value: 'sensores',
@@ -273,6 +283,14 @@ class _PantallaViajeState extends State<PantallaViaje> {
                   leading: Icon(Icons.sensors),
                   title: Text('Sensores'),
                   subtitle: Text('Qué ve el teléfono ahora mismo'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'respaldo',
+                child: ListTile(
+                  leading: Icon(Icons.ios_share),
+                  title: Text('Sacar los datos'),
+                  subtitle: Text('Reporte para arreglar, o respaldo'),
                 ),
               ),
               PopupMenuItem(

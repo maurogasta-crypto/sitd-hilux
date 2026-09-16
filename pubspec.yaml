@@ -45,6 +45,7 @@ dependencies:
   # quedo abierto se retoma. Ver `fuente_gps.dart`.
   geolocator: ^14.0.3
   sensors_plus: ^7.1.0
+  share_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:

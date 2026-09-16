@@ -53,6 +53,7 @@ class AppSitd extends StatelessWidget {
               cargas: cargas,
               vibraciones: vibraciones,
               vibracion: vibracion,
+              base: arranque.base!,
               ruta: arranque.ruta,
             ),
     );

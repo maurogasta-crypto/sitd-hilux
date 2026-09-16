@@ -29,6 +29,17 @@ class Viaje {
   /// lista se lee distinto.
   final int muestras;
 
+  /// Cuántas posiciones se descartaron, cuántas llegaron sin velocidad, con
+  /// qué error típico y por qué motivos.
+  ///
+  /// **Sin esto, un viaje que no registró nada es una fila vacía sin
+  /// explicación.** Es la diferencia entre poder diagnosticarlo un mes después
+  /// y tener que salir a repetirlo.
+  final int descartadas;
+  final int sinDoppler;
+  final double? precisionDescartada;
+  final Map<String, int> motivos;
+
   const Viaje({
     required this.id,
     required this.inicio,
@@ -36,6 +47,10 @@ class Viaje {
     required this.metrosHaversine,
     required this.cortes,
     this.muestras = 0,
+    this.descartadas = 0,
+    this.sinDoppler = 0,
+    this.precisionDescartada,
+    this.motivos = const {},
     this.fin,
     this.odoTableroIni,
     this.odoTableroFin,
@@ -96,12 +111,23 @@ class RegistroDeViajes {
     ]);
   }
 
-  /// Vuelca el estado de la odometría sobre la fila del viaje.
-  void actualizar(int viaje, ResultadoOdometria r) {
+  /// Vuelca el estado de la odometría sobre la fila del viaje, con su
+  /// diagnóstico al lado.
+  void actualizar(int viaje, ResultadoOdometria r, {int sinDoppler = 0}) {
     base.db.execute(
-      'UPDATE viajes SET metros = ?, metros_haversine = ?, cortes = ? '
-      'WHERE id = ?',
-      [r.metros, r.metrosHaversine, r.cortes, viaje],
+      'UPDATE viajes SET metros = ?, metros_haversine = ?, cortes = ?, '
+      'descartadas = ?, sin_doppler = ?, precision_descartada = ?, '
+      'motivos = ? WHERE id = ?',
+      [
+        r.metros,
+        r.metrosHaversine,
+        r.cortes,
+        r.muestrasDescartadas,
+        sinDoppler,
+        r.precisionTipicaDescartada > 0 ? r.precisionTipicaDescartada : null,
+        r.descartes.entries.map((e) => '${e.key.name}=${e.value}').join(','),
+        viaje,
+      ],
     );
   }
 
@@ -111,8 +137,11 @@ class RegistroDeViajes {
     required int fin,
     ResultadoOdometria? odometria,
     double? odoTablero,
+    int sinDoppler = 0,
   }) {
-    if (odometria != null) actualizar(viaje, odometria);
+    if (odometria != null) {
+      actualizar(viaje, odometria, sinDoppler: sinDoppler);
+    }
     base.db.execute(
       'UPDATE viajes SET fin = ?, odo_tablero_fin = COALESCE(?, odo_tablero_fin) '
       'WHERE id = ?',
@@ -210,6 +239,19 @@ class RegistroDeViajes {
 
   void cerrarRecursos() => _insertarPunto.close();
 
+  /// `precisionMala=12,relojParaAtras=1` → `{precisionMala: 12, ...}`.
+  static Map<String, int> _motivos(String? texto) {
+    if (texto == null || texto.isEmpty) return const {};
+    final salida = <String, int>{};
+    for (final parte in texto.split(',')) {
+      final i = parte.indexOf('=');
+      if (i <= 0) continue;
+      final n = int.tryParse(parte.substring(i + 1));
+      if (n != null) salida[parte.substring(0, i)] = n;
+    }
+    return salida;
+  }
+
   static Viaje _aViaje(Row f) => Viaje(
     id: f['id'] as int,
     inicio: f['inicio'] as int,
@@ -218,6 +260,10 @@ class RegistroDeViajes {
     metrosHaversine: (f['metros_haversine'] as num).toDouble(),
     cortes: f['cortes'] as int,
     muestras: f['muestras'] as int,
+    descartadas: f['descartadas'] as int? ?? 0,
+    sinDoppler: f['sin_doppler'] as int? ?? 0,
+    precisionDescartada: (f['precision_descartada'] as num?)?.toDouble(),
+    motivos: _motivos(f['motivos'] as String?),
     odoTableroIni: (f['odo_tablero_ini'] as num?)?.toDouble(),
     odoTableroFin: (f['odo_tablero_fin'] as num?)?.toDouble(),
     notas: f['notas'] as String?,
