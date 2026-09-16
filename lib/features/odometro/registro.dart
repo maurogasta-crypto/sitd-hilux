@@ -180,6 +180,34 @@ class RegistroDeViajes {
     return r;
   }
 
+  /// Los pares (odómetro, GPS) con los que se aprende el factor de neumáticos.
+  ///
+  /// **Salen de los viajes, no de las cargas de combustible**, y la diferencia
+  /// no es de comodidad. Entre dos cargas puede haber kilómetros que el GPS no
+  /// vio —la aplicación cerrada, un viaje que nadie empezó— y esos kilómetros
+  /// faltantes harían que el factor saliera más chico de lo que es, sin que
+  /// nada avise. Un viaje, en cambio, tiene las dos medidas del MISMO tramo:
+  /// el GPS lo midió entero y el odómetro se anotó al empezar y al terminar.
+  ///
+  /// Sólo entran los tramos largos: `factorRobusto` descarta los de menos de
+  /// 20 km, porque el odómetro del tablero avanza de a 1 km y en un tramo
+  /// corto el error de leerlo domina sobre lo que se quiere medir.
+  List<ParCalibracion> paresDeCalibracion() => base.db
+      .select(
+        'SELECT metros, odo_tablero_ini, odo_tablero_fin FROM viajes '
+        'WHERE fin IS NOT NULL AND odo_tablero_ini IS NOT NULL '
+        'AND odo_tablero_fin IS NOT NULL AND odo_tablero_fin > odo_tablero_ini',
+      )
+      .map(
+        (f) => ParCalibracion(
+          kmTablero:
+              (f['odo_tablero_fin'] as num).toDouble() -
+              (f['odo_tablero_ini'] as num).toDouble(),
+          kmGps: (f['metros'] as num).toDouble() / 1000.0,
+        ),
+      )
+      .toList();
+
   void cerrarRecursos() => _insertarPunto.close();
 
   static Viaje _aViaje(Row f) => Viaje(

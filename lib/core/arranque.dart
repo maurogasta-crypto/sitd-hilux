@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/fuente_gps.dart';
 import '../features/odometro/registro.dart';
 import '../features/odometro/servicio.dart';
@@ -21,6 +22,7 @@ class Arranque {
   final String? error;
 
   final RegistroDeViajes? registro;
+  final RegistroDeCargas? cargas;
   final ServicioOdometria? servicio;
 
   const Arranque._({
@@ -28,6 +30,7 @@ class Arranque {
     this.base,
     this.error,
     this.registro,
+    this.cargas,
     this.servicio,
   });
 
@@ -53,6 +56,7 @@ class Arranque {
         ruta: ruta,
         base: base,
         registro: registro,
+        cargas: RegistroDeCargas(base),
         servicio: servicio,
       );
     } catch (e) {

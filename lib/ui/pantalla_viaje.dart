@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/fuente.dart';
 import '../features/odometro/registro.dart';
 import '../features/odometro/servicio.dart';
 import 'formato.dart';
+import 'pantalla_combustible.dart';
 import 'pantalla_diagnostico.dart';
 
 /// La pantalla del viaje en curso.
@@ -17,12 +19,14 @@ import 'pantalla_diagnostico.dart';
 class PantallaViaje extends StatefulWidget {
   final ServicioOdometria servicio;
   final RegistroDeViajes registro;
+  final RegistroDeCargas cargas;
   final String ruta;
 
   const PantallaViaje({
     super.key,
     required this.servicio,
     required this.registro,
+    required this.cargas,
     required this.ruta,
   });
 
@@ -51,11 +55,83 @@ class _PantallaViajeState extends State<PantallaViaje> {
   }
 
   Future<void> _empezar() async {
-    final ok = await widget.servicio.arrancar();
+    // Si el viaje ya estaba abierto (venía en pausa, o lo retomó la
+    // aplicación después de que el sistema la matara), no se vuelve a
+    // preguntar el odómetro: el tramo ya empezó.
+    double? odometro;
+    if (!widget.servicio.estado.value.hayViaje) {
+      final pedido = await _pedirOdometro(
+        titulo: 'Empezar el viaje',
+        explicacion:
+            'Si vas a hacer más de 20 km, anotá lo que marca el odómetro del '
+            'tablero. Con esa lectura y la de la llegada, la aplicación '
+            'aprende sola cuánto miente el tablero con los neumáticos que '
+            'tenés puestos. Para un viaje corto no sirve de nada: el '
+            'odómetro avanza de a 1 km.',
+        aceptar: 'Empezar',
+      );
+      if (pedido == null) return; // se arrepintió
+      odometro = pedido.valor;
+    }
+    final ok = await widget.servicio.arrancar(odoTablero: odometro);
     if (!ok && mounted) {
       final problema = widget.servicio.estado.value.problema;
       if (problema != null) _avisar(problema);
     }
+  }
+
+  /// Pide una lectura del odómetro sin obligar a darla: devuelve `null` si se
+  /// canceló, y un [_Odometro] con `valor` en nulo si se siguió sin anotar.
+  Future<_Odometro?> _pedirOdometro({
+    required String titulo,
+    required String explicacion,
+    required String aceptar,
+    String? extra,
+  }) async {
+    final campo = TextEditingController();
+    final valor = await showDialog<_Odometro>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(titulo),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (extra != null) ...[Text(extra), const SizedBox(height: 12)],
+            Text(explicacion, style: Theme.of(c).textTheme.bodySmall),
+            const SizedBox(height: 16),
+            TextField(
+              controller: campo,
+              autofocus: false,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Odómetro del tablero (opcional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(
+              c,
+              _Odometro(
+                double.tryParse(campo.text.trim().replaceAll(',', '.')),
+              ),
+            ),
+            child: Text(aceptar),
+          ),
+        ],
+      ),
+    );
+    campo.dispose();
+    return valor;
   }
 
   void _avisar(Disponibilidad problema) {
@@ -74,29 +150,20 @@ class _PantallaViajeState extends State<PantallaViaje> {
 
   Future<void> _terminar() async {
     final viaje = widget.servicio.estado.value;
-    final confirma = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Terminar el viaje'),
-        // Una confirmación dice qué pasa exactamente, no «¿estás seguro?».
-        content: Text(
+    // Una confirmación dice qué pasa exactamente, no «¿estás seguro?».
+    final pedido = await _pedirOdometro(
+      titulo: 'Terminar el viaje',
+      extra:
           'Se cierra el viaje con ${formatearKm(viaje.kilometros)} y queda '
           'guardado. Las muestras del GPS no se borran: el viaje se puede '
           'volver a calcular cuando mejore el filtro.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('Seguir midiendo'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('Terminar'),
-          ),
-        ],
-      ),
+      explicacion:
+          'Si anotaste el odómetro al salir, anotá también el de llegada: ese '
+          'par es lo que calibra el factor de neumáticos.',
+      aceptar: 'Terminar',
     );
-    if (confirma == true) await widget.servicio.terminar();
+    if (pedido == null) return;
+    await widget.servicio.terminar(odoTablero: pedido.valor);
   }
 
   @override
@@ -106,6 +173,18 @@ class _PantallaViajeState extends State<PantallaViaje> {
       appBar: AppBar(
         title: const Text('SITD Hilux'),
         actions: [
+          IconButton(
+            tooltip: 'Combustible',
+            icon: const Icon(Icons.local_gas_station),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => PantallaCombustible(
+                  cargas: widget.cargas,
+                  viajes: widget.registro,
+                ),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Estado de la aplicación',
             icon: const Icon(Icons.info_outline),
@@ -389,4 +468,13 @@ class _Dato extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Lo que devuelve el diálogo del odómetro. Una clase de un campo y no un
+/// `double?` suelto, porque hay que distinguir tres cosas: canceló (nulo),
+/// siguió sin anotar (`valor` nulo) y anotó un número.
+class _Odometro {
+  final double? valor;
+
+  const _Odometro(this.valor);
 }

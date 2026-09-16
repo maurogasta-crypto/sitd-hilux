@@ -32,3 +32,30 @@ String formatearDuracion(int ms) {
   if (minutos > 0) return '$minutos min';
   return '$segundos s';
 }
+
+/// Litros, con una decimal: el surtidor corta ahí y el tanque no necesita más.
+String formatearLitros(double litros) =>
+    '${litros.toStringAsFixed(1).replaceAll('.', ',')} L';
+
+/// Consumo en litros cada 100 km, que es como se habla en Uruguay.
+String formatearConsumo(double litrosCada100) =>
+    '${litrosCada100.toStringAsFixed(1).replaceAll('.', ',')} L/100 km';
+
+/// Plata, con su moneda adelante y **nunca** sumada con otra.
+///
+/// Se muestran dos decimales abajo de mil y ninguno arriba: el costo de una
+/// carga se lee de un vistazo y los centésimos de un total de cinco mil pesos
+/// no le sirven a nadie.
+String formatearDinero(double monto, String moneda) {
+  final texto = monto.abs() < 1000
+      ? monto.toStringAsFixed(2)
+      : monto.toStringAsFixed(0);
+  return '$moneda ${texto.replaceAll('.', ',')}';
+}
+
+/// Una fecha corta, como la diría alguien: `15/09`.
+String formatearFecha(int ms) {
+  final d = DateTime.fromMillisecondsSinceEpoch(ms);
+  String dos(int n) => n.toString().padLeft(2, '0');
+  return '${dos(d.day)}/${dos(d.month)}';
+}

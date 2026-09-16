@@ -3,10 +3,11 @@
 Telemetría, odometría y diagnóstico mecánico para una **Toyota Hilux 3.0**
 (1KD-FTV, 2008-2011). Android, sin conexión, sin servidor, sin cuenta de nadie.
 
-> **Estado: tanda 3 — la odometría en vivo, y la señal a la vista.** Ya mide. Se abre un viaje, el GPS
+> **Estado: tanda 4 — combustible.** Ya mide. Se abre un viaje, el GPS
 > entrega una muestra por segundo, la distancia se integra de la velocidad
-> Doppler y cada muestra cruda queda guardada en el teléfono. Lo que falta es
-> el combustible (tanda 3), el acelerómetro (4) y el micrófono (5).
+> Doppler y cada muestra cruda queda guardada en el teléfono. Y ya lleva las
+> cargas de combustible, con el consumo y el factor de neumáticos calculados
+> al leer. Lo que falta es el acelerómetro y el micrófono.
 
 ## Instalar en el teléfono
 
@@ -34,6 +35,38 @@ cada corrida en la pestaña **Actions**.
 instalada se firmó con otra clave de depuración. Se desinstala la vieja y se
 instala de nuevo. No pasa una vez que está andando.
 
+## Cómo se actualiza
+
+Es siempre lo mismo y conviene tenerlo claro, porque va a pasar en cada tanda:
+
+1. El cambio se empuja a `main`.
+2. GitHub Actions corre la verificación previa —analizador, formato, banco de
+   pruebas—, compila el APK y **reemplaza el release `ultimo`**. Tarda unos
+   cinco minutos. Si algo de la verificación falla, no se publica nada: el
+   release sigue siendo el anterior.
+3. Se entra al enlace de siempre, se baja el `.apk` y **se instala encima del
+   que está**. No se desinstala nada: es la misma clave de firma, así que
+   Android lo toma como una actualización.
+
+**Los datos no se tocan.** La base vive en el almacenamiento privado de la
+aplicación (`/data/user/0/uy.gasta.sitd_hilux/app_flutter/sitd.db`) y sobrevive
+a la actualización: los viajes, los puntos y las cargas siguen ahí. Lo único
+que los borra es **desinstalar** la aplicación o darle «Borrar datos» a mano.
+
+**Si una tanda cambia el esquema de la base**, la migración corre sola al abrir
+y `PRAGMA user_version` sube. Una migración publicada no se edita nunca: se
+agrega otra abajo. Por eso una base vieja siempre sabe llegar a la nueva, y por
+eso nunca hace falta empezar de cero.
+
+**Cómo saber qué versión tenés puesta:** el sello, arriba a la derecha en
+«Estado» (`sitd-4`, `sitd-5`…). Es lo que hay que mirar antes de reportar algo
+raro, porque dice exactamente qué código está corriendo en ese teléfono.
+
+**Lo que NO hay es actualización automática.** Android no la hace para un APK
+instalado de costado, así que cada tanda se instala a mano. Es el precio de no
+pasar por Play Store, y hoy conviene: publicar ahí obliga a una clave propia, a
+una ficha de privacidad y a una revisión por cada cambio.
+
 ## Cómo se usa
 
 Una pantalla, tres botones y ningún menú:
@@ -43,6 +76,11 @@ Una pantalla, tres botones y ningún menú:
 | **Empezar el viaje** | pide el permiso de ubicación —la primera vez— y abre un viaje |
 | **Pausar** | suelta el GPS sin cerrar el viaje. Para una parada larga |
 | **Terminar** | cierra el viaje y deja el total escrito |
+
+El icono del surtidor, arriba, lleva a **Combustible**: ahí se anota cada
+carga —litros, odómetro del tablero, costo, si quedó lleno— y se ven el
+consumo, el costo por kilómetro y el factor de neumáticos. Nada de eso se
+guarda calculado: sale de las cargas cada vez que se abre la pantalla.
 
 Arriba, los kilómetros en grande y la velocidad. Abajo, lo que hay que mirar
 cuando algo no cuadra: muestras usadas, descartadas, **sin velocidad**, cortes,
@@ -87,15 +125,21 @@ lib/
 │       ├── factor.dart      Corrección del odómetro de fábrica.
 │       ├── fuente.dart      La interfaz del GPS, y por qué es una interfaz.
 │       ├── fuente_gps.dart  El GPS real, con el servicio en primer plano.
-│       ├── registro.dart    Viajes y puntos en la base.
+│       ├── registro.dart    Viajes, puntos y los pares de calibración.
 │       └── servicio.dart    Junta las tres piezas y sostiene el viaje.
+│   └── combustible/
+│       ├── carga.dart       Una carga, tal como se teclea en la estación.
+│       ├── consumo.dart     Consumo de lleno a lleno, calculado al leer.
+│       └── registro_cargas.dart  Cargas y el ajuste del tanque.
 ├── ui/
 │   ├── formato.dart         Cómo se escribe un número para leerlo.
 │   ├── pantalla_viaje.dart  La pantalla del viaje en curso.
+│   ├── pantalla_combustible.dart  Consumo, factor y las cargas.
+│   ├── pantalla_carga.dart  El formulario, para llenar al lado del surtidor.
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        90 casos. Corren sin emulador ni teléfono.
+test/                        124 casos. Corren sin emulador ni teléfono.
 .github/workflows/apk.yml    Verificación previa + APK + release.
 ```
 
@@ -103,14 +147,14 @@ test/                        90 casos. Corren sin emulador ni teléfono.
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-3` | `lib/core/version.dart` |
+| Aplicación | `sitd-4` | `lib/core/version.dart` |
 | Esquema de la base | `1` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
 **manda el archivo**: esta tabla se copia a mano y se desactualiza en silencio.
 
-La tanda 2 **no** toca el esquema: las tablas `viajes` y `puntos` ya estaban
-creadas desde la migración 0 → 1. Recién ahora se llenan.
+Ninguna tanda tocó el esquema todavía: `viajes`, `puntos`, `cargas` y
+`ajustes` están las cuatro desde la migración 0 → 1. Se fueron llenando.
 
 ## Verificación previa
 
@@ -146,6 +190,22 @@ como «no anduvo» cuando lo que pasó es que nunca llegó una señal. Mientras 
 hay una sola muestra buena, la pantalla dice qué está esperando; y en la lista
 de viajes, uno sin muestras se muestra como **«Sin muestras»** y no como un
 cero. Salió de la primera prueba real, un viaje de 13 segundos puertas adentro.
+
+**El consumo se calcula de un tanque lleno al siguiente.** Es la única cuenta
+que no depende de adivinar: un tanque sólo se sabe cuánto tiene cuando
+rebalsa, así que entre dos llenados los litros que entraron son exactamente los
+que se quemaron. Los litros de la carga que **abre** el tramo no cuentan —ésos
+se quemaron antes— y una carga parcial no cierra el tramo, aunque sus litros
+entren en él. El promedio de toda la historia pesa por kilómetro y no por
+tramo: si no, una carga corta en ciudad valdría lo mismo que una tirada de
+600 km.
+
+**El par que calibra los neumáticos sale de un VIAJE, no de dos cargas.** Entre
+dos cargas puede haber kilómetros que el GPS no vio —la aplicación cerrada, un
+viaje que nadie empezó—, y esos kilómetros faltantes harían que el factor
+saliera más chico de lo que es, sin que nada avise. Un viaje, en cambio, tiene
+las dos medidas del mismo tramo: por eso la aplicación ofrece anotar el
+odómetro al empezar y al terminar, y por eso nunca lo exige.
 
 **El factor de neumáticos corrige al tablero, no al GPS.** El GPS ya mide la
 distancia real. El que miente es el odómetro de fábrica, que cuenta vueltas de

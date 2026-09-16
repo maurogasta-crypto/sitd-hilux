@@ -143,7 +143,33 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
 - **Los derivados no se guardan.** Consumo, autonomía y factor se calculan al
   leer. En la base entra lo que Mauro tecleó y lo que midió el sensor.
 
-- **Cada moneda es un sistema aparte.** UYU y USD no se suman nunca.
+- **Cada moneda es un sistema aparte.** UYU y USD no se suman nunca. El costo
+  de una ventana de consumo es un mapa por moneda y no un número, para que no
+  haya dónde sumarlas ni por accidente.
+
+- **El consumo se calcula de un tanque lleno al siguiente.** Un tanque sólo se
+  sabe cuánto tiene cuando rebalsa: entre dos llenados, los litros que entraron
+  son exactamente los que se quemaron. Los litros de la carga que **abre** el
+  tramo no cuentan, y una carga parcial no lo cierra aunque sus litros entren.
+  Cualquier otra cuenta depende de adivinar cuánto quedaba, y ese error se
+  arrastra a todas las cargas siguientes.
+
+- **El promedio de consumo pesa por kilómetro, no por tramo.** El promedio de
+  los promedios haría que una carga corta en ciudad valiera lo mismo que una
+  tirada de 600 km.
+
+- **El par que calibra los neumáticos sale de un VIAJE, no de dos cargas.**
+  Entre dos cargas puede haber kilómetros que el GPS no vio —la aplicación
+  cerrada, un viaje que nadie empezó—, y eso haría que el factor saliera más
+  chico de lo que es sin que nada avise. Un viaje tiene las dos medidas del
+  mismo tramo. Por eso se ofrece anotar el odómetro al empezar y al terminar, y
+  por eso **nunca se exige**: un viaje sin esa anotación sigue midiendo bien,
+  sólo que no calibra.
+
+- **La autonomía es la de un tanque lleno, no lo que queda.** La aplicación no
+  tiene forma de saber el nivel del tanque: el flotante no se le puede
+  preguntar sin OBD2, y esta camioneta no habla OBD2. Decir «te quedan 180 km»
+  sería inventarlo.
 
 - **El micrófono es oportunista; el acelerómetro es el titular.** Se muestrea
   audio **sólo** cuando se cumplen las cuatro condiciones: no hay audio
@@ -281,7 +307,7 @@ el teléfono.
 |---|---|---|
 | **A** | Esqueleto: base, migraciones, APK que compila y se instala | **entregado** (`sitd-1`) |
 | **B** | Servicio en primer plano y odometría GPS en vivo | **entregado** (`sitd-2`) |
-| **C** | Combustible: cargas, consumo derivado, calibración de `k` | pendiente |
+| **C** | Combustible: cargas, consumo derivado, calibración de `k` | **entregado** (`sitd-4`) |
 | **D** | Acelerómetro: línea base por cubeta, anomalías | pendiente |
 | **E** | Micrófono: FFT, compuerta de audio, escenarios | pendiente |
 
