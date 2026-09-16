@@ -40,11 +40,69 @@ Muestra? muestraDePosicion(Position p) {
 ///
 /// Si con eso todavía se pierden viajes, lo que sigue es un motor de Flutter
 /// aparte en un servicio propio —que es un cambio grande— y no un ajuste acá.
+/// Las tres formas de pedirle posiciones a Android.
+///
+/// **Existen porque el 2026-09-16 el receptor no entregó NI UNA a cielo
+/// abierto, dos veces.** Con cero lecturas —ni siquiera descartadas— el
+/// problema está antes del filtro: o del permiso, o de cómo se le pide. Cada
+/// modo saca una pieza del medio, y probándolos en la cabina se ve cuál es.
+enum ModoGps {
+  /// Como mide un viaje: servicio en primer plano con notificación, y el
+  /// proveedor fusionado de Google.
+  normal,
+
+  /// Igual, pero **sin** el servicio en primer plano. Si con esto entra y con
+  /// el normal no, el que falla es el servicio — y eso en un Xiaomi es
+  /// creíble: HyperOS bloquea servicios en primer plano con la mano suelta.
+  sinNotificacion,
+
+  /// El **LocationManager** de Android en vez del proveedor fusionado de
+  /// Google. Salta Play Services entero. Si sólo con esto entra, el problema
+  /// está ahí y no en la aplicación.
+  receptorDirecto,
+}
+
+String nombreDeModo(ModoGps m) => switch (m) {
+  ModoGps.normal => 'Normal',
+  ModoGps.sinNotificacion => 'Sin notificación',
+  ModoGps.receptorDirecto => 'Receptor directo',
+};
+
+/// Lo que se sabe del GPS sin haber recibido todavía una posición.
+class DiagnosticoGps {
+  /// `whileInUse`, `always`, `denied`, `deniedForever`…
+  final String permiso;
+
+  /// Si la ubicación del sistema está encendida.
+  final bool servicioEncendido;
+
+  /// La última posición que el SISTEMA conoce, de cualquier aplicación.
+  ///
+  /// **Es la pregunta que separa dos mundos.** Si hay una última conocida
+  /// razonable, el receptor del teléfono funciona y el problema es de cómo la
+  /// pide esta aplicación. Si no hay ninguna, el receptor no fijó nunca —y eso
+  /// no lo arregla ningún código.
+  final Muestra? ultimaConocida;
+
+  final String? falla;
+
+  const DiagnosticoGps({
+    required this.permiso,
+    required this.servicioEncendido,
+    this.ultimaConocida,
+    this.falla,
+  });
+}
+
 class FuenteGps implements FuenteDeMuestras {
   /// Cada cuánto se pide una posición. A 1 Hz la regla del trapecio ya no
   /// aporta error frente al propio sensor, y el gasto de batería es el que
   /// tiene cualquier navegador andando.
   final Duration intervalo;
+
+  /// Cómo se le pide al sistema. Un viaje usa [ModoGps.normal]; los otros dos
+  /// son para la pantalla de sensores, que es donde se diagnostica.
+  final ModoGps modo;
 
   /// Sólo para el banco de pruebas: deja poner un GPS de mentira en lugar del
   /// del teléfono.
@@ -52,13 +110,41 @@ class FuenteGps implements FuenteDeMuestras {
 
   FuenteGps({
     this.intervalo = const Duration(seconds: 1),
+    this.modo = ModoGps.normal,
     GeolocatorPlatform? gps,
   }) : gps = gps ?? GeolocatorPlatform.instance;
+
+  /// Todo lo que se puede saber antes de la primera posición.
+  Future<DiagnosticoGps> diagnosticar() async {
+    var permiso = 'sin averiguar';
+    var encendido = false;
+    try {
+      encendido = await gps.isLocationServiceEnabled();
+      permiso = (await gps.checkPermission()).name;
+      final ultima = await gps.getLastKnownPosition();
+      return DiagnosticoGps(
+        permiso: permiso,
+        servicioEncendido: encendido,
+        ultimaConocida: ultima == null ? null : muestraDePosicion(ultima),
+      );
+    } catch (e) {
+      return DiagnosticoGps(
+        permiso: permiso,
+        servicioEncendido: encendido,
+        falla: '$e',
+      );
+    }
+  }
 
   @override
   Stream<Lectura> get lecturas => gps
       .getPositionStream(locationSettings: _ajustes)
       .map((p) => Lectura(muestraDePosicion(p)));
+
+  /// Los mismos ajustes que usa el stream, para que el banco pueda mirarlos.
+  /// Sin esto, la diferencia entre los tres modos sólo se podría comprobar
+  /// arriba de la camioneta.
+  LocationSettings get ajustesParaPruebas => _ajustes;
 
   LocationSettings get _ajustes => AndroidSettings(
     accuracy: LocationAccuracy.best,
@@ -67,13 +153,16 @@ class FuenteGps implements FuenteDeMuestras {
     // y el hueco resultante se lee como un corte.
     distanceFilter: 0,
     intervalDuration: intervalo,
-    foregroundNotificationConfig: const ForegroundNotificationConfig(
-      notificationTitle: 'SITD Hilux',
-      notificationText: 'Midiendo el viaje',
-      notificationChannelName: 'Odometría',
-      setOngoing: true,
-      enableWakeLock: true,
-    ),
+    forceLocationManager: modo == ModoGps.receptorDirecto,
+    foregroundNotificationConfig: modo == ModoGps.normal
+        ? const ForegroundNotificationConfig(
+            notificationTitle: 'SITD Hilux',
+            notificationText: 'Midiendo el viaje',
+            notificationChannelName: 'Odometría',
+            setOngoing: true,
+            enableWakeLock: true,
+          )
+        : null,
   );
 
   @override

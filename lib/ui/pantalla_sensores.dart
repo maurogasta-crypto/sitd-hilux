@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 import '../features/odometro/fuente.dart';
+import '../features/odometro/fuente_gps.dart';
 import '../features/odometro/integrador.dart';
 import '../features/odometro/muestra.dart';
 import '../features/odometro/servicio.dart';
@@ -50,6 +51,10 @@ class _PantallaSensoresState extends State<PantallaSensores> {
   Muestra? _crudaPropia;
   MotivoDescarte? _motivoPropio;
   Disponibilidad? _problemaGps;
+  DiagnosticoGps? _diagnostico;
+  ModoGps _modo = ModoGps.normal;
+  FuenteGps? _fuentePropia;
+  int _desdeElModo = 0;
 
   late final int _desde = DateTime.now().millisecondsSinceEpoch;
   Timer? _refresco;
@@ -59,6 +64,7 @@ class _PantallaSensoresState extends State<PantallaSensores> {
   @override
   void initState() {
     super.initState();
+    _desdeElModo = _ahora;
 
     // **No se repinta con cada lectura.** El acelerómetro entrega cincuenta
     // veces por segundo: un `setState` por muestra son cincuenta
@@ -98,15 +104,34 @@ class _PantallaSensoresState extends State<PantallaSensores> {
 
   /// Si no hay viaje midiendo, esta pantalla escucha el GPS por su cuenta —y
   /// sólo mientras está abierta.
+  ///
+  /// **Y lo hace de tres formas distintas, a elección.** El 2026-09-16 el
+  /// receptor no entregó ni una posición a cielo abierto, dos veces, con cero
+  /// lecturas: ni siquiera descartadas. Con cero, el problema está antes del
+  /// filtro — o del permiso, o de cómo se le pide al sistema. Cada modo saca
+  /// una pieza del medio, y el que entregue dice cuál era.
   Future<void> _engancharGps() async {
     if (widget.servicio.estado.value.midiendo) return;
-    final disponible = await widget.servicio.fuente.preparar();
+
+    final fuente = FuenteGps(modo: _modo);
+    _fuentePropia = fuente;
+
+    // Lo que se puede saber ANTES de la primera posición, que es justamente lo
+    // que faltaba: el permiso con su nombre, si la ubicación del sistema está
+    // encendida, y si el sistema tiene una última posición conocida.
+    final diagnostico = await fuente.diagnosticar();
+    if (!mounted) return;
+    setState(() => _diagnostico = diagnostico);
+
+    final disponible = await fuente.preparar();
     if (!mounted) return;
     if (!disponible.puedeArrancar) {
       setState(() => _problemaGps = disponible);
       return;
     }
-    _gpsPropio = widget.servicio.fuente.lecturas.listen(
+    setState(() => _problemaGps = null);
+
+    _gpsPropio = fuente.lecturas.listen(
       (l) {
         final m = l.muestra;
         _gps.anotar(_ahora);
@@ -127,6 +152,23 @@ class _PantallaSensoresState extends State<PantallaSensores> {
     );
   }
 
+  /// Cambiar de modo corta la suscripción anterior antes de abrir la nueva:
+  /// **al GPS se lo escucha una vez y nada más.**
+  Future<void> _cambiarModo(ModoGps modo) async {
+    await _gpsPropio?.cancel();
+    _gpsPropio = null;
+    await _fuentePropia?.detener();
+    _gps.reiniciar();
+    setState(() {
+      _modo = modo;
+      _desdeElModo = _ahora;
+      _crudaPropia = null;
+      _motivoPropio = null;
+      _problemaGps = null;
+    });
+    await _engancharGps();
+  }
+
   @override
   void dispose() {
     _refresco?.cancel();
@@ -134,6 +176,7 @@ class _PantallaSensoresState extends State<PantallaSensores> {
       s.cancel();
     }
     _gpsPropio?.cancel();
+    _fuentePropia?.detener();
     super.dispose();
   }
 
@@ -155,7 +198,10 @@ class _PantallaSensoresState extends State<PantallaSensores> {
             cruda: enViaje ? e.ultimaCruda : _crudaPropia,
             motivo: enViaje ? e.ultimoMotivo : _motivoPropio,
             problema: enViaje ? e.problema : _problemaGps,
-            desde: _desde,
+            diagnostico: _diagnostico,
+            modo: _modo,
+            alCambiarModo: enViaje ? null : _cambiarModo,
+            desde: enViaje ? _desde : _desdeElModo,
             ahora: _ahora,
             criterios: widget.servicio.criterios,
           ),
@@ -360,6 +406,9 @@ class _Gps extends StatelessWidget {
   final Muestra? cruda;
   final MotivoDescarte? motivo;
   final Disponibilidad? problema;
+  final DiagnosticoGps? diagnostico;
+  final ModoGps modo;
+  final Future<void> Function(ModoGps)? alCambiarModo;
   final CriteriosGps criterios;
   final int desde;
   final int ahora;
@@ -371,6 +420,9 @@ class _Gps extends StatelessWidget {
     required this.cruda,
     required this.motivo,
     required this.problema,
+    required this.diagnostico,
+    required this.modo,
+    required this.alCambiarModo,
     required this.criterios,
     required this.desde,
     required this.ahora,
@@ -408,6 +460,31 @@ class _Gps extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
+            if (diagnostico != null) ...[
+              // Lo que se sabe ANTES de la primera posición. Es la diferencia
+              // entre «el receptor no fijó» y «el receptor anda pero esta
+              // aplicación no lo está pidiendo bien».
+              Text(
+                'Permiso: ${diagnostico!.permiso} · ubicación del sistema: '
+                '${diagnostico!.servicioEncendido ? "encendida" : "APAGADA"}',
+                style: t.textTheme.bodySmall,
+              ),
+              Text(
+                diagnostico!.ultimaConocida == null
+                    ? 'El sistema no tiene ninguna posición conocida: el '
+                          'receptor no fijó todavía, ni para esta aplicación '
+                          'ni para ninguna otra.'
+                    : 'El sistema SÍ tiene una última posición conocida '
+                          '(${diagnostico!.ultimaConocida!.precision.toStringAsFixed(0)} m '
+                          'de error): el receptor del teléfono funciona.',
+                style: t.textTheme.bodySmall?.copyWith(
+                  color: diagnostico!.ultimaConocida == null
+                      ? t.colorScheme.outline
+                      : t.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             if (problema != null)
               Text(problema!.mensaje, style: t.textTheme.bodyMedium)
             else if (cruda == null)

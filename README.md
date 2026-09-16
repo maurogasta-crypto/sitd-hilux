@@ -3,7 +3,7 @@
 Telemetría, odometría y diagnóstico mecánico para una **Toyota Hilux 3.0**
 (1KD-FTV, 2008-2011). Android, sin conexión, sin servidor, sin cuenta de nadie.
 
-> **Estado: tanda 8 — la pantalla que no se apaga.** Ya mide. Se abre un viaje, el GPS
+> **Estado: tanda 9 — por qué el GPS no entrega.** Ya mide. Se abre un viaje, el GPS
 > entrega una muestra por segundo, la distancia se integra de la velocidad
 > Doppler y cada muestra cruda queda guardada en el teléfono. Lleva las cargas
 > de combustible, con el consumo y el factor de neumáticos calculados al leer.
@@ -174,6 +174,33 @@ el haversine de control y la discrepancia entre los dos métodos. El icono de
 información de la barra lleva al estado de la aplicación y a los últimos
 viajes.
 
+### Si el GPS no entrega ni una posición: los tres modos
+
+**El caso que los trajo:** dos veces, a cielo abierto, el receptor no entregó
+**ni una** lectura. Ni siquiera descartadas — cero. Con cero, el problema está
+**antes** del filtro: o del permiso, o de cómo se le pide al sistema.
+
+En **Sensores**, cuando no hay un viaje midiendo, la tarjeta del GPS muestra
+tres cosas que se saben *antes* de la primera posición:
+
+- **el permiso con su nombre** (`whileInUse`, `denied`, `deniedForever`…),
+- si la **ubicación del sistema** está encendida,
+- y si **el sistema tiene una última posición conocida**. Ésta es la que separa
+  dos mundos: si la hay, el receptor del teléfono funciona y el problema es de
+  cómo la pide esta aplicación; si no hay ninguna, el receptor no fijó nunca y
+  eso no lo arregla ningún código.
+
+Y abajo, un selector con tres formas de pedirlas:
+
+| Modo | Qué saca del medio |
+|---|---|
+| **Normal** | como mide un viaje: servicio en primer plano con notificación, proveedor de Google |
+| **Sin notificación** | saca el servicio en primer plano. Si con esto entran y con «Normal» no, **el que falla es el servicio** — y HyperOS los bloquea con la mano suelta |
+| **Receptor directo** | usa el `LocationManager` de Android en vez del proveedor de Google: saltea Play Services entero |
+
+Se prueba parado en la calle: se elige un modo, se esperan un par de minutos y
+se mira el contador. El que entregue dice cuál era el problema.
+
 ### Lo que el panel de sensores encontró en el Redmi 15
 
 Medido el 2026-09-16, no deducido de una ficha técnica: el acelerómetro entrega
@@ -251,7 +278,7 @@ lib/
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        201 casos. Corren sin emulador ni teléfono.
+test/                        206 casos. Corren sin emulador ni teléfono.
 .github/workflows/apk.yml    Verificación previa + APK + release.
 ```
 
@@ -259,7 +286,7 @@ test/                        201 casos. Corren sin emulador ni teléfono.
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-8` | `lib/core/version.dart` |
+| Aplicación | `sitd-9` | `lib/core/version.dart` |
 | Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

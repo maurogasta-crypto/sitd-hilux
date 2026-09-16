@@ -330,6 +330,25 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   alto es el haversine de control. **Era 20 m hasta `sitd-6`**, y es una de las
   explicaciones posibles del viaje de siete minutos que dio cero.
 
+- **El GPS se puede pedir de tres formas, y eso es una herramienta de
+  diagnóstico, no una opción de configuración.** El 2026-09-16 el receptor no
+  entregó **ni una** posición a cielo abierto, dos veces, con cero lecturas —
+  ni siquiera descartadas. Con cero, el problema está antes del filtro: o del
+  permiso, o de cómo se le pide al sistema. `ModoGps` tiene `normal` (lo que
+  usa un viaje), `sinNotificacion` (sin servicio en primer plano) y
+  `receptorDirecto` (`LocationManager` en vez del proveedor de Google, salteando
+  Play Services). Se eligen en la pantalla de sensores y **un viaje usa siempre
+  `normal`**: los otros dos existen para que, parado en la calle, se vea cuál
+  entrega. El que entregue dice dónde estaba el problema.
+
+- **Antes de la primera posición ya se puede saber bastante.** El permiso con
+  su nombre, si la ubicación del sistema está encendida, y sobre todo si el
+  SISTEMA tiene una última posición conocida — `getLastKnownPosition()`. Esa
+  última separa dos mundos: si la hay, el receptor del teléfono funciona y el
+  problema es de cómo la pide esta aplicación; si no hay ninguna, el receptor
+  no fijó nunca y eso no lo arregla ningún código. Está en `diagnosticar()` y
+  se muestra en la pantalla de sensores.
+
 - **Al GPS se lo escucha UNA vez y nada más.** La pantalla de sensores mira lo
   que ya tiene el servicio si hay un viaje midiendo, y abre la suya sólo si no
   lo hay —cerrándola al salir—. Dos suscripciones son dos veces la misma
@@ -452,6 +471,13 @@ que no se haya entregado.
 - **Los servicios en primer plano necesitan su `foregroundServiceType`**
   declarado (`location`, `microphone`) desde Android 14, y el de micrófono no
   puede arrancar desde segundo plano.
+
+  **Y desde Android 13 su notificación necesita `POST_NOTIFICATIONS` para
+  VERSE.** El servicio arranca igual sin ese permiso, pero queda sin cartel — y
+  un servicio en primer plano invisible es justo lo que un Xiaomi mata sin que
+  nadie se entere. El permiso está declarado desde `sitd-9`; **falta pedirlo en
+  tiempo de ejecución**, y entra con el micrófono, que necesita el mismo
+  mecanismo.
 - **MIUI/HyperOS mata los servicios en segundo plano.** Autostart y batería sin
   restricciones, a mano, en los dos teléfonos. Sin eso el GPS se apaga con la
   pantalla y no avisa. Es configuración del aparato, no del código, y por eso

@@ -64,4 +64,53 @@ void main() {
       expect(m.velocidad, 20);
     });
   });
+
+  group('los modos de pedir posiciones', () {
+    // Existen porque el receptor no entregó NI UNA a cielo abierto, dos veces,
+    // con cero lecturas. Con cero, el problema está antes del filtro: cada
+    // modo saca una pieza del medio para ver cuál es.
+    test('los tres tienen nombre en castellano y son distintos', () {
+      final nombres = ModoGps.values.map(nombreDeModo).toSet();
+      expect(nombres.length, ModoGps.values.length);
+      for (final n in nombres) {
+        expect(n, isNotEmpty);
+      }
+    });
+
+    test('el normal lleva servicio en primer plano y proveedor de Google', () {
+      final ajustes =
+          FuenteGps(modo: ModoGps.normal).ajustesParaPruebas as AndroidSettings;
+      expect(ajustes.foregroundNotificationConfig, isNotNull);
+      expect(ajustes.forceLocationManager, isFalse);
+    });
+
+    test('sin notificación saca el servicio y deja el resto igual', () {
+      final ajustes =
+          FuenteGps(modo: ModoGps.sinNotificacion).ajustesParaPruebas
+              as AndroidSettings;
+      expect(ajustes.foregroundNotificationConfig, isNull);
+      expect(ajustes.forceLocationManager, isFalse);
+      expect(ajustes.distanceFilter, 0);
+    });
+
+    test('el receptor directo saltea Play Services', () {
+      final ajustes =
+          FuenteGps(modo: ModoGps.receptorDirecto).ajustesParaPruebas
+              as AndroidSettings;
+      expect(ajustes.forceLocationManager, isTrue);
+    });
+
+    // El filtro de distancia en cero no es un descuido: la integración
+    // necesita muestras a intervalos parejos, y con filtro el receptor calla
+    // cuando el vehículo está quieto — y ese hueco se lee como un corte.
+    test('ningún modo pone filtro de distancia', () {
+      for (final m in ModoGps.values) {
+        expect(
+          (FuenteGps(modo: m).ajustesParaPruebas as AndroidSettings)
+              .distanceFilter,
+          0,
+        );
+      }
+    });
+  });
 }

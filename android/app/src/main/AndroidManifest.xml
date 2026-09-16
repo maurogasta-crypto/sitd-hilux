@@ -16,6 +16,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
 
+    <!-- Desde Android 13 la notificación del servicio en primer plano necesita
+         este permiso para VERSE. El servicio arranca igual sin él, pero queda
+         sin cartel — y un servicio en primer plano invisible es justo lo que un
+         Xiaomi mata sin que nadie se entere. Falta pedirlo en tiempo de
+         ejecución; entra con el micrófono, que necesita el mismo mecanismo. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
     <!-- Lo que NO se pide, a propósito: ACCESS_BACKGROUND_LOCATION. No hace
          falta — un servicio en primer plano de tipo `location`, arrancado con
          la aplicación a la vista, puede seguir recibiendo ubicación después—,
