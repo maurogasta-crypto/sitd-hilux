@@ -106,14 +106,27 @@ con claves distintas no se pueden instalar uno encima del otro — Android dice
 desinstalar borra la base**. No es un problema del teléfono ni de MIUI: es el
 runner generando una clave nueva cada vez.
 
-**Mauro decidió el 2026-09-16 que la clave propia va en GitHub Secrets**, que
-es lo que este archivo ya decía para el día que hiciera falta. El workflow la
-usa si está y cae en la de depuración si no, avisando en las notas del release
-cuál se usó — así no hay una tanda que falle por una credencial que todavía no
-se cargó. El paso a paso está en el `README.md`; los nombres exactos, en la
-tabla de arriba. **El `.jks` no entra al repositorio ni a un chat**, y si se
-pierde no hay forma de volver a firmar una actualización: eso es lo que hay
-que cuidar, más que las contraseñas.
+**El destino está decidido y la fecha no: la clave propia va en GitHub
+Secrets**, que es lo que este archivo ya decía para el día que hiciera falta.
+El código ya está — el workflow la usa si está y cae en la de depuración si no,
+avisando en las notas del release cuál se usó, así que ninguna tanda falla por
+una credencial que todavía no se cargó. El paso a paso está en el `README.md`;
+los nombres exactos, en la tabla de arriba.
+
+**Lo que falta es `keytool`, y eso no está en un teléfono.** Mauro no tiene
+computadora a disposición —sólo la web y su Android—, así que el 2026-09-16
+decidió **seguir desinstalando por ahora** antes que meter material de clave en
+el repositorio, aunque fuera cifrado. Es una decisión consciente con un costo
+conocido, no un olvido: **cada tanda borra la base**.
+
+Y tiene una consecuencia que ordena lo que sigue: mientras esto siga así, lo
+que de verdad salva la historia es **poder volver a meter un respaldo**
+(`hilux:R2`), no el respaldo en sí. Por eso ese pendiente dejó de ser una deuda
+tranquila.
+
+**El `.jks` no entra al repositorio ni a un chat**, y si se pierde no hay forma
+de volver a firmar una actualización: eso es lo que hay que cuidar, más que las
+contraseñas.
 
 **Si algún día va a Play Store**, hace falta un *keystore* de verdad. Ese
 archivo y su contraseña **no entran a este repositorio**: van como GitHub
@@ -385,9 +398,11 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   alimentaría eso, y lo primero que hay que resolver entonces es dónde vive el
   recorrido y con qué credenciales — no el modelo.
 
-- **Todavía no se puede VOLVER a meter un respaldo en el teléfono.** Está
-  dicho en la pantalla con esas palabras, y es una deuda anotada, no un olvido:
-  guardar es lo urgente porque lo que no se guardó no se restaura después.
+- **Todavía no se puede VOLVER a meter un respaldo en el teléfono, y desde el
+  2026-09-16 eso importa más que antes.** Mientras la firma siga siendo la de
+  depuración, cada tanda obliga a desinstalar y desinstalar borra la base: el
+  respaldo guarda la historia pero no la devuelve. Está dicho en la pantalla
+  con esas palabras y es `hilux:R2`.
 
 - **El OBD2 es opcional y va detrás de una interfaz.** Esta Hilux puede hablar
   **MOBD**, el protocolo propio de Toyota, y no OBD2 genérico: el conector

@@ -58,10 +58,14 @@ instalar, y **eso borra la base**. Antes conviene sacar un respaldo: menú de lo
 tres puntos → Sacar los datos → Respaldo completo. (Todavía no se puede volver a
 meterlo: sirve para no perder la historia, no para restaurarla en el teléfono.)
 
-**La solución, decidida el 2026-09-16: una clave propia en GitHub Secrets.** El
-workflow ya la usa si está, y sigue compilando con la de depuración si no — con
-un aviso en las notas del release diciendo cuál se usó. Se hace una vez, y hace
-falta `keytool`, que no está en el teléfono:
+**La solución es una clave propia en GitHub Secrets**, y el workflow ya la usa
+si está —sigue compilando con la de depuración si no, avisando en las notas del
+release cuál usó—. Lo que falta es generarla, y para eso hace falta `keytool`,
+que no está en un teléfono.
+
+> **Al 2026-09-16 no hay computadora a disposición, así que se sigue
+> desinstalando en cada tanda.** Es una decisión con un costo conocido y no un
+> olvido. El día que haya una computadora a mano, son diez minutos:
 
 ```bash
 keytool -genkeypair -v \
