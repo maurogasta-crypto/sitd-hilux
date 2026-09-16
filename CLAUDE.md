@@ -530,7 +530,8 @@ que no se haya entregado.
   nadie se entere. El permiso está declarado desde `sitd-9`, y el micrófono va a
   necesitar el mismo mecanismo cuando entre la etapa E.
 
-  **Desde `sitd-11` se pide de verdad**, con `permission_handler`, y se pide
+  **Desde `sitd-11` se pide de verdad**, con `permission_handler` **clavado en
+  la 12**, y se pide
   **una vez por viaje y no una por escalón**: es un permiso de la aplicación,
   no del modo, y abrir el mismo diálogo tres veces sería castigar a quien está
   por salir a manejar. Si sale negado **no se impide medir** —eso sería cambiar
@@ -538,6 +539,15 @@ que no se haya entregado.
   pantalla del viaje y en la de sensores. Declarar un permiso en el manifiesto
   sin pedirlo en tiempo de ejecución no hace absolutamente nada, y entre
   `sitd-9` y `sitd-10` eso fue exactamente lo que estuvo pasando.
+
+  **Y la versión está clavada por una razón que no se ve desde Dart:** la 13 de
+  `permission_handler` trae un `permission_handler_android` que exige compilar
+  contra la **API 37**, y el plugin de Gradle que usa Flutter hoy llega hasta la
+  36. El APK no compila y el error habla de «AAR metadata», así que no se
+  parece en nada a un problema de versiones de un paquete — pasó en la corrida
+  17 del 2026-09-16, con el analizador, el formato y los 222 casos en verde. El
+  porqué está escrito al lado de la dependencia en `pubspec.yaml`: **se destraba
+  cuando suba el plugin de Gradle, no antes.**
 - **MIUI/HyperOS mata los servicios en segundo plano.** Autostart y batería sin
   restricciones, a mano, en los dos teléfonos. Sin eso el GPS se apaga con la
   pantalla y no avisa. Es configuración del aparato, no del código, y por eso

@@ -47,7 +47,20 @@ dependencies:
   sensors_plus: ^7.1.0
   share_plus: ^13.3.0
   wakelock_plus: ^1.8.0
-  permission_handler: ^13.0.2
+  # El permiso de notificaciones, en tiempo de ejecucion.
+  #
+  # Desde Android 13 la notificacion del servicio en primer plano necesita
+  # POST_NOTIFICATIONS para VERSE, y declararlo en el manifiesto sin pedirlo
+  # aca no hace absolutamente nada. Un servicio en primer plano invisible es
+  # justo lo que un Xiaomi mata sin que nadie se entere.
+  #
+  # CLAVADO EN LA 12 A PROPOSITO, y no se sube sin mirar esto: la 13 trae
+  # permission_handler_android 14, que exige compilar contra la API 37, y el
+  # plugin de Gradle que usa Flutter hoy llega hasta la 36 — el APK no compila
+  # y el error habla de AAR metadata, no de este archivo. Ya paso en la corrida
+  # 17 del 2026-09-16. La 12 trae la 13.0.1, que compila contra la 35.
+  # Se destraba cuando suba el plugin de Gradle, no antes.
+  permission_handler: ^12.0.0
 
 dev_dependencies:
   flutter_test:
