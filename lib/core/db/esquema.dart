@@ -13,7 +13,7 @@
 library;
 
 /// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
-const int versionEsquema = 3;
+const int versionEsquema = 4;
 
 /// Cada elemento son las sentencias que llevan el esquema de la versión
 /// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
@@ -134,6 +134,31 @@ const List<List<String>> migraciones = [
     // aparte para cinco números por viaje sería más prolija y menos legible: en
     // un teléfono sin depurador, poder leer una fila con los ojos gana.
     'ALTER TABLE viajes ADD COLUMN motivos TEXT',
+  ],
+
+  // ── 3 → 4 ──────────────────────────────────────────────────────────────
+  // La bitácora del intercambio con el sistema, que hasta `sitd-12` vivía
+  // sólo en memoria (17-sep-2026).
+  //
+  // **Entró porque el primer reporte real la trajo vacía.** No era un error de
+  // la bitácora: era que vive en memoria y el reporte se generó dos horas
+  // después del viaje, con la aplicación reabierta en el medio. O sea que el
+  // único registro de lo que pasó durante el viaje —que es justo cuando nadie
+  // puede mirar la pantalla— se perdía antes de que alguien pudiera leerlo.
+  //
+  // Es el mismo razonamiento que la migración de arriba y el mismo error
+  // cometido dos veces: un diagnóstico que no sobrevive a cerrar la aplicación
+  // no es un diagnóstico.
+  [
+    '''
+    CREATE TABLE eventos (
+      id      INTEGER PRIMARY KEY AUTOINCREMENT,
+      t       INTEGER NOT NULL,
+      origen  TEXT    NOT NULL,
+      texto   TEXT    NOT NULL
+    )
+    ''',
+    'CREATE INDEX idx_eventos_t ON eventos (t DESC)',
   ],
 ];
 

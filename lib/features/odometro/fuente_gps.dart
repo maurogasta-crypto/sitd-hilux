@@ -28,6 +28,37 @@ Muestra? muestraDePosicion(Position p) {
   );
 }
 
+/// Escribe en la bitácora QUÉ trae una posición que llegó sin velocidad.
+///
+/// **Es la línea que faltaba, y el reporte del 2026-09-16 lo dejó a la vista.**
+/// Ese viaje registró 68 posiciones con `sinDoppler` y ni una usada: o sea que
+/// el receptor NO estaba callado —llegaba una cada 2,3 segundos— pero ninguna
+/// traía velocidad. Y con un contador pelado eso no se puede diagnosticar: 68
+/// posiciones de ubicación de red (wifi y torres de celular, que nunca traen
+/// velocidad, con cientos de metros de error) y 68 posiciones de un GNSS que
+/// todavía no resolvió la velocidad son problemas distintos y se veían igual.
+///
+/// La precisión los separa de un vistazo: arriba de cien metros es red, abajo
+/// de veinte es satélite. Se anota **sólo cuando cambia de tramo**, no una vez
+/// por segundo: lo que importa es de qué clase son, no el latido.
+void anotarSinDoppler(Position p) {
+  final precision = p.hasAccuracy ? p.accuracy : double.nan;
+  final tramo = precision.isNaN
+      ? 'sin precisión declarada'
+      : precision > 100
+      ? 'con MUCHO error (${precision.toStringAsFixed(0)} m): eso es '
+            'ubicación de red —wifi y torres—, no satélite'
+      : precision > 20
+      ? 'con ${precision.toStringAsFixed(0)} m de error: zona gris entre red '
+            'y satélite'
+      : 'con sólo ${precision.toStringAsFixed(0)} m de error: es satélite, '
+            'pero sin resolver la velocidad todavía';
+  bitacora.anotarSiCambio(
+    Origen.gps,
+    'Llegan posiciones SIN velocidad Doppler, $tramo.',
+  );
+}
+
 /// El GPS del teléfono, con el servicio en primer plano puesto.
 ///
 /// **Lo que este servicio sí hace y lo que no.** La notificación persistente
@@ -144,9 +175,13 @@ class FuenteGps implements FuenteDeMuestras {
   }
 
   @override
-  Stream<Lectura> get lecturas => gps
-      .getPositionStream(locationSettings: _ajustes)
-      .map((p) => Lectura(muestraDePosicion(p)));
+  Stream<Lectura> get lecturas =>
+      gps.getPositionStream(locationSettings: _ajustes).map((p) {
+        final m = muestraDePosicion(p);
+        if (m != null) return Lectura(m);
+        anotarSinDoppler(p);
+        return Lectura(null, precisionCruda: p.hasAccuracy ? p.accuracy : null);
+      });
 
   /// Los mismos ajustes que usa el stream, para que el banco pueda mirarlos.
   /// Sin esto, la diferencia entre los tres modos sólo se podría comprobar

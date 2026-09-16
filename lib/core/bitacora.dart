@@ -60,6 +60,14 @@ class Bitacora {
 
   final List<Anotacion> _anillo = [];
 
+  /// A dónde se copia cada anotación para que sobreviva a cerrar la
+  /// aplicación. Se engancha al abrir la base, en `Arranque`.
+  ///
+  /// **Es opcional a propósito.** La bitácora tiene que funcionar antes de que
+  /// la base exista —lo primero que se anota es justamente si la base abrió— y
+  /// el banco de pruebas la usa sin ningún SQLite cargado.
+  void Function(Anotacion)? alDisco;
+
   Bitacora({this.capacidad = 300, int Function()? reloj})
     : ahora = reloj ?? (() => DateTime.now().millisecondsSinceEpoch);
 
@@ -72,10 +80,16 @@ class Bitacora {
   int get cuantas => _anillo.length;
 
   void anotar(Origen origen, String texto) {
-    _anillo.add(Anotacion(t: ahora(), origen: origen, texto: texto));
+    final a = Anotacion(t: ahora(), origen: origen, texto: texto);
+    _anillo.add(a);
     if (_anillo.length > capacidad) {
       _anillo.removeRange(0, _anillo.length - capacidad);
     }
+    // Que falle el disco no puede hacer caer lo que se estaba diagnosticando:
+    // esto anota, no mide.
+    try {
+      alDisco?.call(a);
+    } catch (_) {}
     cambios.value++;
   }
 

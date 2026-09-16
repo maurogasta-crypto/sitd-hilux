@@ -25,6 +25,10 @@ class EstadoViaje {
   /// La última muestra aceptada. De acá sale la velocidad de la pantalla.
   final Muestra? ultima;
 
+  /// La precisión de la última posición que llegó sin velocidad, o `null`.
+  /// Es lo que separa «ubicación de red» de «satélite sin resolver todavía».
+  final double? precisionSinDoppler;
+
   /// Cuántas posiciones llegaron sin velocidad Doppler. Ver [Lectura].
   final int sinDoppler;
 
@@ -57,6 +61,7 @@ class EstadoViaje {
     ),
     this.ultima,
     this.sinDoppler = 0,
+    this.precisionSinDoppler,
     this.ultimaCruda,
     this.ultimoMotivo,
     this.problema,
@@ -115,9 +120,22 @@ class EstadoViaje {
     }
 
     if (sinDoppler > 0) {
-      return 'El receptor está entregando posiciones sin velocidad, así que '
-          'todavía no se puede medir. Es lo normal mientras no fija '
-          'satélites.';
+      // Llegan posiciones: el receptor NO está callado. Lo que falta es la
+      // velocidad, y la precisión dice de qué clase son — que es la diferencia
+      // entre esperar y no esperar.
+      final p = precisionSinDoppler;
+      if (p != null && p > 100) {
+        return 'Llegaron $sinDoppler posiciones, pero ninguna trae velocidad '
+            'y todas vienen con ${p.toStringAsFixed(0)} m de error. Eso no es '
+            'el satélite: es ubicación de red —wifi y torres de celular—, que '
+            'nunca trae velocidad. El receptor GPS todavía no fijó. A cielo '
+            'abierto y quieto puede tardar varios minutos si el teléfono '
+            'estuvo lejos de acá la última vez que lo usó.';
+      }
+      return 'Llegaron $sinDoppler posiciones y ninguna trae velocidad '
+          '${p == null ? "" : "(${p.toStringAsFixed(0)} m de error) "}'
+          'todavía. El receptor está hablando: es lo normal mientras termina '
+          'de fijar satélites.';
     }
     return 'Esperando la primera muestra del GPS. Con cielo abierto tarda '
         'entre treinta segundos y un minuto; adentro de una casa puede no '
@@ -139,6 +157,7 @@ class EstadoViaje {
     ResultadoOdometria? odometria,
     Muestra? ultima,
     int? sinDoppler,
+    double? precisionSinDoppler,
     Muestra? ultimaCruda,
     MotivoDescarte? ultimoMotivo,
     Disponibilidad? problema,
@@ -152,6 +171,7 @@ class EstadoViaje {
     odometria: odometria ?? this.odometria,
     ultima: ultima ?? this.ultima,
     sinDoppler: sinDoppler ?? this.sinDoppler,
+    precisionSinDoppler: precisionSinDoppler ?? this.precisionSinDoppler,
     ultimaCruda: ultimaCruda ?? this.ultimaCruda,
     ultimoMotivo: limpiarMotivo ? null : (ultimoMotivo ?? this.ultimoMotivo),
     problema: limpiarProblema ? null : (problema ?? this.problema),
@@ -271,6 +291,7 @@ class ServicioOdometria {
     if (m == null) {
       estado.value = estado.value.copiar(
         sinDoppler: estado.value.sinDoppler + 1,
+        precisionSinDoppler: lectura.precisionCruda,
       );
       return;
     }

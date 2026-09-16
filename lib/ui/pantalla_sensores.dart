@@ -69,6 +69,11 @@ class _PantallaSensoresState extends State<PantallaSensores> {
   final _satelites = Satelites();
   EstadoSatelites _cielo = const EstadoSatelites();
 
+  /// Cuántas posiciones llegaron sin velocidad en la suscripción de esta
+  /// pantalla, y con cuánto error venía la última.
+  int _sinDopplerPropio = 0;
+  double? _precisionPropia;
+
   /// En qué anda el enganche al GPS de esta pantalla. Sin esto, «Esperando»
   /// puede querer decir tres cosas distintas —todavía preguntando el permiso,
   /// ya suscripto y en silencio, o ni siquiera intentado— y las tres se veían
@@ -176,7 +181,14 @@ class _PantallaSensoresState extends State<PantallaSensores> {
     _gpsPropio = fuente.lecturas.listen(
       (l) {
         final m = l.muestra;
+        // El contador cuenta toda lectura, traiga velocidad o no: una
+        // posición sin Doppler es el receptor hablando. Lo que faltaba era
+        // decir cuántas de esas no servían y con qué error venían.
         _gps.anotar(_ahora);
+        _sinDopplerPropio = l.sinDoppler
+            ? _sinDopplerPropio + 1
+            : _sinDopplerPropio;
+        if (l.precisionCruda != null) _precisionPropia = l.precisionCruda;
         if (m != null) {
           _crudaPropia = m;
           _motivoPropio = porQueNoSirve(m, widget.servicio.criterios);
@@ -243,6 +255,10 @@ class _PantallaSensoresState extends State<PantallaSensores> {
             problema: enViaje ? e.problema : _problemaGps,
             diagnostico: _diagnostico,
             aviso: _aviso,
+            sinDoppler: enViaje ? e.sinDoppler : _sinDopplerPropio,
+            precisionSinDoppler: enViaje
+                ? e.precisionSinDoppler
+                : _precisionPropia,
             paso: _pasoGps,
             modo: _modo,
             alCambiarModo: enViaje ? null : _cambiarModo,
@@ -458,6 +474,17 @@ class _Gps extends StatelessWidget {
   final Disponibilidad? problema;
   final DiagnosticoGps? diagnostico;
   final EstadoAviso? aviso;
+
+  /// Posiciones que llegaron SIN velocidad Doppler, y el error de la última.
+  ///
+  /// **Un viaje real registró 68 posiciones sin velocidad**, una cada 2,3
+  /// segundos, y terminó en cero kilómetros. El contador de arriba las contaba
+  /// —el receptor estaba hablando— pero nada decía que ninguna servía ni por
+  /// qué. La precisión es lo que lo separa: arriba de cien metros es ubicación
+  /// de red, que nunca trae velocidad; abajo de veinte es satélite sin
+  /// resolverla todavía. Uno se arregla esperando y el otro no.
+  final int sinDoppler;
+  final double? precisionSinDoppler;
   final String paso;
   final ModoGps modo;
   final Future<void> Function(ModoGps)? alCambiarModo;
@@ -474,6 +501,8 @@ class _Gps extends StatelessWidget {
     required this.problema,
     required this.diagnostico,
     required this.aviso,
+    required this.sinDoppler,
+    required this.precisionSinDoppler,
     required this.paso,
     required this.modo,
     required this.alCambiarModo,
@@ -596,6 +625,23 @@ class _Gps extends StatelessWidget {
                   '(se toleran hasta ${criterios.precisionMaxima.toStringAsFixed(0)})',
                   style: t.textTheme.bodySmall,
                 ),
+            ],
+            if (sinDoppler > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                precisionSinDoppler != null && precisionSinDoppler! > 100
+                    ? '$sinDoppler posiciones llegaron SIN velocidad, con '
+                          '${precisionSinDoppler!.toStringAsFixed(0)} m de '
+                          'error: eso es ubicación de red —wifi y torres—, no '
+                          'satélite. El receptor GPS todavía no fijó.'
+                    : '$sinDoppler posiciones llegaron SIN velocidad'
+                          '${precisionSinDoppler == null ? "" : " (${precisionSinDoppler!.toStringAsFixed(0)} m de error)"}'
+                          '. El receptor habla; todavía no resuelve la '
+                          'velocidad, que es de donde salen los kilómetros.',
+                style: t.textTheme.bodySmall?.copyWith(
+                  color: t.colorScheme.tertiary,
+                ),
+              ),
             ],
             const SizedBox(height: 8),
             // El reloj es lo que saca la ambigüedad: «Esperando» a los tres

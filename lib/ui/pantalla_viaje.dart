@@ -6,6 +6,8 @@ import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/fuente.dart';
 import '../features/odometro/registro.dart';
 import '../core/db/base.dart';
+import '../core/registro_eventos.dart';
+import '../features/sensores/satelites.dart';
 import '../features/odometro/pantalla_despierta.dart';
 import '../features/odometro/cascada.dart';
 import '../features/odometro/fuente_gps.dart';
@@ -39,6 +41,10 @@ class PantallaViaje extends StatefulWidget {
   /// con una fuente de mentira, que no tiene modos que mostrar.
   final FuenteEnCascada? gps;
 
+  /// La bitácora en disco y la escucha del motor GNSS, para el reporte.
+  final RegistroDeEventos? eventos;
+  final Satelites? satelites;
+
   final Base base;
   final String ruta;
 
@@ -51,6 +57,8 @@ class PantallaViaje extends StatefulWidget {
     required this.vibracion,
     required this.despierta,
     this.gps,
+    this.eventos,
+    this.satelites,
     required this.base,
     required this.ruta,
   });
@@ -285,6 +293,8 @@ class _PantallaViajeState extends State<PantallaViaje> {
                 cargas: widget.cargas,
                 vibraciones: widget.vibraciones,
                 ruta: widget.ruta,
+                eventos: widget.eventos,
+                satelites: widget.satelites,
               ),
               _ => PantallaDiagnostico(
                 registro: widget.registro,

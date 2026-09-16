@@ -1,5 +1,6 @@
 import '../../core/bitacora.dart';
 import '../../core/db/base.dart';
+import '../../core/registro_eventos.dart';
 import '../../core/db/esquema.dart';
 import '../combustible/registro_cargas.dart';
 import '../odometro/registro.dart';
@@ -37,6 +38,10 @@ Map<String, dynamic> armarReporte({
   required String sello,
   required int ahora,
   int cuantosViajes = 20,
+
+  /// La bitácora en disco. Es la que vale: la de memoria se pierde al cerrar
+  /// la aplicación, y un reporte se genera horas después del viaje.
+  RegistroDeEventos? eventos,
   Bitacora? registro,
   EstadoSatelites? satelites,
 }) {
@@ -63,7 +68,7 @@ Map<String, dynamic> armarReporte({
     // sistema contestó. Lo pidió Mauro el 2026-09-16, y sirve sobre todo para
     // lo que pasa MIENTRAS SE MANEJA, que es cuando nadie puede mirar la
     // pantalla. Nunca lleva coordenadas: ver `bitacora.dart`.
-    'bitacora': (registro ?? bitacora).aMapa(),
+    'bitacora': eventos?.ultimos() ?? (registro ?? bitacora).aMapa(),
     'sinRecorrido': !conRecorrido,
     'viajes': [
       for (final v in losViajes)

@@ -12,7 +12,16 @@ import 'muestra.dart';
 class Lectura {
   final Muestra? muestra;
 
-  const Lectura(this.muestra);
+  /// La precisión que traía la posición **cuando no se pudo usar**, o `null`.
+  ///
+  /// **Es lo único que distingue dos problemas muy distintos**, y hasta
+  /// `sitd-12` se perdía: una posición sin velocidad con cuatrocientos metros
+  /// de error es ubicación de red —wifi y torres de celular, que nunca traen
+  /// velocidad—, y una con ocho metros es un satélite que todavía no resolvió
+  /// la velocidad. La primera no se arregla esperando; la segunda sí.
+  final double? precisionCruda;
+
+  const Lectura(this.muestra, {this.precisionCruda});
 
   bool get sinDoppler => muestra == null;
 }

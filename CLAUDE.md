@@ -279,6 +279,25 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   seguidos o no existe. Y el aviso sale al terminar el viaje, **nunca
   manejando**.
 
+- **Una posición SIN velocidad no es silencio del receptor, y confundir las dos
+  cosas costó tres días.** El 2026-09-16 un viaje real de dos minutos y medio
+  registró **68 posiciones, una cada 2,3 segundos, y terminó en cero
+  kilómetros**: ninguna traía velocidad Doppler, así que ninguna llegó siquiera
+  al filtro. Hasta `sitd-12` el diagnóstico decía «el receptor no entrega
+  nada», y era falso — entregaba sin parar.
+
+  **Son dos problemas opuestos** y hoy se distinguen por la **precisión** de
+  esas posiciones, que desde `sitd-13` se anota y se muestra:
+
+  | Precisión | Qué es | Se arregla |
+  |---|---|---|
+  | más de 100 m | ubicación de red —wifi y torres—, que **nunca** trae velocidad | no con paciencia: el GNSS no fijó |
+  | menos de 20 m | satélite que todavía no resolvió la velocidad | esperando |
+
+  Y de ahí sale la regla general, que es la que no hay que deshacer: **un
+  contador sin la razón al lado no diagnostica nada.** Es la misma lección de
+  `MotivoDescarte` y de los contadores del viaje, aprendida por tercera vez.
+
 - **Una posición sin velocidad no es una camioneta quieta.** Android entrega
   `speed == 0.0` cuando no tiene el dato, no un nulo. Copiarlo tal cual haría
   que un receptor que todavía no fijó satélites se leyera como un vehículo
@@ -449,6 +468,22 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   principal. Copiar `sitd.db` sin un `PRAGMA wal_checkpoint(TRUNCATE)` se lleva
   una base sin los viajes de hoy, y eso no se nota hasta el día que haga falta
   el respaldo.
+
+- **Y la bitácora también se guarda, por el mismo motivo y con el mismo error
+  cometido de nuevo.** `sitd-12` la dejó en memoria; el primer reporte real
+  salió con `"bitacora": []` — no rota, sino generada dos horas después del
+  viaje, con la aplicación reabierta en el medio. Justo lo que la bitácora
+  existe para registrar —lo que pasa *durante* un viaje, cuando nadie mira la
+  pantalla— era lo que se perdía. Desde `sitd-13` va a la tabla `eventos`
+  (esquema 4), con techo de mil y poda automática: sin techo, una aplicación
+  atornillada a una cabina llenaría la tarjeta con su propio diagnóstico.
+
+  **Lo mismo con los satélites**: en `sitd-12` la escucha del motor GNSS la
+  encendía **sólo la pantalla de sensores**, así que el reporte decía «no
+  disponible» cuando nadie la había abierto. Desde `sitd-13` arranca con la
+  aplicación. La regla, para no repetirla una cuarta vez: **un dato de
+  diagnóstico que dependa de qué pantalla abrió alguien, o que viva sólo en
+  memoria, no está en el reporte.**
 
 - **El diagnóstico del viaje se GUARDA, no se pierde al cerrarlo.** Los
   contadores de descarte vivían sólo en la pantalla, así que un viaje que no

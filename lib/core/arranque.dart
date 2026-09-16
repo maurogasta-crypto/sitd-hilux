@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -8,8 +10,11 @@ import '../features/vibracion/fuente_vibracion.dart';
 import '../features/vibracion/registro_vibracion.dart';
 import '../features/vibracion/servicio_vibracion.dart';
 import '../features/odometro/registro.dart';
+import '../features/sensores/satelites.dart';
 import '../features/odometro/servicio.dart';
+import 'bitacora.dart';
 import 'db/base.dart';
+import 'registro_eventos.dart';
 
 /// Lo que se arma una sola vez al abrir la aplicación, antes de dibujar nada.
 ///
@@ -36,6 +41,17 @@ class Arranque {
   /// puesto y cómo quedó el permiso de notificaciones.
   final FuenteEnCascada? gps;
 
+  /// La bitácora en disco. El reporte la lee de acá y no de la memoria: lo de
+  /// la memoria se pierde al cerrar la aplicación, y el reporte se genera
+  /// horas después del viaje.
+  final RegistroDeEventos? eventos;
+
+  /// La escucha del motor GNSS. **Arranca con la aplicación y no con la
+  /// pantalla de sensores**: en `sitd-12` sólo la encendía esa pantalla, así
+  /// que el primer reporte real salió con «satélites: no disponible» — no
+  /// porque el teléfono no contestara, sino porque nadie había preguntado.
+  final Satelites? satelites;
+
   const Arranque._({
     required this.ruta,
     this.base,
@@ -47,6 +63,8 @@ class Arranque {
     this.servicio,
     this.vibracion,
     this.gps,
+    this.eventos,
+    this.satelites,
   });
 
   bool get anduvo => base != null;
@@ -60,6 +78,17 @@ class Arranque {
       final dir = await getApplicationDocumentsDirectory();
       ruta = p.join(dir.path, 'sitd.db');
       final base = Base.abrir(ruta);
+      // Lo primero: enganchar la bitácora al disco. De acá en adelante todo lo
+      // que se anote sobrevive a que el sistema mate la aplicación.
+      final eventos = RegistroDeEventos(base);
+      bitacora.alDisco = eventos.guardar;
+      bitacora.anotar(
+        Origen.sistema,
+        'Aplicación abierta. Base en la versión ${base.version}.',
+      );
+      final satelites = Satelites();
+      // No se espera: si el canal tarda o no está, la aplicación abre igual.
+      unawaited(satelites.arrancar());
       final registro = RegistroDeViajes(base);
       final cascada = FuenteEnCascada();
       final servicio = ServicioOdometria(registro: registro, fuente: cascada);
@@ -75,6 +104,8 @@ class Arranque {
         despierta: PantallaDespierta(base),
         servicio: servicio,
         gps: cascada,
+        eventos: eventos,
+        satelites: satelites,
         // La velocidad sale del servicio de odometría y no de una segunda
         // suscripción al GPS: el receptor se le pide una sola vez al teléfono.
         vibracion: ServicioVibracion(
@@ -84,6 +115,7 @@ class Arranque {
         ),
       );
     } catch (e) {
+      bitacora.anotar(Origen.sistema, 'La base NO abrió: $e');
       return Arranque._(ruta: ruta, error: '$e');
     }
   }

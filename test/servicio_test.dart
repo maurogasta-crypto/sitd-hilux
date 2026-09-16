@@ -28,7 +28,8 @@ class FuenteFalsa implements FuenteDeMuestras {
   Future<void> detener() async => vecesDetenida++;
 
   void entregar(Muestra m) => _control.add(Lectura(m));
-  void entregarSinDoppler() => _control.add(const Lectura(null));
+  void entregarSinDoppler({double? precision}) =>
+      _control.add(Lectura(null, precisionCruda: precision));
   void fallar(Object e) => _control.addError(e);
 }
 
@@ -242,10 +243,46 @@ void main() {
       );
     });
 
-    test('con posiciones sin velocidad, lo dice', () async {
+    // El caso real del 2026-09-16: 68 posiciones en dos minutos y medio, ni
+    // una con velocidad, y el viaje en cero. «El receptor no entrega nada» y
+    // «el receptor entrega y nada sirve» son problemas OPUESTOS y hasta
+    // `sitd-13` se decían igual.
+    test(
+      'con posiciones sin velocidad dice que el receptor SÍ habla',
+      () async {
+        await servicio.arrancar();
+        fuente.entregarSinDoppler();
+        fuente.entregarSinDoppler();
+        final dicho = servicio.estado.value.estadoDeLaSenal!;
+        expect(dicho, contains('Llegaron 2 posiciones'));
+        expect(dicho, contains('ninguna trae velocidad'));
+      },
+    );
+
+    test('con MUCHO error dice que es ubicación de red, no satélite', () async {
       await servicio.arrancar();
-      fuente.entregarSinDoppler();
-      expect(servicio.estado.value.estadoDeLaSenal, contains('sin velocidad'));
+      fuente.entregarSinDoppler(precision: 480);
+      final dicho = servicio.estado.value.estadoDeLaSenal!;
+      expect(dicho, contains('480 m de error'));
+      expect(dicho, contains('ubicación de red'));
+      // Y dice que eso NO se arregla con paciencia sola.
+      expect(dicho, contains('todavía no fijó'));
+    });
+
+    test('con poco error es satélite sin resolver la velocidad', () async {
+      await servicio.arrancar();
+      fuente.entregarSinDoppler(precision: 8);
+      final dicho = servicio.estado.value.estadoDeLaSenal!;
+      expect(dicho, contains('8 m de error'));
+      expect(dicho, isNot(contains('ubicación de red')));
+      expect(dicho, contains('El receptor está hablando'));
+    });
+
+    test('la precisión de la última sin Doppler queda en el estado', () async {
+      await servicio.arrancar();
+      fuente.entregarSinDoppler(precision: 300);
+      expect(servicio.estado.value.precisionSinDoppler, 300);
+      expect(servicio.estado.value.sinDoppler, 1);
     });
 
     // «Descartadas: 412» no se puede diagnosticar. Estas dos son el mismo

@@ -297,6 +297,8 @@ lib/
 │   │                        registro, servicio. No pide permisos.
 │   ├── bitacora.dart        Lo que la app le pidió al sistema y lo que el
 │   │                        sistema contestó. Sin una sola coordenada.
+│   ├── registro_eventos.dart  Esa bitácora EN DISCO, para que sobreviva a
+│   │                        cerrar la aplicación — que es cuando se pierde.
 │   └── version.dart         Sellos, a la vista en «Estado».
 ├── features/
 │   └── odometro/
@@ -341,7 +343,7 @@ lib/
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        246 casos. Corren sin emulador ni teléfono.
+test/                        257 casos. Corren sin emulador ni teléfono.
 android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
                              `GnssStatus`. No lo cubre el banco — ver
                              «Verificación previa».
@@ -352,7 +354,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-12` | `lib/core/version.dart` |
+| Aplicación | `sitd-13` | `lib/core/version.dart` |
 | Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

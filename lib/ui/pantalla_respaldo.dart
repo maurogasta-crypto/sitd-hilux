@@ -7,10 +7,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../core/db/base.dart';
+import '../core/registro_eventos.dart';
 import '../core/version.dart';
 import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/registro.dart';
 import '../features/respaldo/reporte.dart';
+import '../features/sensores/satelites.dart';
 import '../features/vibracion/registro_vibracion.dart';
 
 /// Sacar los datos del teléfono: para arreglar algo, o para no perderlos.
@@ -28,6 +30,16 @@ class PantallaRespaldo extends StatefulWidget {
   final RegistroDeVibracion vibraciones;
   final String ruta;
 
+  /// La bitácora EN DISCO. El reporte la lee de acá y no de la memoria: el
+  /// primer reporte real salió con la bitácora vacía porque se generó dos
+  /// horas después del viaje, con la aplicación reabierta en el medio.
+  final RegistroDeEventos? eventos;
+
+  /// La escucha del motor GNSS, que ahora arranca con la aplicación. Antes la
+  /// encendía sólo la pantalla de sensores, así que el reporte salía diciendo
+  /// «no disponible» cuando nadie la había abierto.
+  final Satelites? satelites;
+
   const PantallaRespaldo({
     super.key,
     required this.base,
@@ -35,6 +47,8 @@ class PantallaRespaldo extends StatefulWidget {
     required this.cargas,
     required this.vibraciones,
     required this.ruta,
+    this.eventos,
+    this.satelites,
   });
 
   @override
@@ -56,6 +70,7 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
       _resultado = null;
     });
     try {
+      final cielo = await widget.satelites?.leer();
       final mapa = armarReporte(
         base: widget.base,
         viajes: widget.viajes,
@@ -64,6 +79,8 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
         alcance: alcance,
         sello: selloApp,
         ahora: DateTime.now().millisecondsSinceEpoch,
+        eventos: widget.eventos,
+        satelites: cielo,
       );
       final texto = const JsonEncoder.withIndent('  ').convert(mapa);
       final dir = await getTemporaryDirectory();
