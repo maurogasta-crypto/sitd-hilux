@@ -1,4 +1,28 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- La ubicación fina es de donde sale la velocidad Doppler, que es la que
+         se integra. Con la gruesa (torres de celular) no hay odometría: el
+         error de velocidad es de otro orden. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- Android exige pedir también la gruesa cuando se pide la fina: si el
+         usuario elige "ubicación aproximada" en el diálogo, la aplicación
+         recibe sólo ésta. Las muestras que lleguen así las descarta el filtro
+         de precisión, y la pantalla muestra la cuenta de descartadas. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <!-- El servicio en primer plano es lo que mantiene el GPS entregando con
+         la pantalla apagada. Desde Android 14 no arranca sin declarar de qué
+         TIPO es, y el tipo se declara además en el propio servicio (lo hace
+         el complemento geolocator, con foregroundServiceType="location"). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+
+    <!-- Lo que NO se pide, a propósito: ACCESS_BACKGROUND_LOCATION. No hace
+         falta — un servicio en primer plano de tipo `location`, arrancado con
+         la aplicación a la vista, puede seguir recibiendo ubicación después—,
+         y pedirlo abre el diálogo de "Permitir todo el tiempo", que es el más
+         invasivo que tiene Android. El día que la medición arranque sola, sin
+         que nadie abra la aplicación, ahí sí hará falta y entra con su
+         explicación. -->
     <application
         android:label="SITD Hilux"
         android:name="${applicationName}"

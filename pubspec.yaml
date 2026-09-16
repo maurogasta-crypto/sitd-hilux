@@ -32,6 +32,19 @@ dependencies:
   path: ^1.9.0
   path_provider: ^2.1.4
 
+  # El GPS y el servicio en primer plano.
+  #
+  # Se eligio sobre `location` por dos cosas concretas, no por popularidad:
+  # entrega `hasSpeed` / `hasAccuracy` —que es lo unico que distingue "no hay
+  # velocidad" de "velocidad cero", y de eso depende toda la odometria— y trae
+  # la configuracion de la notificacion persistente sin escribir Kotlin.
+  #
+  # Lo que NO hace, y esta escrito en su propia documentacion: no sobrevive a
+  # que el sistema mate la actividad. Contra eso no hay ajuste del complemento,
+  # hay dos redes propias — cada punto se guarda apenas llega, y el viaje que
+  # quedo abierto se retoma. Ver `fuente_gps.dart`.
+  geolocator: ^14.0.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

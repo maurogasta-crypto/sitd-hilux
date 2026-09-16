@@ -150,6 +150,48 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   seguidos o no existe. Y el aviso sale al terminar el viaje, **nunca
   manejando**.
 
+- **Una posición sin velocidad no es una camioneta quieta.** Android entrega
+  `speed == 0.0` cuando no tiene el dato, no un nulo. Copiarlo tal cual haría
+  que un receptor que todavía no fijó satélites se leyera como un vehículo
+  detenido: el viaje saldría corto y **nada lo diría**. Por eso se mira
+  `hasSpeed` y no `speed`, esas lecturas no llegan a la base, se cuentan aparte
+  y la pantalla las muestra. Lo mismo con la precisión: sin ella no hay con qué
+  descartar una muestra mala, así que tampoco entra. Está en `fuente_gps.dart`
+  y tiene sus pruebas.
+
+- **El GPS entra por una interfaz, igual que va a entrar el OBD2.**
+  `FuenteDeMuestras` entrega `Lectura`s y el servicio no sabe de dónde salen.
+  No es arquitectura por gusto: es lo que deja que el banco ejercite el
+  circuito entero —permiso, viaje abierto, puntos guardados, kilómetros en
+  pantalla, muerte súbita y recuperación— sin teléfono y sin emulador, en cada
+  tanda. Y es un solo stream, que se escucha una sola vez: dos suscripciones
+  contra el receptor del teléfono son dos veces la misma batería.
+
+- **Cada muestra se guarda apenas llega, una por una.** Se evaluó juntarlas de
+  a diez y no vale la pena: en WAL con `synchronous = NORMAL` un INSERT por
+  segundo no se nota, y el precio de juntarlas es perder hasta diez segundos de
+  recorrido cuando el sistema mata la aplicación — que es exactamente lo que
+  hace MIUI. El total del viaje sí se vuelca cada diez puntos, porque es un
+  derivado y se recalcula.
+
+- **Un viaje que quedó abierto se retoma, no se descarta.** Si la aplicación
+  muere en medio de un viaje, al volver a abrir queda una fila con `fin` en
+  nulo y sus puntos guardados: se integran de nuevo y se sigue desde ahí. Es la
+  contrapartida de guardar las muestras crudas, y sin ella guardarlas no
+  serviría de mucho.
+
+- **El viaje lo abre una persona, no un detector de movimiento.** Arrancar solo
+  al detectar que se mueve suena mejor y hoy no se puede: no hay con qué
+  distinguir «salió a la ruta» de «la movieron en el taller», y un viaje
+  inventado ensucia el factor de neumáticos y el consumo. Entra cuando haya
+  línea base medida, no antes.
+
+- **No se pide `ACCESS_BACKGROUND_LOCATION`.** Con un servicio en primer plano
+  de tipo `location`, arrancado con la aplicación a la vista, no hace falta — y
+  pedirlo abre el diálogo de «Permitir todo el tiempo», que es el más invasivo
+  que tiene Android. El día que la medición arranque sola, sin que nadie abra
+  la aplicación, hará falta y entra con su explicación.
+
 - **El OBD2 es opcional y va detrás de una interfaz.** Esta Hilux puede hablar
   **MOBD**, el protocolo propio de Toyota, y no OBD2 genérico: el conector
   entra y el ECU no contesta. El régimen del motor se obtiene igual, por
@@ -202,6 +244,15 @@ que no se haya entregado.
   restricciones, a mano, en los dos teléfonos. Sin eso el GPS se apaga con la
   pantalla y no avisa. Es configuración del aparato, no del código, y por eso
   es fácil de olvidar.
+
+  **Y la notificación persistente no alcanza sola**, aunque lo parezca: sube la
+  prioridad del proceso y mantiene el GPS entregando con la pantalla apagada,
+  pero no impide que el sistema mate la actividad — lo dice la documentación
+  del complemento con todas las letras. Las dos redes que hay contra eso son
+  guardar cada punto apenas llega y retomar el viaje que quedó abierto. Si con
+  eso todavía se pierden viajes, lo que sigue es un motor de Flutter aparte en
+  un servicio propio, que es un cambio grande y se decide a la vista de un caso
+  real.
 - **El teléfono de la cabina está al sol y enchufado permanente.** Montaje a la
   sombra y carga controlada: una batería de litio hinchada en una cabina
   cerrada es un riesgo real.
@@ -214,7 +265,7 @@ el teléfono.
 | | Qué | Estado |
 |---|---|---|
 | **A** | Esqueleto: base, migraciones, APK que compila y se instala | **entregado** (`sitd-1`) |
-| **B** | Servicio en primer plano y odometría GPS en vivo | pendiente |
+| **B** | Servicio en primer plano y odometría GPS en vivo | **entregado** (`sitd-2`) |
 | **C** | Combustible: cargas, consumo derivado, calibración de `k` | pendiente |
 | **D** | Acelerómetro: línea base por cubeta, anomalías | pendiente |
 | **E** | Micrófono: FFT, compuerta de audio, escenarios | pendiente |
@@ -235,8 +286,13 @@ Este proyecto sigue las convenciones compartidas del repo **público**
 | `protocolos/PROTOCOLO-DESARROLLO.md` | el reglamento técnico común |
 | `protocolos/PROTOCOLO-INTERFAZ.md` | cómo se maneja la gente en todos |
 
-**Falta darlo de alta en el panel.** Este proyecto todavía no tiene su
-documento en `proyectos/` ni su entrada en `PROYECTOS` de
-`herramientas/firestore.mjs`. Hasta que la tenga, sus pendientes no aparecen en
-la ronda y esta aplicación es invisible para el tablero. Es lo primero que hay
-que hacer en la próxima sesión que abra protocolo.
+**Dado de alta en el panel el 2026-09-15**, como `hilux`: tiene su documento en
+`proyectos/`, su línea de trabajo `L-hilux` y sus pendientes, así que la ronda
+lo trae como a los otros cinco.
+
+**Lo que NO tiene, y era un error de este archivo pedirlo:** una entrada en
+`PROYECTOS` de `herramientas/firestore.mjs`. Esa lista es de **bases de
+Firestore**, y este proyecto no tiene ninguna — igual que Harmonía, que figura
+con `acceso.base: "no tiene"`. Consecuencia concreta, para que no se busque:
+acá no hay circuito de `reportes/`, así que una falla vista en la cabina se
+cuenta en el chat o se escribe a mano en el panel.

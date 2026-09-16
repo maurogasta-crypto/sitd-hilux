@@ -109,6 +109,83 @@ bool _aceptable(Muestra m, CriteriosGps c) {
 double _velocidadEfectiva(Muestra m, CriteriosGps c) =>
     m.velocidad < c.velocidadMinima ? 0.0 : m.velocidad;
 
+/// Acumulador incremental: la misma integración, pero muestra por muestra.
+///
+/// Existe porque en vivo no hay lista. El servicio de odometría recibe una
+/// muestra por segundo y tiene que poder decir en cualquier momento cuántos
+/// kilómetros van, sin volver a recorrer todo lo anterior.
+///
+/// **Es el mismo cálculo que [integrar], y eso está probado**: el banco
+/// comprueba que alimentar el acumulador muestra por muestra da exactamente
+/// lo mismo que integrar la lista entera. Si alguna vez se toca uno de los
+/// dos, esa prueba es la que avisa — de hecho [integrar] no es más que este
+/// acumulador con la lista ordenada de antemano.
+///
+/// La diferencia que sí importa: acá **no se puede ordenar**. Las muestras
+/// llegan cuando llegan. Una que venga con el reloj para atrás se descarta,
+/// que es lo mismo que hace [integrar] con dos sellos de tiempo iguales.
+class Acumulador {
+  final CriteriosGps criterios;
+
+  double _metros = 0;
+  double _metrosHav = 0;
+  int _usadas = 0;
+  int _descartadas = 0;
+  int _cortes = 0;
+  int _msIntegrados = 0;
+  Muestra? _ant;
+
+  Acumulador({this.criterios = const CriteriosGps()});
+
+  /// La última muestra aceptada, o `null` si todavía no hubo ninguna.
+  Muestra? get ultima => _ant;
+
+  /// Agrega una muestra. Devuelve `true` si se aceptó.
+  ///
+  /// Un `false` no es un error: con el receptor recién encendido, o bajo un
+  /// techo, es lo normal durante los primeros segundos. Lo que no es normal es
+  /// que sigan siendo todas `false` con el vehículo en movimiento, y por eso
+  /// la cuenta de descartadas se muestra en pantalla.
+  bool agregar(Muestra m) {
+    if (!_aceptable(m, criterios)) {
+      _descartadas++;
+      return false;
+    }
+    final ant = _ant;
+    if (ant != null) {
+      final dt = m.t - ant.t;
+      if (dt <= 0) {
+        // Dos muestras con el mismo sello de tiempo, o un reloj que retrocedió.
+        _descartadas++;
+        return false;
+      }
+      if (dt > criterios.huecoMaximoMs) {
+        // Un túnel, o el receptor que se quedó sin cielo. No se puentea: se
+        // corta. Integrar a través del hueco inventa una línea recta.
+        _cortes++;
+      } else {
+        final v0 = _velocidadEfectiva(ant, criterios);
+        final v1 = _velocidadEfectiva(m, criterios);
+        _metros += (v0 + v1) / 2.0 * dt / 1000.0;
+        _metrosHav += haversine(ant, m);
+        _msIntegrados += dt;
+      }
+    }
+    _usadas++;
+    _ant = m;
+    return true;
+  }
+
+  ResultadoOdometria get resultado => ResultadoOdometria(
+    metros: _metros,
+    metrosHaversine: _metrosHav,
+    muestrasUsadas: _usadas,
+    muestrasDescartadas: _descartadas,
+    cortes: _cortes,
+    msIntegrados: _msIntegrados,
+  );
+}
+
 /// Integra la distancia recorrida a partir de la velocidad Doppler.
 ///
 /// Por qué no se suman haversines entre puntos consecutivos, que es lo que
@@ -121,66 +198,20 @@ double _velocidadEfectiva(Muestra m, CriteriosGps c) =>
 /// La regla del trapecio entre muestras consecutivas es suficiente: a 1 Hz el
 /// error de cuadratura frente a la aceleración real de una camioneta es muy
 /// inferior al del propio sensor.
+///
+/// Es [Acumulador] con la lista ordenada de antemano, y no una segunda copia
+/// del cálculo: se ordena defensivamente porque las muestras pueden llegar
+/// desordenadas de un stream con buffer, y una diferencia de tiempo negativa
+/// daría distancia negativa sin que nada avise.
 ResultadoOdometria integrar(
   List<Muestra> muestras, {
   CriteriosGps criterios = const CriteriosGps(),
 }) {
-  if (muestras.length < 2) {
-    return ResultadoOdometria(
-      metros: 0,
-      metrosHaversine: 0,
-      muestrasUsadas: muestras.where((m) => _aceptable(m, criterios)).length,
-      muestrasDescartadas: muestras
-          .where((m) => !_aceptable(m, criterios))
-          .length,
-      cortes: 0,
-      msIntegrados: 0,
-    );
-  }
-
-  // Se ordena defensivamente: las muestras pueden llegar desordenadas de un
-  // stream con buffer, y una diferencia de tiempo negativa daría distancia
-  // negativa sin que nada avise.
   final ordenadas = List<Muestra>.from(muestras)
     ..sort((a, b) => a.t.compareTo(b.t));
-
-  double metros = 0;
-  double metrosHav = 0;
-  int usadas = 0, descartadas = 0, cortes = 0, msIntegrados = 0;
-  Muestra? ant;
-
+  final acumulador = Acumulador(criterios: criterios);
   for (final m in ordenadas) {
-    if (!_aceptable(m, criterios)) {
-      descartadas++;
-      continue;
-    }
-    if (ant != null) {
-      final dt = m.t - ant.t;
-      if (dt <= 0) {
-        // Dos muestras con el mismo sello de tiempo, o un reloj que retrocedió.
-        descartadas++;
-        continue;
-      }
-      if (dt > criterios.huecoMaximoMs) {
-        cortes++;
-      } else {
-        final v0 = _velocidadEfectiva(ant, criterios);
-        final v1 = _velocidadEfectiva(m, criterios);
-        metros += (v0 + v1) / 2.0 * dt / 1000.0;
-        metrosHav += haversine(ant, m);
-        msIntegrados += dt;
-      }
-    }
-    usadas++;
-    ant = m;
+    acumulador.agregar(m);
   }
-
-  return ResultadoOdometria(
-    metros: metros,
-    metrosHaversine: metrosHav,
-    muestrasUsadas: usadas,
-    muestrasDescartadas: descartadas,
-    cortes: cortes,
-    msIntegrados: msIntegrados,
-  );
+  return acumulador.resultado;
 }
