@@ -133,6 +133,10 @@ class _PantallaViajeState extends State<PantallaViaje> {
                 _Aviso(problema: problema),
                 const SizedBox(height: 12),
               ],
+              if (e.estadoDeLaSenal != null) ...[
+                _Senal(texto: e.estadoDeLaSenal!),
+                const SizedBox(height: 12),
+              ],
               _Detalle(estado: e),
               const SizedBox(height: 12),
               Text(
@@ -239,6 +243,43 @@ class _Tablero extends StatelessWidget {
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Lo que pasa mientras no hay una sola muestra buena.
+///
+/// No es un error y no se pinta como uno: es el receptor haciendo su trabajo.
+/// Lo que sí es, es la diferencia entre «esto todavía no agarró señal» y «esto
+/// no anda», que sin este cartel se veían igual — las dos, un cero.
+class _Senal extends StatelessWidget {
+  final String texto;
+
+  const _Senal({required this.texto});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return Card(
+      color: t.colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: t.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(texto, style: t.textTheme.bodySmall)),
           ],
         ),
       ),

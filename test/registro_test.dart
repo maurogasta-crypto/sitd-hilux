@@ -82,6 +82,21 @@ void main() {
       expect(registro.ultimos().map((v) => v.inicio), [5000, 3000, 1000]);
       expect(registro.ultimos(2).length, 2);
     });
+
+    test('un viaje cuenta sus muestras, y cero no es cero kilometros', () {
+      final vacio = registro.abrir(inicio: 0);
+      final conDatos = registro.abrir(inicio: 10);
+      registro.guardarPunto(conDatos, m(1000, 10));
+      registro.guardarPunto(conDatos, m(2000, 10));
+
+      expect(registro.porId(vacio)!.muestras, 0);
+      expect(registro.porId(vacio)!.sinMuestras, isTrue);
+      expect(registro.porId(conDatos)!.muestras, 2);
+      expect(registro.porId(conDatos)!.sinMuestras, isFalse);
+      // Y la cuenta viaja también por la lista y por el que quedó abierto.
+      expect(registro.ultimos().map((v) => v.muestras), [2, 0]);
+      expect(registro.abierto!.muestras, 2);
+    });
   });
 
   group('puntos', () {

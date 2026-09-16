@@ -225,6 +225,49 @@ void main() {
     expect(registro.abierto, isNotNull);
   });
 
+  group('el estado de la senal', () {
+    // Salió de un viaje real de 13 segundos adentro de una casa, que dio
+    // 0,0 km y ninguna explicación: «el GPS no ve el cielo» y «la aplicación
+    // no anda» se veían igual, porque las dos son un cero.
+    test('sin viaje no dice nada', () {
+      expect(servicio.estado.value.estadoDeLaSenal, isNull);
+    });
+
+    test('midiendo y sin nada todavia, explica la espera', () async {
+      await servicio.arrancar();
+      expect(
+        servicio.estado.value.estadoDeLaSenal,
+        contains('Esperando la primera muestra'),
+      );
+    });
+
+    test('con posiciones sin velocidad, lo dice', () async {
+      await servicio.arrancar();
+      fuente.entregarSinDoppler();
+      expect(servicio.estado.value.estadoDeLaSenal, contains('sin velocidad'));
+    });
+
+    test('con posiciones que no sirven, dice cuantas', () async {
+      await servicio.arrancar();
+      fuente.entregar(m(1000, 20, precision: 500));
+      fuente.entregar(m(2000, 20, precision: 500));
+      expect(servicio.estado.value.estadoDeLaSenal, contains('2 descartadas'));
+    });
+
+    test('con la primera muestra buena, se calla', () async {
+      await servicio.arrancar();
+      fuente.entregarSinDoppler();
+      fuente.entregar(m(1000, 20));
+      expect(servicio.estado.value.estadoDeLaSenal, isNull);
+    });
+
+    test('en pausa tampoco habla: no se esta esperando nada', () async {
+      await servicio.arrancar();
+      await servicio.pausar();
+      expect(servicio.estado.value.estadoDeLaSenal, isNull);
+    });
+  });
+
   test('el total se vuelca a la base cada tantos puntos', () async {
     final s = ServicioOdometria(
       registro: registro,

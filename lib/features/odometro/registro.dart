@@ -24,12 +24,18 @@ class Viaje {
   final double? odoTableroFin;
   final String? notas;
 
+  /// Cuántas muestras crudas tiene guardadas. Un viaje con **cero** no es un
+  /// viaje de cero kilómetros: es uno donde el GPS nunca entregó nada, y en la
+  /// lista se lee distinto.
+  final int muestras;
+
   const Viaje({
     required this.id,
     required this.inicio,
     required this.metros,
     required this.metrosHaversine,
     required this.cortes,
+    this.muestras = 0,
     this.fin,
     this.odoTableroIni,
     this.odoTableroFin,
@@ -37,6 +43,7 @@ class Viaje {
   });
 
   bool get enMarcha => fin == null;
+  bool get sinMuestras => muestras == 0;
   double get kilometros => metros / 1000.0;
 
   /// Duración en milisegundos contra [ahora] si el viaje sigue abierto.
@@ -121,20 +128,27 @@ class RegistroDeViajes {
   /// pierde nada: se retoma ese viaje y se sigue.
   Viaje? get abierto {
     final f = base.db.select(
-      'SELECT * FROM viajes WHERE fin IS NULL ORDER BY inicio DESC LIMIT 1',
+      '$_seleccion WHERE fin IS NULL ORDER BY inicio DESC LIMIT 1',
     );
     return f.isEmpty ? null : _aViaje(f.first);
   }
 
   Viaje? porId(int id) {
-    final f = base.db.select('SELECT * FROM viajes WHERE id = ?', [id]);
+    final f = base.db.select('$_seleccion WHERE id = ?', [id]);
     return f.isEmpty ? null : _aViaje(f.first);
   }
 
   List<Viaje> ultimos([int cuantos = 20]) => base.db
-      .select('SELECT * FROM viajes ORDER BY inicio DESC LIMIT ?', [cuantos])
+      .select('$_seleccion ORDER BY inicio DESC LIMIT ?', [cuantos])
       .map(_aViaje)
       .toList();
+
+  /// Las tres consultas de viajes salen de acá, con la cuenta de muestras al
+  /// lado. La subconsulta usa el índice `idx_puntos_viaje`, así que listar
+  /// veinte viajes no cuesta veinte recorridas de la tabla de puntos.
+  static const String _seleccion =
+      'SELECT *, (SELECT COUNT(*) FROM puntos WHERE puntos.viaje = viajes.id) '
+      'AS muestras FROM viajes';
 
   /// Las muestras crudas de un viaje, en orden.
   List<Muestra> puntosDe(int viaje) => base.db
@@ -175,6 +189,7 @@ class RegistroDeViajes {
     metros: (f['metros'] as num).toDouble(),
     metrosHaversine: (f['metros_haversine'] as num).toDouble(),
     cortes: f['cortes'] as int,
+    muestras: f['muestras'] as int,
     odoTableroIni: (f['odo_tablero_ini'] as num?)?.toDouble(),
     odoTableroFin: (f['odo_tablero_fin'] as num?)?.toDouble(),
     notas: f['notas'] as String?,

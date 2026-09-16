@@ -65,15 +65,25 @@ class PantallaDiagnostico extends StatelessWidget {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(
-                v.enMarcha ? Icons.play_circle_outline : Icons.check_circle,
+                v.enMarcha
+                    ? Icons.play_circle_outline
+                    : v.sinMuestras
+                    ? Icons.signal_cellular_nodata
+                    : Icons.check_circle,
                 color: v.enMarcha ? t.colorScheme.primary : null,
               ),
               title: Text(
-                '${formatearKm(v.kilometros)} · '
-                '${formatearDuracion(v.duracionMs(ahora))}',
+                v.sinMuestras
+                    // Cero kilómetros y cero muestras no son lo mismo, y en
+                    // una lista se confunden: el primero es una camioneta que
+                    // no se movió, el segundo un GPS que nunca entregó nada.
+                    ? 'Sin muestras · ${formatearDuracion(v.duracionMs(ahora))}'
+                    : '${formatearKm(v.kilometros)} · '
+                          '${formatearDuracion(v.duracionMs(ahora))}',
               ),
               subtitle: Text(
                 '${_fecha(v.inicio)}'
+                '${v.sinMuestras ? "" : " · ${v.muestras} muestras"}'
                 '${v.cortes > 0 ? " · ${v.cortes} cortes" : ""}'
                 '${v.enMarcha ? " · sin cerrar" : ""}',
               ),

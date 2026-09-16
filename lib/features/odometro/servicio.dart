@@ -50,6 +50,34 @@ class EstadoViaje {
   bool get hayViaje => viaje != null;
   double get kilometros => odometria.kilometros;
 
+  /// Qué está pasando con la señal mientras todavía no hay un solo kilómetro,
+  /// o `null` cuando no hay nada que decir.
+  ///
+  /// **Existe por un viaje real de 13 segundos que dio 0,0 km.** Adentro de una
+  /// casa el receptor no fija satélites, así que la pantalla mostraba cero y
+  /// nada más: «el GPS todavía no ve el cielo» y «la aplicación no anda» se
+  /// veían exactamente igual. Un estado sin explicación es un error invisible
+  /// (`PROTOCOLO-INTERFAZ.md` § 7.2), y acá el precio es que alguien crea que
+  /// lo que está roto es el programa.
+  String? get estadoDeLaSenal {
+    if (!midiendo) return null;
+    if (odometria.muestrasUsadas > 0) return null;
+    if (odometria.muestrasDescartadas > 0) {
+      return 'Llegan posiciones, pero ninguna sirve todavía: '
+          '${odometria.muestrasDescartadas} descartadas por precisión mala o '
+          'por una velocidad implausible. Pasa con el receptor recién '
+          'encendido o bajo un techo.';
+    }
+    if (sinDoppler > 0) {
+      return 'El receptor está entregando posiciones sin velocidad, así que '
+          'todavía no se puede medir. Es lo normal mientras no fija '
+          'satélites.';
+    }
+    return 'Esperando la primera muestra del GPS. Con cielo abierto tarda '
+        'entre treinta segundos y un minuto; adentro de una casa puede no '
+        'llegar nunca.';
+  }
+
   /// Velocidad en km/h de la última muestra, o `null` si todavía no hubo
   /// ninguna. **No se inventa un cero**: «todavía no sé» y «está quieta» son
   /// cosas distintas y se muestran distinto.

@@ -3,16 +3,28 @@
 Telemetría, odometría y diagnóstico mecánico para una **Toyota Hilux 3.0**
 (1KD-FTV, 2008-2011). Android, sin conexión, sin servidor, sin cuenta de nadie.
 
-> **Estado: tanda 2 — la odometría en vivo.** Ya mide. Se abre un viaje, el GPS
+> **Estado: tanda 3 — la odometría en vivo, y la señal a la vista.** Ya mide. Se abre un viaje, el GPS
 > entrega una muestra por segundo, la distancia se integra de la velocidad
 > Doppler y cada muestra cruda queda guardada en el teléfono. Lo que falta es
 > el combustible (tanda 3), el acelerómetro (4) y el micrófono (5).
 
 ## Instalar en el teléfono
 
-1. Entrar a la pestaña **Releases** del repositorio, release **`ultimo`**.
-2. Tocar el archivo `sitd-hilux-NN.apk`.
-3. Android va a pedir permiso para instalar desde el navegador. Se le da.
+Desde el navegador del teléfono, no desde la aplicación de GitHub:
+
+1. Entrar a
+   [releases/tag/ultimo](https://github.com/maurogasta-crypto/sitd-hilux/releases/tag/ultimo)
+   y tocar el archivo `sitd-hilux-NN.apk`.
+2. Al abrir lo descargado, Android dice que no puede instalar apps desconocidas
+   de esa fuente. En ese mismo cartel: **Ajustes → Permitir desde esta fuente →
+   Atrás**. Es una sola vez.
+3. **En Xiaomi hay dos pasos más**, y los dos asustan sin motivo: aparece
+   «Analizando la app…» y después un cartel de que no es de confianza →
+   **Instalar de todos modos**. Si insiste, en **Seguridad → Ajustes → Analizar
+   apps antes de instalar** se apaga mientras se instala.
+
+Desconfía porque el APK está firmado con la clave de depuración, no con una de
+Play Store. Es la nuestra: la compila el workflow de este repositorio.
 
 El release se reemplaza en cada push a `main`, así que ese enlace siempre
 apunta a lo último. Los APK de tandas anteriores quedan como *artifacts* de
@@ -83,7 +95,7 @@ lib/
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        83 casos. Corren sin emulador ni teléfono.
+test/                        90 casos. Corren sin emulador ni teléfono.
 .github/workflows/apk.yml    Verificación previa + APK + release.
 ```
 
@@ -91,7 +103,7 @@ test/                        83 casos. Corren sin emulador ni teléfono.
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-2` | `lib/core/version.dart` |
+| Aplicación | `sitd-3` | `lib/core/version.dart` |
 | Esquema de la base | `1` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
@@ -127,6 +139,13 @@ de cien metros.
 un receptor que todavía no fijó satélites se leyera como un vehículo detenido:
 el viaje saldría corto y **nada lo diría**. Por eso se mira `hasSpeed`, esas
 lecturas se cuentan aparte y la pantalla las muestra en «sin velocidad».
+
+**Un viaje sin muestras no es un viaje de cero kilómetros.** Adentro de una
+casa el receptor no fija satélites y el viaje termina en 0,0 km, que se lee
+como «no anduvo» cuando lo que pasó es que nunca llegó una señal. Mientras no
+hay una sola muestra buena, la pantalla dice qué está esperando; y en la lista
+de viajes, uno sin muestras se muestra como **«Sin muestras»** y no como un
+cero. Salió de la primera prueba real, un viaje de 13 segundos puertas adentro.
 
 **El factor de neumáticos corrige al tablero, no al GPS.** El GPS ya mide la
 distancia real. El que miente es el odómetro de fábrica, que cuenta vueltas de
