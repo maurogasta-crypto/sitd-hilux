@@ -67,5 +67,13 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 
+  # Sólo para el banco, y por una razón concreta: `fuente_gps_test.dart`
+  # vigila un ERROR de este paquete —`AndroidPosition.fromMap` pierde las
+  # banderas `hasSpeed` y `hasAccuracy`— y para reproducirlo hay que
+  # construir un `AndroidPosition`. Si algún dia se arregla rio arriba, esa
+  # prueba empieza a fallar y ahi se puede sacar el rodeo de `loQueTrae`.
+  # La aplicacion no lo importa: entra por `geolocator` como siempre.
+  geolocator_android: ^5.0.3
+
 flutter:
   uses-material-design: true

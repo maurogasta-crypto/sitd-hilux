@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/bitacora.dart';
 import '../permisos/avisos.dart';
+import '../sensores/satelites.dart';
 import 'fuente.dart';
 import 'fuente_gps.dart';
 
@@ -74,6 +75,10 @@ class FuenteEnCascada implements FuenteDeMuestras {
   /// Cómo se pide el permiso de notificaciones. Inyectable para el banco.
   final PedirAviso pedirAviso;
 
+  /// La escucha del motor GNSS, para reintentar el enganche una vez que el
+  /// permiso de ubicación quedó dado — que es lo único que le faltaba.
+  final Satelites? satelites;
+
   /// En qué quedó ese permiso la última vez que se pidió, o `null` si todavía
   /// no se pidió. La pantalla del viaje lo muestra cuando no es «concedido»:
   /// sin cartel, el servicio en primer plano es invisible y un Xiaomi lo mata
@@ -83,6 +88,7 @@ class FuenteEnCascada implements FuenteDeMuestras {
   FuenteEnCascada({
     FuenteDeMuestras Function(ModoGps)? construir,
     PedirAviso? pedirAviso,
+    this.satelites,
     this.escalones = escalonesPorDefecto,
   }) : construir = construir ?? ((m) => FuenteGps(modo: m)),
        pedirAviso = pedirAviso ?? pedirAvisoDelSistema,
@@ -204,7 +210,12 @@ class FuenteEnCascada implements FuenteDeMuestras {
       'Permiso de notificaciones: ${textoDeAviso(aviso.value!)}.',
     );
     // El permiso de ubicación tampoco depende del modo.
-    return (_actual ?? construir(escalones[_indice].modo)).preparar();
+    final d = await (_actual ?? construir(escalones[_indice].modo)).preparar();
+    // Y recién ACÁ, con el permiso ya resuelto, tiene sentido volver a pedirle
+    // al sistema la cuenta de satélites: sin permiso de ubicación fina la
+    // rechaza, y en `sitd-13` se pedía al abrir la aplicación y nunca más.
+    if (d.puedeArrancar) await satelites?.reintentarSiHaceFalta();
+    return d;
   }
 
   @override

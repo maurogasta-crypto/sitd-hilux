@@ -343,7 +343,7 @@ lib/
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        257 casos. Corren sin emulador ni teléfono.
+test/                        264 casos. Corren sin emulador ni teléfono.
 android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
                              `GnssStatus`. No lo cubre el banco — ver
                              «Verificación previa».
@@ -354,7 +354,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-13` | `lib/core/version.dart` |
+| Aplicación | `sitd-14` | `lib/core/version.dart` |
 | Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
@@ -393,6 +393,35 @@ Lo que se puede hacer desde una sesión sin ese SDK, y se hace:
 - mantener el código nativo **mínimo y defensivo**, y que el lado de Dart trate
   «el canal no contestó» como un estado normal y no como un error — así un
   problema en el Kotlin degrada el diagnóstico pero no impide medir.
+
+## El error que costó tres días, y cómo se encontró
+
+**`geolocator` miente en Android: `hasSpeed` y `hasAccuracy` valen `false`
+siempre.** Es un error de `geolocator_android` 5.0.3 —`AndroidPosition.fromMap`
+copia los números y pierde las banderas— y hacía que este proyecto descartara
+**todas** las posiciones del GPS, en cualquier teléfono.
+
+Dos viajes reales terminaron en cero metros con el receptor entregando una
+posición por segundo. El diagnóstico apuntó tres días al receptor, a los
+permisos, a HyperOS y al servicio en primer plano.
+
+**Cómo se encontró, que es lo que vale para la próxima:** armando a mano el
+mapa que manda el lado nativo y pasándolo por el traductor del paquete. Cinco
+minutos:
+
+```dart
+final p = AndroidPosition.fromMap({
+  'latitude': -34.9, 'longitude': -56.2, 'timestamp': 1789576665000,
+  'accuracy': 7.5, 'speed': 12.3, 'speed_accuracy': 0.4,
+});
+// accuracy 7.5, speed 12.3 ... y hasAccuracy false, hasSpeed false.
+```
+
+La regla que queda: **cuando un contador dé cero y la causa parezca estar
+afuera, probá la traducción con un dato fabricado antes de seguir buscando
+afuera.** Un filtro que rechaza todo se ve igual que un sensor que no entrega
+nada. Está en `fuente_gps_test.dart`, y si esa prueba empieza a fallar es que
+lo arreglaron río arriba.
 
 ## Las cosas que sorprenden
 

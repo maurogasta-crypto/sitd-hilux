@@ -279,6 +279,38 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   seguidos o no existe. Y el aviso sale al terminar el viaje, **nunca
   manejando**.
 
+- **NO se puede confiar en `hasSpeed` ni en `hasAccuracy` de `geolocator`, y
+  ésta es LA lección del proyecto hasta hoy.** En Android esas dos banderas
+  valen `false` **siempre**, pase lo que pase con el receptor. Es un error de
+  `geolocator_android` **5.0.3** —la última publicada al 2026-09-17, sin issue
+  abierto río arriba—: `AndroidPosition.fromMap` llama a `Position.fromMap`,
+  que las calcula bien mirando qué claves mandó el lado nativo, y después
+  construye un `AndroidPosition` copiando **sólo los números**. El constructor
+  ni siquiera acepta las banderas, así que caen a su valor por defecto.
+
+  **Lo que costó:** este proyecto descartaba el **100 % de las posiciones del
+  GPS**, en cualquier teléfono, desde la etapa B. Dos viajes reales —68 y 162
+  posiciones, el receptor entregando una por segundo— terminaron en cero
+  metros. Y tres días de diagnóstico apuntando al lugar equivocado: al
+  receptor, a los permisos, a HyperOS, al servicio en primer plano. Todos esos
+  hallazgos siguen siendo ciertos; ninguno era la causa.
+
+  Desde `sitd-14` la presencia se **deduce del valor**, en `loQueTrae()`:
+  precisión si `accuracy > 0` (una precisión de cero metros no existe), y
+  velocidad si `speed > 0` **o** `speedAccuracy > 0` — el segundo es el que
+  salva a la camioneta detenida, porque Android sólo informa el margen de la
+  velocidad cuando tiene velocidad. Se sigue respetando la bandera cuando dice
+  que sí, así que el día que se arregle río arriba esto sigue andando sin
+  tocar nada. **Y el banco reproduce el error**: si esa prueba empieza a
+  fallar, es que lo arreglaron.
+
+  **La lección general, que es la que no hay que deshacer:** una biblioteca
+  puede mentir en silencio, y un filtro que rechaza todo se ve exactamente
+  igual que un sensor que no entrega nada. Cuando un contador dé cero y la
+  causa parezca estar afuera, hay que probar la traducción con un dato
+  fabricado antes de seguir buscando afuera. Eso son cinco minutos; buscar
+  afuera costó tres días.
+
 - **Una posición SIN velocidad no es silencio del receptor, y confundir las dos
   cosas costó tres días.** El 2026-09-16 un viaje real de dos minutos y medio
   registró **68 posiciones, una cada 2,3 segundos, y terminó en cero

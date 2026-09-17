@@ -4,6 +4,49 @@ import '../../core/bitacora.dart';
 import 'fuente.dart';
 import 'muestra.dart';
 
+/// Qué trae de verdad una posición: si informó velocidad, y si informó
+/// precisión.
+///
+/// ## Por qué esto no puede preguntarle a `hasSpeed` y `hasAccuracy`
+///
+/// **Porque en Android esas dos banderas valen `false` SIEMPRE, y es un error
+/// del paquete, no del teléfono.** Está en `geolocator_android` 5.0.3 —la
+/// última publicada al 2026-09-17— en `AndroidPosition.fromMap`: llama a
+/// `Position.fromMap`, que calcula bien las banderas mirando qué claves mandó
+/// el lado nativo, y después construye un `AndroidPosition` copiando **sólo
+/// los números**. El constructor ni siquiera acepta las banderas, así que
+/// caen a su valor por defecto, que es `false`.
+///
+/// El banco lo reproduce en `fuente_gps_test.dart`: una posición con 7,5 m de
+/// precisión, 12,3 m/s de velocidad y 0,4 de margen vuelve con `hasAccuracy`
+/// y `hasSpeed` en `false`.
+///
+/// **Lo que costó:** este proyecto descartaba el 100 % de las posiciones del
+/// GPS en Android, en cualquier teléfono, desde siempre. Tres días buscándolo
+/// en el receptor, en los permisos, en HyperOS y en el servicio en primer
+/// plano. Dos viajes reales —68 y 162 posiciones— terminaron en cero metros
+/// con el receptor funcionando perfectamente.
+///
+/// ## Cómo se deduce sin las banderas, y qué se pierde
+///
+/// El lado nativo **omite la clave** cuando el sensor no midió el valor, y el
+/// lado de Dart pone `0.0` en su lugar. Entonces:
+///
+/// - **precisión**: `accuracy > 0` la tuvo. Una precisión de exactamente cero
+///   metros no existe en un receptor real, así que el cero sólo puede ser la
+///   clave ausente.
+/// - **velocidad**: `speed > 0` **o** `speedAccuracy > 0`. El segundo es el que
+///   importa: una camioneta DETENIDA informa `speed` en cero legítimamente, y
+///   sin esto se la descartaría. Android sólo informa el margen de error de la
+///   velocidad cuando tiene velocidad, así que un margen mayor que cero prueba
+///   que el cero es real y no una ausencia.
+///
+/// **Lo que se pierde, dicho sin maquillaje:** en un teléfono que no informe
+/// `speedAccuracy` (existe desde la API 26, y los dos de este proyecto la
+/// superan), una camioneta detenida se descarta. Es el lado correcto para
+/// equivocarse — sigue valiendo la regla de que una velocidad cero sin
+/// respaldo no es una camioneta quieta— y cuando arranque, entra sola.
+
 /// Traduce una posición de Android a una [Muestra] del proyecto.
 ///
 /// **Devuelve `null` cuando la posición no trae velocidad Doppler, y ésa es la
@@ -15,16 +58,26 @@ import 'muestra.dart';
 ///
 /// Lo mismo con la precisión: sin ella no hay forma de descartar una muestra
 /// mala, así que tampoco entra.
+({bool velocidad, bool precision}) loQueTrae(Position p) => (
+  // Se respeta la bandera cuando dice que SÍ —en iOS funciona, y si el
+  // paquete se arregla esto sigue andando sin tocar nada— y sólo se deduce
+  // cuando dice que no.
+  velocidad: p.hasSpeed || p.speed > 0 || p.speedAccuracy > 0,
+  precision: p.hasAccuracy || p.accuracy > 0,
+);
+
 Muestra? muestraDePosicion(Position p) {
-  if (!p.hasSpeed || !p.hasAccuracy) return null;
+  final trae = loQueTrae(p);
+  if (!trae.velocidad || !trae.precision) return null;
   return Muestra(
     t: p.timestamp.millisecondsSinceEpoch,
     lat: p.latitude,
     lon: p.longitude,
-    alt: p.hasAltitude ? p.altitude : null,
+    // Misma trampa que arriba: la bandera no sirve, el cero es la ausencia.
+    alt: p.altitude != 0 ? p.altitude : null,
     velocidad: p.speed,
     precision: p.accuracy,
-    precisionVel: p.hasSpeedAccuracy ? p.speedAccuracy : null,
+    precisionVel: p.speedAccuracy > 0 ? p.speedAccuracy : null,
   );
 }
 
@@ -42,7 +95,8 @@ Muestra? muestraDePosicion(Position p) {
 /// de veinte es satélite. Se anota **sólo cuando cambia de tramo**, no una vez
 /// por segundo: lo que importa es de qué clase son, no el latido.
 void anotarSinDoppler(Position p) {
-  final precision = p.hasAccuracy ? p.accuracy : double.nan;
+  final trae = loQueTrae(p);
+  final precision = trae.precision ? p.accuracy : double.nan;
   final tramo = precision.isNaN
       ? 'sin precisión declarada'
       : precision > 100
@@ -55,7 +109,8 @@ void anotarSinDoppler(Position p) {
             'pero sin resolver la velocidad todavía';
   bitacora.anotarSiCambio(
     Origen.gps,
-    'Llegan posiciones SIN velocidad Doppler, $tramo.',
+    'Llegan posiciones SIN velocidad Doppler, $tramo'
+    '${p.isMocked ? " — y son SIMULADAS: hay una aplicación de ubicación falsa activa" : ""}.',
   );
 }
 
@@ -154,6 +209,13 @@ class FuenteGps implements FuenteDeMuestras {
       encendido = await gps.isLocationServiceEnabled();
       permiso = (await gps.checkPermission()).name;
       final ultima = await gps.getLastKnownPosition();
+      if (ultima != null && ultima.isMocked) {
+        bitacora.anotar(
+          Origen.gps,
+          'OJO: la última posición conocida está marcada como SIMULADA. Hay '
+          'una aplicación de ubicación falsa activa en el teléfono.',
+        );
+      }
       bitacora.anotar(
         Origen.gps,
         'Diagnóstico: permiso $permiso · ubicación del sistema '

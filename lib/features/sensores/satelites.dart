@@ -110,17 +110,30 @@ class Satelites {
 
   bool _arrancado = false;
 
+  /// `true` si el sistema rechazó el enganche. Casi siempre quiere decir una
+  /// sola cosa: **todavía no estaba dado el permiso de ubicación fina.**
+  ///
+  /// `registerGnssStatusCallback` lo exige y tira `SecurityException` sin él.
+  /// La bitácora del 2026-09-16 lo dejó a la vista: dos «el sistema no dejó
+  /// enganchar» a los 1,3 y 9 segundos de abrir la aplicación, y el permiso
+  /// recién a los 10,7. Se pedía antes de tenerlo.
+  bool get rechazado => _rechazado;
+  bool _rechazado = false;
+
   /// Engancha la escucha. **No lanza nunca**: si el canal no está, se devuelve
   /// «no disponible» y la aplicación sigue midiendo igual.
   Future<EstadoSatelites> arrancar() async {
     try {
       final ok = await canal.invokeMethod<bool>('arrancar') ?? false;
       _arrancado = ok;
+      _rechazado = !ok;
       bitacora.anotar(
         Origen.satelites,
         ok
             ? 'Enganchado al motor GNSS del sistema.'
-            : 'El sistema no dejó enganchar la cuenta de satélites.',
+            : 'El sistema no dejó enganchar la cuenta de satélites. Casi '
+                  'siempre es que todavía falta el permiso de ubicación: se '
+                  'reintenta cuando esté dado.',
       );
       return await leer();
     } on MissingPluginException {
@@ -133,6 +146,18 @@ class Satelites {
       bitacora.anotar(Origen.satelites, 'No se pudo enganchar: $e');
       return EstadoSatelites(falla: '$e');
     }
+  }
+
+  /// Vuelve a intentar el enganche si la primera vez lo rechazaron.
+  ///
+  /// **Es lo que faltaba en `sitd-13`:** la escucha arrancaba con la
+  /// aplicación, o sea antes de que nadie hubiera dado el permiso de
+  /// ubicación, y el sistema la rechazaba. Nadie volvía a pedirla, así que el
+  /// reporte decía «no disponible» para siempre. Se llama después de que el
+  /// permiso quedó dado.
+  Future<EstadoSatelites> reintentarSiHaceFalta() async {
+    if (_arrancado || !_rechazado) return leer();
+    return arrancar();
   }
 
   Future<EstadoSatelites> leer() async {

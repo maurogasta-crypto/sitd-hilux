@@ -90,7 +90,7 @@ class Arranque {
       // No se espera: si el canal tarda o no está, la aplicación abre igual.
       unawaited(satelites.arrancar());
       final registro = RegistroDeViajes(base);
-      final cascada = FuenteEnCascada();
+      final cascada = FuenteEnCascada(satelites: satelites);
       final servicio = ServicioOdometria(registro: registro, fuente: cascada);
       // Si el sistema mató la aplicación en medio de un viaje, acá se retoma.
       servicio.retomarPendiente();
