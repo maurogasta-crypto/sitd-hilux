@@ -112,6 +112,10 @@ exactamente igual.
 
 ### La nube, y la única regla que no se negocia
 
+**La base es `hilux-1b6f1`** (proyecto «Hilux», número 648828864019), creada
+por Mauro el 2026-09-19. Es la **quinta** del ecosistema y la primera donde el
+que escribe es una aplicación Android y no una página web.
+
 **Sube el reporte PARA DESARROLLO y nada más** — el que no lleva una sola
 coordenada. El respaldo completo, con dónde estuvo la camioneta minuto a
 minuto, **no sale del teléfono por ningún canal**: ni por un chat ni por una
@@ -135,6 +139,30 @@ escribir reportes de más — molesto y visible, no grave. Si además pudiera
 leer, se llevaría la historia entera. La plantilla está en `firestore.rules`,
 con los tres UID como **marcadores**: un UID real no entra nunca a este
 repositorio, y el banco lo comprueba.
+
+**El teléfono entra como `maurogasta@gmail.com`**, porque Mauro decidió no
+crear un usuario aparte. Tiene un costo que conviene tener presente y no es
+grave: la aplicación guarda esa contraseña en el teléfono, así que quien tenga
+el teléfono desbloqueado y sepa sacarla tiene su cuenta **de esta base**. No
+su cuenta de Google — la contraseña de Firebase Authentication es propia de
+este proyecto y no abre nada más. El día que moleste, se crea `telefono@…`, se
+cambia `esElTelefono()` en las reglas y se vuelve a pegar la configuración.
+
+**Y el agente ESCRIBE acá, que es la primera vez en el ecosistema.** Lee
+`reportes/` y no lo toca —un reporte es lo que midió el teléfono, y ni yo lo
+piso— y escribe en `analisis/`: umbrales que convendría ajustar, anomalías que
+mirar, qué cubetas faltan. **La separación en dos colecciones es lo que lo
+hace seguro**: si un análisis sale mal, se rehace sin tocar el dato medido.
+
+**El tamaño está contemplado, porque un documento de Firestore no pasa de
+1 MiB.** Antes de subir, el reporte se mide; si no entra se recorta, y en un
+orden que no es casual: primero **la bitácora** —que es diagnóstico del
+intercambio con el sistema y se puede reconstruir— y recién después **las
+ventanas de vibración, diezmadas parejo** a lo largo del viaje entero, nunca
+las primeras N (un viaje recortado por el principio mentiría sobre a qué
+velocidad anduvo). **Y nunca se recorta en silencio**: el documento lleva
+escrito qué se sacó y cuánto, así que un vector que falta se explica seis
+meses después en vez de parecer un hueco raro.
 
 **Y es una base propia, no la del panel.** El panel guarda `claves/`, la
 bóveda de Mauro. Un teléfono que viaja no tiene que poder llegar ni cerca de

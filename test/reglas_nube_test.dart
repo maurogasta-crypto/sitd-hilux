@@ -40,9 +40,30 @@ void main() {
     expect(reglas, contains('allow update: if false'));
   });
 
-  test('el agente lee y no escribe', () {
+  test('el agente lee los reportes, pero no los puede pisar', () {
     expect(reglas, contains('allow read: if soyYo() || esElAgente()'));
-    expect(reglas, isNot(contains('esElAgente() && request.resource')));
+    // Un reporte subido es lo que midió el teléfono: ni yo lo toco.
+    expect(reglas, contains('allow update: if false'));
+  });
+
+  // Lo que el agente concluye va en una colección APARTE, no adentro del
+  // reporte: si mañana me equivoco en un análisis, se reescribe ése y el dato
+  // medido sigue intacto.
+  test('el agente escribe sus conclusiones en analisis/, no en reportes/', () {
+    expect(reglas, contains('match /analisis/{id}'));
+    expect(
+      reglas,
+      contains('allow create, update: if esElAgente() || soyYo()'),
+    );
+  });
+
+  // El teléfono entra como Mauro porque no se creó un usuario aparte. El día
+  // que se cree, se cambia esta función y nada más.
+  test('el teléfono entra como Mauro, y está dicho en un solo lugar', () {
+    expect(
+      reglas,
+      contains('function esElTelefono() {\n      return soyYo();'),
+    );
   });
 
   // Rige el deny por defecto: una colección nueva entra con su regla o queda

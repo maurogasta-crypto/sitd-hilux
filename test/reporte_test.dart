@@ -115,6 +115,65 @@ void main() {
       ..anotar(Origen.satelites, 'Ve 11, usa 0, mejor señal 24 dB-Hz');
   });
 
+  // La cola sube el viaje 1 mientras el teléfono ya hizo el 2 y el 3. Sin
+  // `soloElViaje`, `ultimos(1)` devolvía el MÁS NUEVO — o sea que los tres
+  // documentos habrían llevado los datos del último, cada uno con el nombre
+  // de otro viaje. Encontrado releyendo, antes de que subiera un solo reporte.
+  group('el reporte de UN viaje, que es el que sube la cola', () {
+    test('trae ese viaje y ningún otro', () {
+      final v = viajes.abrir(inicio: 900000);
+      final r = armarReporte(
+        base: base,
+        viajes: viajes,
+        cargas: cargas,
+        vibraciones: vibraciones,
+        alcance: Alcance.paraDesarrollo,
+        sello: 'sitd-18',
+        ahora: 1,
+        soloElViaje: 1,
+      );
+      final lista = r['viajes'] as List;
+      expect(lista.length, 1);
+      expect((lista.single as Map)['id'], 1);
+      expect(
+        (lista.single as Map)['id'],
+        isNot(v),
+        reason: 'tiene que ser el pedido, no el más nuevo',
+      );
+    });
+
+    test('un viaje que no existe da una lista vacía, no una excepción', () {
+      final r = armarReporte(
+        base: base,
+        viajes: viajes,
+        cargas: cargas,
+        vibraciones: vibraciones,
+        alcance: Alcance.paraDesarrollo,
+        sello: 'sitd-18',
+        ahora: 1,
+        soloElViaje: 9999,
+      );
+      expect(r['viajes'], isEmpty);
+    });
+
+    test('y sigue sin llevar una coordenada', () {
+      final texto = jsonEncode(
+        armarReporte(
+          base: base,
+          viajes: viajes,
+          cargas: cargas,
+          vibraciones: vibraciones,
+          alcance: Alcance.paraDesarrollo,
+          sello: 'sitd-18',
+          ahora: 1,
+          soloElViaje: 1,
+        ),
+      );
+      expect(texto, isNot(contains('"lat"')));
+      expect(texto, isNot(contains('-34.90')));
+    });
+  });
+
   group('el reporte para desarrollo', () {
     // La prueba que sostiene la regla del proyecto: el recorrido NO se pega en
     // un chat. Si alguien agrega un campo con coordenadas sin pensarlo, esto

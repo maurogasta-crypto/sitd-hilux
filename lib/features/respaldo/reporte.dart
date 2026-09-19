@@ -133,9 +133,20 @@ Map<String, dynamic> armarReporte({
   RegistroDeEventos? eventos,
   Bitacora? registro,
   EstadoSatelites? satelites,
+
+  /// Cuando está, el reporte lleva **ese** viaje y ningún otro. Es lo que usa
+  /// la cola de subida: un documento por viaje.
+  int? soloElViaje,
 }) {
   final conRecorrido = alcance == Alcance.respaldoCompleto;
-  final losViajes = viajes.ultimos(conRecorrido ? 1000 : cuantosViajes);
+  // **`soloElViaje` no es una comodidad: sin él la subida estaba mal.** La
+  // cola sube el viaje 1 mientras el teléfono ya hizo el 2 y el 3, y
+  // `ultimos(1)` devuelve el más nuevo — o sea que los tres documentos habrían
+  // llevado los datos del último. Encontrado releyendo, antes de que subiera
+  // un solo reporte.
+  final losViajes = soloElViaje != null
+      ? [?viajes.porId(soloElViaje)]
+      : viajes.ultimos(conRecorrido ? 1000 : cuantosViajes);
   final porViaje = vibraciones.porViaje();
 
   return {

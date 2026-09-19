@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Reglas de Firestore para la base de SITD-Hilux.
+// Reglas de Firestore para la base de SITD-Hilux — proyecto `hilux-1b6f1`.
 //
 // ════════════════════════════════════════════════════════════════════════
 //  Esta es una PLANTILLA. Los dos UID van como marcadores a propósito:
@@ -11,8 +11,10 @@ rules_version = '2';
 // Hay exactamente tres actores y cada uno puede una sola cosa:
 //
 //   el TELÉFONO  crea reportes. No lee, no modifica, no borra.
-//   el AGENTE    lee reportes. No escribe nada, nunca.
-//   Mauro        lee todo y borra lo que quiera.
+//                Y acá el teléfono entra como MAURO (maurogasta@gmail.com),
+//                porque él decidió no crear un usuario aparte. Ver abajo.
+//   el AGENTE    lee reportes, y lee y escribe en `analisis/`.
+//   Mauro        todo.
 //
 // **Por qué el teléfono no puede leer, y no es exceso de celo.** El APK se
 // descarga sin cuenta desde un repositorio público, así que hay que diseñar
@@ -32,8 +34,17 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == 'UID-DE-MAURO';
     }
 
+    // **El teléfono entra como Mauro**, porque no se creó un usuario aparte.
+    // Es una decisión suya del 2026-09-19 y tiene un costo que conviene tener
+    // presente: la aplicación guarda esa contraseña en el teléfono, así que
+    // quien tenga el teléfono desbloqueado y sepa sacarla tiene la cuenta de
+    // Mauro **de esta base** — no su cuenta de Google, que es otra cosa: la
+    // contraseña de Firebase Authentication es propia de este proyecto.
+    //
+    // El día que moleste, se crea `telefono@…`, se cambia esta función y se
+    // vuelve a pegar la configuración en el teléfono. No hace falta nada más.
     function esElTelefono() {
-      return request.auth != null && request.auth.uid == 'UID-DEL-TELEFONO';
+      return soyYo();
     }
 
     function esElAgente() {
@@ -58,6 +69,20 @@ service cloud.firestore {
 
       // Un hecho del pasado no se reescribe. Borrar es sólo de Mauro.
       allow update: if false;
+      allow delete: if soyYo();
+    }
+
+    // Lo que el agente CONCLUYE de esos reportes: umbrales que habría que
+    // ajustar, anomalías que conviene mirar, qué cubetas faltan.
+    //
+    // **Es una colección aparte y no un campo adentro del reporte**, y ése es
+    // el punto: un reporte subido es lo que midió el teléfono y no se toca
+    // nunca. Lo que yo opino va al lado, con su fecha, y se puede rehacer sin
+    // tocar el dato. Si mañana me equivoco en un análisis, se reescribe éste
+    // y el reporte sigue intacto.
+    match /analisis/{id} {
+      allow read: if soyYo() || esElAgente() || esElTelefono();
+      allow create, update: if esElAgente() || soyYo();
       allow delete: if soyYo();
     }
 

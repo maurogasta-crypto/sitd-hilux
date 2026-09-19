@@ -2,6 +2,7 @@ import '../../core/bitacora.dart';
 import '../respaldo/reporte.dart';
 import 'cola.dart';
 import 'credencial.dart';
+import 'recorte.dart';
 import 'subida.dart';
 
 /// Cómo terminó una tanda de subidas.
@@ -77,10 +78,31 @@ class ServicioNube {
     String? primera;
 
     for (final p in faltan) {
+      // Antes de mandarlo, que entre. Un documento de Firestore no puede
+      // pasar de 1 MB, y un reporte rechazado por tamaño lo reintentaría la
+      // cola para siempre.
+      final listo = recortarParaSubir(armar(p.viaje));
+      if (listo.recorte.huboRecorte) {
+        bitacora.anotar(
+          Origen.sistema,
+          'El reporte del viaje ${p.viaje} no entraba '
+          '(${listo.recorte.bytesOriginales} bytes) y se recortó: quedaron '
+          '${listo.recorte.vibracionesDespues} de '
+          '${listo.recorte.vibracionesAntes} ventanas de vibración.',
+        );
+      }
+      if (listo.recorte.noEntro) {
+        // Ni pelado entra. Reintentar no lo va a arreglar.
+        cola.marcarFalla(p.viaje, 'El reporte no entra ni recortado.');
+        fallaron++;
+        primera ??= 'El reporte del viaje ${p.viaje} no entra ni recortado.';
+        continue;
+      }
+
       final r = await subida.subir(
         credencial: c,
         id: _idDe(p.viaje, c),
-        reporte: armar(p.viaje),
+        reporte: listo.reporte,
       );
       if (r.ok) {
         cola.marcarSubido(p.viaje);

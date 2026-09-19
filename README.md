@@ -324,6 +324,8 @@ lib/
 │   │   ├── credencial.dart  Los cuatro datos que Mauro pega a mano. NO
 │   │   │                    están en el repositorio ni en el APK.
 │   │   ├── cola.dart        Los viajes que faltan subir. Sin señal esperan.
+│   │   ├── recorte.dart     Que el documento entre en el límite de 1 MB,
+│   │   │                    sacando primero lo que se puede reconstruir.
 │   │   ├── subida.dart      Firestore por REST. Sin SDK: el SDK pediría un
 │   │   │                    google-services.json en un repo público.
 │   │   └── servicio_nube.dart  Junta las tres, y clava el alcance.
@@ -354,7 +356,7 @@ lib/
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        325 casos. Corren sin emulador ni teléfono.
+test/                        339 casos. Corren sin emulador ni teléfono.
 firestore.rules              Las reglas de la base remota. PLANTILLA: los
                              UID van como marcadores, este repo es público.
 android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
@@ -367,7 +369,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-17` | `lib/core/version.dart` |
+| Aplicación | `sitd-18` | `lib/core/version.dart` |
 | Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

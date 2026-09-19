@@ -149,7 +149,9 @@ class Arranque {
           sello: selloApp,
           ahora: DateTime.now().millisecondsSinceEpoch,
           eventos: eventos,
-          cuantosViajes: 1,
+          // ESE viaje, no el último. Sin esto, con tres encolados los tres
+          // documentos llevarían los datos del más nuevo.
+          soloElViaje: viaje,
         ),
       );
       // Al abrir se intenta lo que quedó esperando. No se espera el resultado:
