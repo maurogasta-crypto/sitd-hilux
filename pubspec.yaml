@@ -61,6 +61,7 @@ dependencies:
   # 17 del 2026-09-16. La 12 trae la 13.0.1, que compila contra la 35.
   # Se destraba cuando suba el plugin de Gradle, no antes.
   permission_handler: ^12.0.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

@@ -13,7 +13,7 @@
 library;
 
 /// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
-const int versionEsquema = 4;
+const int versionEsquema = 5;
 
 /// Cada elemento son las sentencias que llevan el esquema de la versión
 /// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
@@ -159,6 +159,30 @@ const List<List<String>> migraciones = [
     )
     ''',
     'CREATE INDEX idx_eventos_t ON eventos (t DESC)',
+  ],
+
+  // ── 4 → 5 ──────────────────────────────────────────────────────────────
+  // La cola de viajes que faltan subir (19-sep-2026, etapa G).
+  //
+  // **Es una COLA y no un intento al vuelo**, y ése es el punto entero: la
+  // camioneta anda por lugares sin señal, y un viaje que termina lejos de una
+  // antena no puede perderse por eso. Se encola al terminar y se reintenta
+  // cuando haya red — al abrir la aplicación o cuando alguien toque el botón.
+  //
+  // Y **la subida nunca frena la medición**: si esta tabla no existiera, o si
+  // la red no contestara nunca, la aplicación sigue midiendo exactamente
+  // igual. Eso es lo que no se puede perder al agregar una nube.
+  [
+    '''
+    CREATE TABLE subidas (
+      viaje       INTEGER PRIMARY KEY REFERENCES viajes (id) ON DELETE CASCADE,
+      encolado    INTEGER NOT NULL,
+      subido      INTEGER,
+      intentos    INTEGER NOT NULL DEFAULT 0,
+      ultimoError TEXT
+    )
+    ''',
+    'CREATE INDEX idx_subidas_pendientes ON subidas (subido, encolado)',
   ],
 ];
 

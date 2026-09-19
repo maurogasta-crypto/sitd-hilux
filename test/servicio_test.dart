@@ -179,6 +179,63 @@ void main() {
     expect(registro.ultimos().length, 1);
   });
 
+  // La etapa G: cada viaje que termina entra a la cola de subida. Y entra
+  // DESPUÉS de cerrarlo, así que si encolar fallara no se pierde un metro.
+  group('el viaje terminado avisa, para que lo encolen', () {
+    test('avisa con el id del viaje, una sola vez', () async {
+      final avisados = <int>[];
+      final s = ServicioOdometria(
+        registro: registro,
+        fuente: fuente,
+        reloj: () => reloj,
+        alTerminar: avisados.add,
+      );
+      await s.arrancar();
+      final viaje = s.estado.value.viaje!;
+      await s.terminar();
+
+      expect(avisados, [viaje]);
+      s.cerrarRecursos();
+    });
+
+    test('pausar NO avisa: el viaje sigue abierto', () async {
+      final avisados = <int>[];
+      final s = ServicioOdometria(
+        registro: registro,
+        fuente: fuente,
+        reloj: () => reloj,
+        alTerminar: avisados.add,
+      );
+      await s.arrancar();
+      await s.pausar();
+
+      expect(avisados, isEmpty);
+      s.cerrarRecursos();
+    });
+
+    // Si encolar explota, el viaje ya está cerrado y guardado. Una nube rota
+    // no puede costar un viaje.
+    test('si el aviso explota, el viaje queda cerrado igual', () async {
+      final s = ServicioOdometria(
+        registro: registro,
+        fuente: fuente,
+        reloj: () => reloj,
+        alTerminar: (_) => throw StateError('la cola se rompió'),
+      );
+      await s.arrancar();
+      unViajeDe200Metros();
+      final viaje = s.estado.value.viaje!;
+
+      final cerrado = await s.terminar();
+
+      expect(cerrado, isNotNull);
+      expect(cerrado!.enMarcha, isFalse);
+      expect(cerrado.metros, closeTo(200, 0.001));
+      expect(registro.porId(viaje)!.enMarcha, isFalse);
+      s.cerrarRecursos();
+    });
+  });
+
   test('arrancar dos veces seguidas no abre dos viajes', () async {
     await servicio.arrancar();
     await servicio.arrancar();

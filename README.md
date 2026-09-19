@@ -320,6 +320,13 @@ lib/
 │   │   └── registro_cargas.dart  Cargas y el ajuste del tanque.
 │   ├── respaldo/
 │   │   └── reporte.dart     Qué sale del teléfono, y qué no.
+│   ├── nube/
+│   │   ├── credencial.dart  Los cuatro datos que Mauro pega a mano. NO
+│   │   │                    están en el repositorio ni en el APK.
+│   │   ├── cola.dart        Los viajes que faltan subir. Sin señal esperan.
+│   │   ├── subida.dart      Firestore por REST. Sin SDK: el SDK pediría un
+│   │   │                    google-services.json en un repo público.
+│   │   └── servicio_nube.dart  Junta las tres, y clava el alcance.
 │   ├── permisos/
 │   │   └── avisos.dart      El permiso de notificaciones, que hace VISIBLE
 │   │                        la notificación del servicio en primer plano.
@@ -347,7 +354,9 @@ lib/
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        292 casos. Corren sin emulador ni teléfono.
+test/                        325 casos. Corren sin emulador ni teléfono.
+firestore.rules              Las reglas de la base remota. PLANTILLA: los
+                             UID van como marcadores, este repo es público.
 android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
                              `GnssStatus`. No lo cubre el banco — ver
                              «Verificación previa».
@@ -358,7 +367,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-16` | `lib/core/version.dart` |
+| Aplicación | `sitd-17` | `lib/core/version.dart` |
 | Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

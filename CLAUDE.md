@@ -5,7 +5,10 @@
 Sistema Integral de Telemetría, Odometría y Diagnóstico Mecánico para una
 **Toyota Hilux 3.0 (1KD-FTV, 2008-2011)**. Aplicación Android que mide
 distancia real por GPS, lleva el registro de combustible y detecta anomalías
-mecánicas por vibración y sonido, **todo local y sin conexión**.
+mecánicas por vibración y sonido. **Mide siempre sin conexión**, y desde
+`sitd-17` sube el reporte de cada viaje a una base remota cuando hay señal —
+ver «La nube», más abajo: lo que sube es el reporte SIN coordenadas, y el
+recorrido no sale del teléfono por ningún canal.
 
 Dos etapas de hardware:
 
@@ -92,14 +95,63 @@ por una sesión con la cadena de compilación puesta.
 repositorio, a ningún otro, ni a ningún chat. El historial de git es
 permanente: borrar un archivo después no alcanza.
 
-**Este proyecto no tiene credenciales, y es por diseño.** No hay servidor, no
-hay base remota, no hay API de terceros, no hay cuenta de nadie. Todo el estado
-vive en el SQLite del teléfono y **nada sale de ahí**. Es la posición más
-cómoda de todo el ecosistema y conviene no perderla.
+**Hasta `sitd-16` este proyecto no tenía ninguna credencial, y era su mejor
+propiedad.** El 2026-09-19 Mauro decidió cruzar esa línea a propósito y con el
+precio a la vista: quería que el reporte subiera solo después de cada viaje, y
+que yo pudiera leerlo sin que él tenga que mandármelo a mano.
 
-¿Usa variables de entorno? **No.** No hay `.env`, no hay `process.env`, no hay
-funciones desplegadas. El único workflow es el que compila el APK y **no
-consume ningún secreto**: el token se lo da GitHub para esa corrida.
+**Lo que se ganó, y era lo más caro del proyecto:** hoy cada tanda obliga a
+desinstalar y eso borra la base. Los vectores de vibración tardan meses en
+juntarse y se perdían en cada actualización. Con la subida, **cada viaje queda
+guardado fuera del teléfono antes de que se borre.**
+
+**Lo que se perdió, dicho sin maquillaje:** ahora hay una cuenta, una base
+remota y reglas que mantener, y la aplicación pide permiso de INTERNET. Lo que
+**no** se perdió: medir sigue siendo offline y sin señal la aplicación mide
+exactamente igual.
+
+### La nube, y la única regla que no se negocia
+
+**Sube el reporte PARA DESARROLLO y nada más** — el que no lleva una sola
+coordenada. El respaldo completo, con dónde estuvo la camioneta minuto a
+minuto, **no sale del teléfono por ningún canal**: ni por un chat ni por una
+nube. No es una convención: es el motivo por el que se pudo aceptar que exista
+una nube. Por eso el alcance **no es un parámetro** — está clavado en
+`alcanceQueSeSube`, y el banco comprueba el texto que efectivamente se manda.
+
+**La credencial NO está en el repositorio ni en el APK, y no puede estarlo.**
+El repositorio es público y el APK se descarga sin cuenta — comprobado el
+2026-09-19: `HTTP 206` contra el enlace del release, sin credencial ninguna.
+Una contraseña metida adentro del APK no sería una contraseña: sería un dato
+público. Por eso **la teclea Mauro una vez**, en la pantalla de Respaldo, y
+vive en el SQLite de la aplicación. Se pega de un solo golpe —los cuatro
+campos en un texto— porque se trabaja desde un teléfono y cada tanda obliga a
+volver a pegarla.
+
+**Las reglas están escritas suponiendo que la credencial del teléfono se
+conoce.** El teléfono sólo puede **crear** en `reportes/`: no lee, no
+modifica, no borra. Lo peor que puede hacer quien tenga esa credencial es
+escribir reportes de más — molesto y visible, no grave. Si además pudiera
+leer, se llevaría la historia entera. La plantilla está en `firestore.rules`,
+con los tres UID como **marcadores**: un UID real no entra nunca a este
+repositorio, y el banco lo comprueba.
+
+**Y es una base propia, no la del panel.** El panel guarda `claves/`, la
+bóveda de Mauro. Un teléfono que viaja no tiene que poder llegar ni cerca de
+ahí, aunque las reglas lo nieguen: base separada quiere decir que si algo se
+filtra, el daño queda adentro.
+
+**La cola es lo que hace que esto sirva en una camioneta.** Un viaje que
+termina lejos de una antena se encola y se reintenta al abrir la aplicación o
+con el botón; **un viaje sólo sale de la cola cuando subió**, así que veinte
+fallas de red seguidas no pierden nada. Y se encola **después** de cerrar el
+viaje: si encolar fallara, el viaje ya está guardado y no se pierde un metro.
+
+¿Usa variables de entorno? **No, y sigue sin usarlas.** No hay `.env`, no hay
+`process.env`, no hay funciones desplegadas. El único workflow es el que
+compila el APK y **no consume ningún secreto**: el token se lo da GitHub para
+esa corrida. La credencial de la nube tampoco es una variable de entorno — se
+teclea en el teléfono, por el motivo de arriba.
 
 | Nombre | Qué hace | Tipo | Dónde vive el valor real | Verificado |
 |---|---|---|---|---|
@@ -107,6 +159,8 @@ consume ningún secreto**: el token se lo da GitHub para esa corrida.
 | `FIRMA_STORE_PASS` / `FIRMA_KEY_PASS` / `FIRMA_ALIAS` | Abren ese keystore | **secreto de infraestructura** | Mismo lugar | `.github/workflows/apk.yml` |
 | Clave de firma de depuración | Firma el release **mientras no estén cargados los secretos de arriba** | se genera NUEVA en cada corrida | La genera Gradle en el runner, que arranca limpio. Nadie la guarda y nadie la vuelve a ver | certificado del APK leído el 2026-09-16: `notBefore` = el minuto de la compilación |
 | `GITHUB_TOKEN` | Publica el release `ultimo` | efímero | Lo emite GitHub para cada corrida. No se carga, no se guarda, no se rota | `.github/workflows/apk.yml`, 2026-09-15 |
+| Configuración de la nube (`proyecto`, `apiKey`, `mail`, `clave`) | Deja que el teléfono cree documentos en `reportes/` | **dato en runtime, tecleado** | La pega Mauro en el teléfono, pantalla Respaldo → Configurar. Vive en `ajustes` del SQLite de la aplicación. **No está en el repositorio, ni en el APK, ni en un chat** | `lib/features/nube/credencial.dart` | decidido por Mauro, 2026-09-19 |
+| Usuario del agente en esa base | Deja que un chat LEA los reportes subidos | dato en runtime | Firebase Authentication de esa base. La contraseña, en las variables de entorno de Claude Code que carga Mauro | `datos/herramientas/firestore.mjs` | pendiente de alta |
 
 **Y eso tiene una consecuencia que se paga en cada tanda**: dos APK firmados
 con claves distintas no se pueden instalar uno encima del otro — Android dice
@@ -805,6 +859,7 @@ el teléfono.
 | **E** | Micrófono: FFT, compuerta de audio, escenarios | pendiente |
 | **—** | Panel de sensores: qué ve el teléfono y en qué estado | **entregado** (`sitd-6`) |
 | **—** | Sacar los datos: reporte para desarrollo y respaldo completo | **entregado** (`sitd-7`) |
+| **G** | La nube: cada viaje sube solo, y el chat lo lee | **entregado** (`sitd-17`) |
 
 Las dos filas sin letra están fuera de la secuencia a propósito, y las pidió
 Mauro el 2026-09-16: el panel de sensores después de un viaje de siete minutos
@@ -832,9 +887,13 @@ Este proyecto sigue las convenciones compartidas del repo **público**
 `proyectos/`, su línea de trabajo `L-hilux` y sus pendientes, así que la ronda
 lo trae como a los otros cinco.
 
-**Lo que NO tiene, y era un error de este archivo pedirlo:** una entrada en
-`PROYECTOS` de `herramientas/firestore.mjs`. Esa lista es de **bases de
-Firestore**, y este proyecto no tiene ninguna — igual que Harmonía, que figura
-con `acceso.base: "no tiene"`. Consecuencia concreta, para que no se busque:
-acá no hay circuito de `reportes/`, así que una falla vista en la cabina se
-cuenta en el chat o se escribe a mano en el panel.
+**Y desde `sitd-17` SÍ le corresponde una entrada en `PROYECTOS` de
+`herramientas/firestore.mjs`.** Hasta esa tanda no: esa lista es de bases de
+Firestore y este proyecto no tenía ninguna. Ahora tiene una —la de la etapa
+G— y el circuito de `reportes/` existe como en los otros tres sitios, con una
+diferencia que conviene tener presente: **acá el que escribe es el teléfono y
+no una página web**, así que la credencial no puede vivir en el código.
+
+Queda pendiente el alta: crear la base, los dos usuarios y publicar
+`firestore.rules`. Hasta que eso pase, la aplicación encola los viajes y no
+pierde ninguno — sólo no los sube.

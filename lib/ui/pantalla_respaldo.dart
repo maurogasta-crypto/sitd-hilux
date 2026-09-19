@@ -8,6 +8,9 @@ import 'package:share_plus/share_plus.dart';
 
 import '../core/db/base.dart';
 import '../core/registro_eventos.dart';
+import '../features/nube/cola.dart';
+import '../features/nube/credencial.dart';
+import '../features/nube/servicio_nube.dart';
 import '../core/version.dart';
 import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/registro.dart';
@@ -35,6 +38,14 @@ class PantallaRespaldo extends StatefulWidget {
   /// horas después del viaje, con la aplicación reabierta en el medio.
   final RegistroDeEventos? eventos;
 
+  /// La cola de viajes que faltan subir y el que los sube. Opcionales: el
+  /// banco arma la pantalla sin nube.
+  final ColaDeSubida? cola;
+  final ServicioNube? nube;
+
+  /// Dónde se guarda la configuración de la nube, que Mauro pega a mano.
+  final GuardaDeCredencial? guarda;
+
   /// La escucha del motor GNSS, que ahora arranca con la aplicación. Antes la
   /// encendía sólo la pantalla de sensores, así que el reporte salía diciendo
   /// «no disponible» cuando nadie la había abierto.
@@ -49,6 +60,9 @@ class PantallaRespaldo extends StatefulWidget {
     required this.ruta,
     this.eventos,
     this.satelites,
+    this.cola,
+    this.nube,
+    this.guarda,
   });
 
   @override
@@ -163,6 +177,14 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
         children: [
+          if (widget.cola != null && widget.guarda != null) ...[
+            _Nube(
+              cola: widget.cola!,
+              nube: widget.nube,
+              guarda: widget.guarda!,
+            ),
+            const SizedBox(height: 12),
+          ],
           _Opcion(
             icono: Icons.bug_report_outlined,
             titulo: 'Reporte para desarrollo',
@@ -270,6 +292,210 @@ class _Opcion extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// La subida automática: qué falta, qué se subió, y dónde se pega la
+/// configuración.
+///
+/// **La configuración se teclea y no viene en el APK.** El repositorio es
+/// público y el APK se descarga sin cuenta, así que una contraseña metida
+/// adentro sería un dato público. Se pega una vez, vive en el SQLite de la
+/// aplicación y no entra al repositorio ni a un chat.
+class _Nube extends StatefulWidget {
+  final ColaDeSubida cola;
+  final ServicioNube? nube;
+  final GuardaDeCredencial guarda;
+
+  const _Nube({required this.cola, required this.nube, required this.guarda});
+
+  @override
+  State<_Nube> createState() => _NubeState();
+}
+
+class _NubeState extends State<_Nube> {
+  bool _subiendo = false;
+  String? _resultado;
+
+  Future<void> _subirAhora() async {
+    setState(() {
+      _subiendo = true;
+      _resultado = null;
+    });
+    final t = await widget.nube?.subirPendientes();
+    if (!mounted) return;
+    setState(() {
+      _subiendo = false;
+      _resultado = t == null
+          ? 'No hay nada configurado todavía.'
+          : !t.huboAlgo
+          ? 'No había nada para subir.'
+          : t.fallaron == 0
+          ? 'Listo: ${t.subidos} subidos.'
+          : '${t.subidos} subidos, ${t.fallaron} quedaron esperando. '
+                '${t.primeraFalla ?? ""}';
+    });
+  }
+
+  Future<void> _configurar() async {
+    final campo = TextEditingController(
+      text: widget.guarda.credencial == null ? moldeDeCredencial : '',
+    );
+    final pegado = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Configurar la nube'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Pegá acá la configuración completa, tal como la tenés guardada '
+              'en el gestor de contraseñas. Son cuatro datos en un solo '
+              'texto.\n\nNo se sube a ningún repositorio ni se manda por '
+              'ningún chat: queda sólo en este teléfono.',
+              style: Theme.of(c).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: campo,
+              maxLines: 7,
+              autofocus: false,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, campo.text),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    campo.dispose();
+    if (pegado == null || !mounted) return;
+
+    final error = widget.guarda.guardar(pegado);
+    setState(() => _resultado = error ?? 'Configuración guardada.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final c = widget.guarda.credencial;
+    final faltan = widget.cola.cuantosFaltan;
+    final subidos = widget.cola.cuantosSubidos;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.cloud_upload_outlined, color: t.colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Subida automática',
+                    style: t.textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              c == null
+                  ? 'Sin configurar. Los viajes se van guardando en la cola '
+                        'igual, así que no se pierde nada: cuando configures, '
+                        'suben todos.'
+                  : 'Cada viaje que termina se sube solo cuando hay señal. '
+                        'Sube el reporte SIN coordenadas — el mismo que se '
+                        'puede mandar por un chat.',
+              style: t.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _Cuenta(numero: faltan, rotulo: 'esperando'),
+                const SizedBox(width: 24),
+                _Cuenta(numero: subidos, rotulo: 'subidos'),
+              ],
+            ),
+            if (c != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                c.resumen,
+                style: t.textTheme.labelSmall?.copyWith(
+                  color: t.colorScheme.outline,
+                ),
+              ),
+            ],
+            if (_resultado != null) ...[
+              const SizedBox(height: 10),
+              Text(_resultado!, style: t.textTheme.bodySmall),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _subiendo ? null : _configurar,
+                    icon: const Icon(Icons.key_outlined),
+                    label: Text(c == null ? 'Configurar' : 'Cambiar'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _subiendo || c == null ? null : _subirAhora,
+                    icon: _subiendo
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.upload_outlined),
+                    label: const Text('Subir ahora'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Cuenta extends StatelessWidget {
+  final int numero;
+  final String rotulo;
+
+  const _Cuenta({required this.numero, required this.rotulo});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Text('$numero', style: t.textTheme.headlineSmall),
+        const SizedBox(width: 6),
+        Text(
+          rotulo,
+          style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.outline),
+        ),
+      ],
     );
   }
 }

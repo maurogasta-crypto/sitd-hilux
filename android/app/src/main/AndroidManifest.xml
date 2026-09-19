@@ -24,6 +24,17 @@
          `lib/features/permisos/avisos.dart`. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- Desde `sitd-17` la aplicación sube el reporte de cada viaje a una base
+         remota. Es el ÚNICO motivo por el que pide red, y lo que sube es el
+         reporte para desarrollo: el que no lleva una sola coordenada. El
+         respaldo completo —con dónde estuvo la camioneta minuto a minuto— no
+         sale del teléfono por ningún canal.
+
+         Medir sigue siendo offline: sin señal la aplicación mide exactamente
+         igual y el viaje queda encolado hasta que haya red. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
     <!-- Lo que NO se pide, a propósito: ACCESS_BACKGROUND_LOCATION. No hace
          falta — un servicio en primer plano de tipo `location`, arrancado con
          la aplicación a la vista, puede seguir recibiendo ubicación después—,

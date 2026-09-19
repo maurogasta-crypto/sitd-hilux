@@ -10,7 +10,13 @@ import '../features/odometro/pantalla_despierta.dart';
 import '../features/vibracion/fuente_vibracion.dart';
 import '../features/vibracion/registro_vibracion.dart';
 import '../features/vibracion/servicio_vibracion.dart';
+import '../features/nube/cola.dart';
+import '../features/nube/credencial.dart';
+import '../features/nube/servicio_nube.dart';
+import '../features/nube/subida.dart';
 import '../features/odometro/registro.dart';
+import '../features/respaldo/reporte.dart';
+import 'version.dart';
 import '../features/sensores/satelites.dart';
 import '../features/odometro/servicio.dart';
 import 'bitacora.dart';
@@ -57,6 +63,10 @@ class Arranque {
   /// como valor inicial de su selector.
   final ModoRecordado? modoRecordado;
 
+  /// La cola de viajes que faltan subir, y el que los sube.
+  final ColaDeSubida? cola;
+  final ServicioNube? nube;
+
   const Arranque._({
     required this.ruta,
     this.base,
@@ -71,6 +81,8 @@ class Arranque {
     this.eventos,
     this.satelites,
     this.modoRecordado,
+    this.cola,
+    this.nube,
   });
 
   bool get anduvo => base != null;
@@ -96,6 +108,9 @@ class Arranque {
       // No se espera: si el canal tarda o no está, la aplicación abre igual.
       unawaited(satelites.arrancar());
       final registro = RegistroDeViajes(base);
+      final cargas = RegistroDeCargas(base);
+      final vibraciones = RegistroDeVibracion(base);
+      final cola = ColaDeSubida(base);
       // El modo que entregó la última vez va primero: sin esto, en un teléfono
       // donde `normal` no anda, cada viaje empieza perdiendo noventa segundos
       // para volver a descubrir lo mismo.
@@ -105,15 +120,48 @@ class Arranque {
         alEntregar: recordado.recordar,
         escalones: escalonesEmpezandoPor(recordado.modo, escalonesPorDefecto),
       );
-      final servicio = ServicioOdometria(registro: registro, fuente: cascada);
+      final servicio = ServicioOdometria(
+        registro: registro,
+        fuente: cascada,
+        // Cada viaje que termina entra a la cola. Si no hay señal, espera: la
+        // camioneta anda por lugares sin antena y eso no puede perder un viaje.
+        alTerminar: (viaje) {
+          cola.encolar(viaje);
+          anotarEncolado(viaje);
+        },
+      );
+
+      final nube = ServicioNube(
+        cola: cola,
+        guarda: GuardaDeCredencial(base),
+        subida: Subida(),
+        // Un documento POR VIAJE y no el reporte entero: así cada documento
+        // queda chico —bien abajo del límite de 1 MB de Firestore— y la
+        // colección acumulada ES la historia.
+        armar: (viaje) => armarReporte(
+          base: base,
+          viajes: registro,
+          cargas: cargas,
+          vibraciones: vibraciones,
+          // Clavado, no elegible. Ver `alcanceQueSeSube`: lo que sale del
+          // teléfono es el reporte SIN coordenadas y nada más.
+          alcance: alcanceQueSeSube,
+          sello: selloApp,
+          ahora: DateTime.now().millisecondsSinceEpoch,
+          eventos: eventos,
+          cuantosViajes: 1,
+        ),
+      );
+      // Al abrir se intenta lo que quedó esperando. No se espera el resultado:
+      // si no hay señal, la aplicación abre igual y se reintenta después.
+      unawaited(nube.subirPendientes());
       // Si el sistema mató la aplicación en medio de un viaje, acá se retoma.
       servicio.retomarPendiente();
-      final vibraciones = RegistroDeVibracion(base);
       return Arranque._(
         ruta: ruta,
         base: base,
         registro: registro,
-        cargas: RegistroDeCargas(base),
+        cargas: cargas,
         vibraciones: vibraciones,
         despierta: PantallaDespierta(base),
         servicio: servicio,
@@ -121,6 +169,8 @@ class Arranque {
         eventos: eventos,
         satelites: satelites,
         modoRecordado: recordado,
+        cola: cola,
+        nube: nube,
         // La velocidad sale del servicio de odometría y no de una segunda
         // suscripción al GPS: el receptor se le pide una sola vez al teléfono.
         vibracion: ServicioVibracion(

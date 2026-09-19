@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/arranque.dart';
+import 'features/nube/credencial.dart';
 import 'core/version.dart';
 import 'ui/pantalla_viaje.dart';
 
@@ -60,6 +61,11 @@ class AppSitd extends StatelessWidget {
               eventos: arranque.eventos,
               satelites: arranque.satelites,
               modoRecordado: arranque.modoRecordado,
+              cola: arranque.cola,
+              nube: arranque.nube,
+              guarda: arranque.base == null
+                  ? null
+                  : GuardaDeCredencial(arranque.base!),
               base: arranque.base!,
               ruta: arranque.ruta,
             ),

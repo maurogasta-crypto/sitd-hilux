@@ -7,6 +7,9 @@ import '../features/odometro/fuente.dart';
 import '../features/odometro/registro.dart';
 import '../core/db/base.dart';
 import '../core/registro_eventos.dart';
+import '../features/nube/cola.dart';
+import '../features/nube/credencial.dart';
+import '../features/nube/servicio_nube.dart';
 import '../features/sensores/satelites.dart';
 import '../features/odometro/pantalla_despierta.dart';
 import '../features/odometro/cascada.dart';
@@ -49,6 +52,11 @@ class PantallaViaje extends StatefulWidget {
   /// El modo de GPS que entregó la última vez.
   final ModoRecordado? modoRecordado;
 
+  /// La subida automática: la cola, el que sube y dónde vive la configuración.
+  final ColaDeSubida? cola;
+  final ServicioNube? nube;
+  final GuardaDeCredencial? guarda;
+
   final Base base;
   final String ruta;
 
@@ -64,6 +72,9 @@ class PantallaViaje extends StatefulWidget {
     this.eventos,
     this.satelites,
     this.modoRecordado,
+    this.cola,
+    this.nube,
+    this.guarda,
     required this.base,
     required this.ruta,
   });
@@ -304,6 +315,9 @@ class _PantallaViajeState extends State<PantallaViaje> {
                 ruta: widget.ruta,
                 eventos: widget.eventos,
                 satelites: widget.satelites,
+                cola: widget.cola,
+                nube: widget.nube,
+                guarda: widget.guarda,
               ),
               _ => PantallaDiagnostico(
                 registro: widget.registro,

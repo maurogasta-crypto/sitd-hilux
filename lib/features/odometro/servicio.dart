@@ -195,6 +195,14 @@ class ServicioOdometria {
   /// El reloj, inyectable: el banco de pruebas no espera un segundo de verdad.
   final int Function() ahora;
 
+  /// Qué hacer con un viaje recién terminado. Es donde se engancha la cola
+  /// de subida, y es opcional para que el banco de odometría siga corriendo
+  /// sin saber que existe una nube.
+  ///
+  /// **Se llama DESPUÉS de cerrar el viaje**, nunca antes: si encolar fallara,
+  /// el viaje ya está guardado y no se pierde un metro.
+  final void Function(int viaje)? alTerminar;
+
   /// Cada cuántos puntos se vuelca el total a la fila del viaje. Los puntos se
   /// guardan siempre uno por uno; esto es sólo el resumen, que se puede
   /// recalcular desde los puntos y por eso no urge.
@@ -211,6 +219,7 @@ class ServicioOdometria {
     required this.fuente,
     this.criterios = const CriteriosGps(),
     int Function()? reloj,
+    this.alTerminar,
     this.cadaCuantosVuelca = 10,
   }) : ahora = reloj ?? (() => DateTime.now().millisecondsSinceEpoch),
        _acumulador = Acumulador(criterios: criterios);
@@ -365,6 +374,13 @@ class ServicioOdometria {
     _acumulador = Acumulador(criterios: criterios);
     _desdeElUltimoVuelco = 0;
     estado.value = const EstadoViaje();
+    // El viaje YA está cerrado y guardado: si esto fallara, no se pierde un
+    // metro. Por eso va último y adentro de un try.
+    try {
+      alTerminar?.call(viaje);
+    } catch (e) {
+      bitacora.anotar(Origen.sistema, 'No se pudo encolar el viaje $viaje: $e');
+    }
     return cerrado;
   }
 

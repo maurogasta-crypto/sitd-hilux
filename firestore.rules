@@ -1,0 +1,71 @@
+rules_version = '2';
+
+// Reglas de Firestore para la base de SITD-Hilux.
+//
+// ════════════════════════════════════════════════════════════════════════
+//  Esta es una PLANTILLA. Los dos UID van como marcadores a propósito:
+//  este repositorio es PÚBLICO, y un UID real no entra nunca a un archivo.
+//  Mauro los reemplaza al pegar esto en la consola de Firebase.
+// ════════════════════════════════════════════════════════════════════════
+//
+// Hay exactamente tres actores y cada uno puede una sola cosa:
+//
+//   el TELÉFONO  crea reportes. No lee, no modifica, no borra.
+//   el AGENTE    lee reportes. No escribe nada, nunca.
+//   Mauro        lee todo y borra lo que quiera.
+//
+// **Por qué el teléfono no puede leer, y no es exceso de celo.** El APK se
+// descarga sin cuenta desde un repositorio público, así que hay que diseñar
+// como si la credencial del teléfono fuera conocida. Con estas reglas, lo peor
+// que puede hacer quien la tenga es escribir reportes de más — molesto y
+// visible, no grave. Si además pudiera leer, tendría la historia entera.
+//
+// **Y por qué no puede modificar ni borrar:** un reporte subido es un hecho
+// del pasado. Que no se pueda reescribir es lo que hace que la colección sirva
+// como respaldo — que es hoy su valor más grande, porque cada tanda obliga a
+// desinstalar la aplicación y eso borra la base del teléfono.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function soyYo() {
+      return request.auth != null && request.auth.uid == 'UID-DE-MAURO';
+    }
+
+    function esElTelefono() {
+      return request.auth != null && request.auth.uid == 'UID-DEL-TELEFONO';
+    }
+
+    function esElAgente() {
+      return request.auth != null && request.auth.uid == 'UID-DEL-AGENTE';
+    }
+
+    // El reporte de cada viaje. Un documento por viaje.
+    match /reportes/{id} {
+      // Crear sí; pisar uno que ya existe, no. Si el mismo viaje se sube dos
+      // veces, la segunda rebota con un 409 — y la aplicación lo trata como
+      // «ya estaba», que es lo que es.
+      allow create: if esElTelefono()
+                    && request.resource.data.keys().hasOnly(
+                         ['json', 'sello', 'generado'])
+                    && request.resource.data.json is string
+                    // Un tope generoso pero real: un reporte de un viaje anda
+                    // por los cientos de kilobytes, y el límite de un
+                    // documento de Firestore es 1 MB.
+                    && request.resource.data.json.size() < 900000;
+
+      allow read: if soyYo() || esElAgente();
+
+      // Un hecho del pasado no se reescribe. Borrar es sólo de Mauro.
+      allow update: if false;
+      allow delete: if soyYo();
+    }
+
+    // Deny por defecto: cualquier colección que no esté nombrada arriba queda
+    // inaccesible para todos. Una colección nueva entra con su regla, en la
+    // misma tanda — es la regla del ecosistema y acá vale igual.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
