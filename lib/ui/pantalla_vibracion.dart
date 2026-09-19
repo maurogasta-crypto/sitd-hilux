@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/vibracion/analisis.dart';
+import '../features/vibracion/cobertura.dart';
 import '../features/vibracion/espectro.dart';
 import '../features/vibracion/registro_vibracion.dart';
 import '../features/vibracion/ventana.dart';
@@ -38,6 +39,8 @@ class PantallaVibracion extends StatelessWidget {
             )
           else
             for (final a in avisos) _Aviso(anomalia: a),
+          const SizedBox(height: 16),
+          _Cobertura(cobertura: cobertura(registro.ventanasPorCubeta())),
           const SizedBox(height: 16),
           Text('Lo que fue aprendiendo', style: t.textTheme.titleMedium),
           const SizedBox(height: 4),
@@ -249,6 +252,113 @@ class _Cubeta extends StatelessWidget {
                 color: t.colorScheme.outline,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Cuánto sabe de cada velocidad, y a qué velocidad hay que salir a andar.
+///
+/// **Es la tarjeta que contesta «¿está todo bien o todavía no aprendió?».**
+/// Sin ella, la pantalla en silencio significaba las dos cosas a la vez, que
+/// es la peor forma de no decir nada. Y traduce «faltan 12 ventanas» a «falta
+/// un minuto a esa velocidad», que es lo único con lo que alguien puede hacer
+/// algo.
+class _Cobertura extends StatelessWidget {
+  final List<CoberturaDeCubeta> cobertura;
+
+  const _Cobertura({required this.cobertura});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final listas = cobertura.where((c) => c.lista).length;
+    final empezadas = cobertura.where((c) => c.ventanas > 0 && !c.lista);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Cuánto aprendió', style: t.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              listas == 0
+                  ? 'Ninguna velocidad tiene todavía suficiente historia. '
+                        'Hasta que alguna la tenga, el silencio de arriba no '
+                        'quiere decir que esté todo bien: quiere decir que no '
+                        'sabe.'
+                  : '$listas de ${cobertura.length} velocidades ya tienen '
+                        'historia suficiente. En ésas, el silencio SÍ quiere '
+                        'decir que está como siempre.',
+              style: t.textTheme.bodySmall?.copyWith(
+                color: listas == 0
+                    ? t.colorScheme.tertiary
+                    : t.colorScheme.outline,
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (final c in cobertura)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 96,
+                          child: Text(
+                            nombreDeCubeta(c.cubeta),
+                            style: t.textTheme.bodyMedium,
+                          ),
+                        ),
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: c.avance,
+                              minHeight: 8,
+                              color: c.lista
+                                  ? t.colorScheme.primary
+                                  : t.colorScheme.tertiary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '${c.ventanas}/${c.necesarias}',
+                          style: t.textTheme.labelSmall?.copyWith(
+                            color: t.colorScheme.outline,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (!c.lista)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 96, top: 2),
+                        child: Text(
+                          c.comoVa,
+                          style: t.textTheme.labelSmall?.copyWith(
+                            color: t.colorScheme.outline,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            if (empezadas.isEmpty && listas == 0)
+              Text(
+                'Una ventana son cinco segundos andando. Treinta ventanas '
+                '—dos minutos y medio a esa velocidad— es lo mínimo para que '
+                'la referencia no se mueva con cada viaje.',
+                style: t.textTheme.bodySmall?.copyWith(
+                  color: t.colorScheme.outline,
+                ),
+              ),
           ],
         ),
       ),

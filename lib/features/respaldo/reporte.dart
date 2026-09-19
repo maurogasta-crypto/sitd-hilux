@@ -5,7 +5,11 @@ import '../../core/db/esquema.dart';
 import '../combustible/registro_cargas.dart';
 import '../odometro/registro.dart';
 import '../sensores/satelites.dart';
+import '../vibracion/analisis.dart';
+import '../vibracion/cobertura.dart';
+import '../vibracion/espectro.dart';
 import '../vibracion/registro_vibracion.dart';
+import '../vibracion/ventana.dart';
 
 /// Cuánto sale del teléfono.
 ///
@@ -22,6 +26,91 @@ enum Alcance {
   /// a ningún chat**: la base guarda dónde estuvo la camioneta minuto a
   /// minuto, y eso no se pega en ningún lado.
   respaldoCompleto,
+}
+
+/// Todo lo que hace falta para volver a correr el análisis afuera del
+/// teléfono, y para entender un vector de vibración sin adivinar.
+///
+/// **Son cuatro cosas y las cuatro faltaban.** Con los vectores solos no se
+/// puede: hacen falta los parámetros —sin ellos los números no tienen
+/// unidades—, la línea base —que es literalmente lo que el sistema considera
+/// normal—, lo que concluyó, y la cobertura, que es la que distingue «está
+/// todo bien» de «todavía no aprendió nada».
+Map<String, dynamic> _analisis(
+  Map<int, List<VentanaVibracion>> porViaje,
+  // Del más nuevo al más viejo: es el orden que pide la histéresis. Los TRES
+  // últimos, no tres cualesquiera.
+  List<int> ultimosViajes,
+) {
+  final base = lineaBase(porViaje);
+  final ventanasPorCubeta = <int, int>{};
+  for (final ventanas in porViaje.values) {
+    for (final v in ventanas) {
+      ventanasPorCubeta[v.cubeta] = (ventanasPorCubeta[v.cubeta] ?? 0) + 1;
+    }
+  }
+  final encontradas = anomalias(porViaje, ultimosViajes);
+
+  return {
+    // Las reglas con las que se calculó todo lo de abajo. Van en el reporte y
+    // no en la documentación porque un reporte viejo tiene que poder leerse
+    // aunque las reglas hayan cambiado desde entonces.
+    'parametros': {
+      'bordesHz': bordesHz,
+      'cantidadDeBandas': cantidadDeBandas,
+      'anchoDeCubetaKmh': anchoDeCubeta,
+      'velocidadMinimaKmh': velocidadMinimaKmh,
+      'cubetaMaxima': cubetaMaxima,
+      'segundosPorVentana': segundosPorVentana,
+      'ventanasParaLineaBase': ventanasParaLineaBase,
+      'umbralDeDesvio': umbralDeDesvio,
+      'viajesSeguidosParaAvisar': viajesSeguidosParaAvisar,
+      'diametroDeRuedaM': diametroDeRuedaM,
+    },
+    // Cuánto sabe de cada velocidad. Incluye las cubetas vacías: una cubeta
+    // que falta dice a qué velocidad hay que salir a andar.
+    'cobertura': [
+      for (final c in cobertura(ventanasPorCubeta))
+        {
+          'cubeta': c.cubeta,
+          'rango': nombreDeCubeta(c.cubeta),
+          'ventanas': c.ventanas,
+          'necesarias': c.necesarias,
+          'lista': c.lista,
+          'segundosQueFaltan': c.segundosQueFaltan,
+          // En qué banda caería un defecto de rueda a esta velocidad. Es una
+          // ayuda para leer el espectro, no una medición.
+          'bandaDeLaRueda': bandaDeLaRueda(velocidadTipicaDe(c.cubeta)),
+          'vueltasPorSegundo': vueltasPorSegundo(velocidadTipicaDe(c.cubeta)),
+        },
+    ],
+    // Lo que considera normal, por cubeta y por banda.
+    'lineaBase': [
+      for (final b in base.values)
+        {
+          'cubeta': b.cubeta,
+          'rango': nombreDeCubeta(b.cubeta),
+          'ventanas': b.ventanas,
+          'suficiente': b.suficiente,
+          'mediana': b.mediana,
+          'mad': b.mad,
+        },
+    ],
+    // Lo que concluyó: sólo lo que se repitió lo suficiente como para decirlo.
+    'anomalias': [
+      for (final a in encontradas)
+        {
+          'cubeta': a.cubeta,
+          'rango': nombreDeCubeta(a.cubeta),
+          'banda': a.banda,
+          'bandaHz': a.ultimo.rango,
+          'z': a.z,
+          'viajes': a.viajes,
+          'ahora': a.ultimo.ahora,
+          'normal': a.ultimo.normal,
+        },
+    ],
+  };
 }
 
 /// Arma el reporte como un mapa listo para serializar a JSON.
@@ -69,6 +158,10 @@ Map<String, dynamic> armarReporte({
     // lo que pasa MIENTRAS SE MANEJA, que es cuando nadie puede mirar la
     // pantalla. Nunca lleva coordenadas: ver `bitacora.dart`.
     'bitacora': eventos?.ultimos() ?? (registro ?? bitacora).aMapa(),
+    // Lo que el sistema APRENDIÓ y con qué reglas. Sin esto, los vectores de
+    // vibración son listas de números sin unidades: no se puede saber qué
+    // considera normal, ni por qué avisó, ni si todavía no aprendió nada.
+    'analisis': _analisis(porViaje, vibraciones.ultimosViajes()),
     'sinRecorrido': !conRecorrido,
     'viajes': [
       for (final v in losViajes)

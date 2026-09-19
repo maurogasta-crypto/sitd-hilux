@@ -610,6 +610,64 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   la vista y `enganchado: false`. La arma `Arranque` y ninguna pantalla la
   apaga.
 
+- **«No hay avisos» quería decir dos cosas opuestas, y ahora se distinguen.**
+  Con la pantalla de vibración en silencio no había forma de saber si la
+  camioneta está bien o si todavía no se anduvo lo suficiente a esa velocidad
+  como para que el sistema sepa qué es normal ahí. Desde `sitd-16` está la
+  **cobertura**: cuántas ventanas hay por cubeta, cuántas faltan, y —lo único
+  accionable— **cuánto tiempo falta andando a esa velocidad**. «Faltan 12
+  ventanas» no le dice nada a nadie; «falta un minuto a esa velocidad» sí.
+
+  Las cubetas **vacías se listan igual**, a propósito: una cubeta que falta es
+  justamente lo que hay que ver, porque dice a qué velocidad hay que salir a
+  andar. Si sólo se listaran las que tienen datos, la pantalla se vería
+  completa estando vacía. Es la tercera vez que este proyecto arregla la misma
+  clase de error —un contador sin la razón al lado no dice nada— y por eso
+  quedó como regla y no como detalle.
+
+- **El reporte lleva las reglas con las que se calculó, no sólo los números.**
+  Lo pidió Mauro el 2026-09-19: poder levantar los parámetros para entender los
+  vectores y ajustar el código desde afuera del teléfono. Un vector de
+  vibración es una lista de ocho números y **sin los bordes de banda no tiene
+  unidades**; sin la línea base no se puede ver qué considera normal; sin la
+  cobertura no se sabe si aprendió. Los cuatro bloques —`parametros`,
+  `cobertura`, `lineaBase`, `anomalias`— viajan en el reporte para desarrollo,
+  y ninguno lleva una coordenada.
+
+  Van **en el reporte y no en la documentación** por una razón: un reporte
+  viejo tiene que poder leerse aunque las reglas hayan cambiado desde entonces.
+
+- **El diámetro de la rueda sirve para LEER un espectro, nunca para medir.**
+  Mauro midió **76 cm bajo carga** (2026-09-19); la cubierta es una 265/70R17,
+  que sin carga da 80,3 cm. Ese 5,3 % de diferencia es el achatamiento por el
+  peso, y es exactamente el motivo por el que **el factor de neumáticos se
+  aprende de los viajes y no se calcula de la medida de la cubierta** — la
+  regla de fondo sigue intacta y este número no la toca.
+
+  Para lo que sí sirve es para decir en qué banda buscar: a 65 km/h la rueda da
+  7,6 vueltas por segundo y un desbalanceo cae en la banda 6-8 Hz; a 110 da
+  12,8 y cae en la de 10-13. **Es el porqué entero de las cubetas**, ahora con
+  los números de esta camioneta y no de una genérica, y el banco lo comprueba.
+
+- **Lo que NO se va a hacer, y no es pereza: entrenar un modelo.** La pregunta
+  volvió el 2026-09-19 —«me han recomendado machine learning»— y la respuesta
+  se sostiene en tres hechos, no en una preferencia. **Uno:** entrenar un
+  clasificador necesita ejemplos etiquetados de cada falla, y acá hay una
+  camioneta y ninguna falla registrada; con cero ejemplos positivos no se
+  entrena nada. **Dos:** la pregunta que importa es «cómo vibra ÉSTA comparada
+  con ella misma la semana pasada», y un modelo entrenado con otras camionetas
+  contesta otra pregunta. **Tres:** con ocho dimensiones y unos cientos de
+  muestras, mediana y desviación absoluta mediana no se quedan atrás de nada —
+  y sí conservan lo único que hace accionable un aviso, que es poder decir
+  «banda 8-10 Hz, cubeta 60-70, siete desviaciones arriba, tres viajes
+  seguidos» en vez de «el modelo dice 0,87».
+
+  Lo que este proyecto llama aprender **ya es aprendizaje de parámetros a
+  partir de datos**: la línea base sale de la mediana por cubeta de esta
+  camioneta. Lo que faltaba no era el algoritmo, era el circuito — que los
+  datos salgan del teléfono en una forma que se pueda leer y volver a calcular.
+  Eso es `sitd-16`.
+
 - **El OBD2 es opcional y va detrás de una interfaz.** Esta Hilux puede hablar
   **MOBD**, el protocolo propio de Toyota, y no OBD2 genérico: el conector
   entra y el ECU no contesta. El régimen del motor se obtiene igual, por

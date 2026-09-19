@@ -331,6 +331,8 @@ lib/
 │       ├── espectro.dart    FFT propia, ventana de Hann y energía por banda.
 │       ├── ventana.dart     Las cubetas de velocidad y el vector que se guarda.
 │       ├── analisis.dart    Línea base robusta, desvíos e histéresis.
+│       ├── cobertura.dart   Cuánto aprendió de cada velocidad y cuánto
+│       │                    falta, en tiempo. Y en qué banda cae la rueda.
 │       ├── fuente_vibracion.dart  El acelerómetro, detrás de una interfaz.
 │       ├── registro_vibracion.dart  Los vectores en la base.
 │       └── servicio_vibracion.dart  Junta, resume y guarda cada ventana.
@@ -345,7 +347,7 @@ lib/
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        275 casos. Corren sin emulador ni teléfono.
+test/                        292 casos. Corren sin emulador ni teléfono.
 android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
                              `GnssStatus`. No lo cubre el banco — ver
                              «Verificación previa».
@@ -356,7 +358,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-15` | `lib/core/version.dart` |
+| Aplicación | `sitd-16` | `lib/core/version.dart` |
 | Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

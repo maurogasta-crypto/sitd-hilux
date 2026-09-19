@@ -10,6 +10,9 @@ import 'package:sitd_hilux/features/odometro/registro.dart';
 import 'package:sitd_hilux/core/bitacora.dart';
 import 'package:sitd_hilux/features/respaldo/reporte.dart';
 import 'package:sitd_hilux/features/sensores/satelites.dart';
+import 'package:sitd_hilux/features/vibracion/analisis.dart';
+import 'package:sitd_hilux/features/vibracion/cobertura.dart';
+import 'package:sitd_hilux/features/vibracion/espectro.dart';
 import 'package:sitd_hilux/features/vibracion/registro_vibracion.dart';
 import 'package:sitd_hilux/features/vibracion/ventana.dart';
 
@@ -136,6 +139,51 @@ void main() {
       expect(b.length, 3);
       expect((b.first as Map)['origen'], 'permiso');
       expect((b.last as Map)['texto'], contains('24 dB-Hz'));
+    });
+
+    // Lo que pidió Mauro el 2026-09-19: poder levantar los parámetros para
+    // entender los vectores y ajustar el código desde afuera del teléfono.
+    test('lleva los PARÁMETROS con los que se calculó todo', () {
+      final p =
+          (reporte(Alcance.paraDesarrollo)['analisis'] as Map)['parametros']
+              as Map;
+      // Sin los bordes, un vector de 8 números no tiene unidades.
+      expect(p['bordesHz'], bordesHz);
+      expect(p['cantidadDeBandas'], cantidadDeBandas);
+      expect(p['ventanasParaLineaBase'], ventanasParaLineaBase);
+      expect(p['umbralDeDesvio'], umbralDeDesvio);
+      expect(p['viajesSeguidosParaAvisar'], viajesSeguidosParaAvisar);
+      expect(p['velocidadMinimaKmh'], velocidadMinimaKmh);
+      expect(p['diametroDeRuedaM'], diametroDeRuedaM);
+    });
+
+    test('lleva la COBERTURA, con las cubetas vacías incluidas', () {
+      final c =
+          (reporte(Alcance.paraDesarrollo)['analisis'] as Map)['cobertura']
+              as List;
+      // Todas las cubetas, no sólo las que tienen datos: una que falta dice a
+      // qué velocidad hay que salir a andar.
+      expect(c.length, cubetaMaxima + 1);
+      final primera = c.first as Map;
+      expect(primera.containsKey('ventanas'), isTrue);
+      expect(primera.containsKey('lista'), isTrue);
+      expect(primera.containsKey('segundosQueFaltan'), isTrue);
+      expect(primera['rango'], nombreDeCubeta(0));
+      // Y en qué banda caería un defecto de rueda a esa velocidad.
+      expect(primera['bandaDeLaRueda'], isNotNull);
+    });
+
+    test('lleva la LÍNEA BASE y las conclusiones', () {
+      final a = reporte(Alcance.paraDesarrollo)['analisis'] as Map;
+      expect(a.containsKey('lineaBase'), isTrue);
+      expect(a.containsKey('anomalias'), isTrue);
+    });
+
+    test('el análisis tampoco lleva una coordenada', () {
+      final texto = jsonEncode(reporte(Alcance.paraDesarrollo)['analisis']);
+      expect(texto, isNot(contains('lat')));
+      expect(texto, isNot(contains('lon')));
+      expect(texto, isNot(contains('-34.90')));
     });
 
     test('lleva lo que ve la antena, que es lo que separa los dos mundos', () {
