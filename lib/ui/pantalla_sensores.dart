@@ -7,6 +7,7 @@ import '../features/odometro/fuente.dart';
 import '../features/odometro/fuente_gps.dart';
 import '../core/bitacora.dart';
 import '../features/permisos/avisos.dart';
+import '../features/odometro/modo_recordado.dart';
 import '../features/sensores/satelites.dart';
 import '../features/odometro/integrador.dart';
 import '../features/odometro/muestra.dart';
@@ -30,7 +31,21 @@ import 'formato.dart';
 class PantallaSensores extends StatefulWidget {
   final ServicioOdometria servicio;
 
-  const PantallaSensores({super.key, required this.servicio});
+  /// La escucha del motor GNSS de la aplicación. Se comparte en vez de armar
+  /// una acá: el canal nativo es uno solo, y apagar el de esta pantalla
+  /// apagaba el de todos.
+  final Satelites? satelites;
+
+  /// El modo de GPS que entregó la última vez, para que el selector arranque
+  /// ahí y no en uno que ya se sabe que no anda en este teléfono.
+  final ModoRecordado? modoRecordado;
+
+  const PantallaSensores({
+    super.key,
+    required this.servicio,
+    this.satelites,
+    this.modoRecordado,
+  });
 
   @override
   State<PantallaSensores> createState() => _PantallaSensoresState();
@@ -66,7 +81,14 @@ class _PantallaSensoresState extends State<PantallaSensores> {
   /// pantalla sabía era del lado de la aplicación, y con el permiso dado, la
   /// ubicación encendida y cero posiciones ya no quedaba nada que preguntar
   /// desde Dart. Ver `satelites.dart`.
-  final _satelites = Satelites();
+  /// La escucha del motor GNSS **compartida**, la que armó `Arranque`.
+  ///
+  /// **Antes esta pantalla se creaba la suya y la apagaba al salir**, y como el
+  /// canal nativo es uno solo, eso apagaba la escucha de toda la aplicación:
+  /// el reporte del 2026-09-19 salió con 30 satélites a la vista y
+  /// `enganchado: false`. Se comparte y no se apaga desde acá.
+  Satelites get _satelites => widget.satelites ?? _propia;
+  late final Satelites _propia = Satelites();
   EstadoSatelites _cielo = const EstadoSatelites();
 
   /// Cuántas posiciones llegaron sin velocidad en la suscripción de esta
@@ -79,7 +101,16 @@ class _PantallaSensoresState extends State<PantallaSensores> {
   /// ya suscripto y en silencio, o ni siquiera intentado— y las tres se veían
   /// exactamente igual.
   String _pasoGps = 'arrancando';
-  ModoGps _modo = ModoGps.normal;
+
+  /// Con qué modo arranca el selector.
+  ///
+  /// **No es `normal` a secas**, y ésa fue la incoherencia que encontró Mauro
+  /// el 2026-09-19: el viaje medía perfecto y esta pantalla, al lado, no
+  /// mostraba una sola lectura. El viaje bajaba de escalón solo —la cascada—
+  /// y esta pantalla se quedaba clavada en `normal`, que en este teléfono no
+  /// entrega. La pantalla que existe para diagnosticar estaba usando el modo
+  /// roto mientras la aplicación ya había aprendido cuál andaba.
+  late ModoGps _modo = widget.modoRecordado?.modo ?? ModoGps.normal;
   FuenteGps? _fuentePropia;
   int _desdeElModo = 0;
 
@@ -231,7 +262,9 @@ class _PantallaSensoresState extends State<PantallaSensores> {
     }
     _gpsPropio?.cancel();
     _fuentePropia?.detener();
-    _satelites.detener();
+    // Sólo se apaga la propia, si es que hubo que armar una: la compartida la
+    // sigue usando el resto de la aplicación.
+    if (widget.satelites == null) _propia.detener();
     super.dispose();
   }
 

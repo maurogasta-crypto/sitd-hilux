@@ -310,6 +310,8 @@ lib/
 │       ├── fuente_gps.dart  El GPS real, y las tres formas de pedírselo.
 │       ├── cascada.dart     Prueba esas tres formas solo, hasta que una
 │       │                    entregue, y dice cuál quedó puesta.
+│       ├── modo_recordado.dart  Cuál entregó la última vez, para no volver
+│       │                    a perder noventa segundos descubriéndolo.
 │       ├── registro.dart    Viajes, puntos y los pares de calibración.
 │       └── servicio.dart    Junta las tres piezas y sostiene el viaje.
 │   ├── combustible/
@@ -343,7 +345,7 @@ lib/
 │   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
 └── main.dart                Abre la base y dibuja.
 
-test/                        264 casos. Corren sin emulador ni teléfono.
+test/                        275 casos. Corren sin emulador ni teléfono.
 android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
                              `GnssStatus`. No lo cubre el banco — ver
                              «Verificación previa».
@@ -354,7 +356,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-14` | `lib/core/version.dart` |
+| Aplicación | `sitd-15` | `lib/core/version.dart` |
 | Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

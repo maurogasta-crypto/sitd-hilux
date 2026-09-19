@@ -59,6 +59,7 @@ class AppSitd extends StatelessWidget {
               gps: arranque.gps,
               eventos: arranque.eventos,
               satelites: arranque.satelites,
+              modoRecordado: arranque.modoRecordado,
               base: arranque.base!,
               ruta: arranque.ruta,
             ),

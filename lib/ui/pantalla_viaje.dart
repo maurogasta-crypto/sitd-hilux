@@ -10,6 +10,7 @@ import '../core/registro_eventos.dart';
 import '../features/sensores/satelites.dart';
 import '../features/odometro/pantalla_despierta.dart';
 import '../features/odometro/cascada.dart';
+import '../features/odometro/modo_recordado.dart';
 import '../features/odometro/fuente_gps.dart';
 import '../features/permisos/avisos.dart';
 import '../features/odometro/servicio.dart';
@@ -45,6 +46,9 @@ class PantallaViaje extends StatefulWidget {
   final RegistroDeEventos? eventos;
   final Satelites? satelites;
 
+  /// El modo de GPS que entregó la última vez.
+  final ModoRecordado? modoRecordado;
+
   final Base base;
   final String ruta;
 
@@ -59,6 +63,7 @@ class PantallaViaje extends StatefulWidget {
     this.gps,
     this.eventos,
     this.satelites,
+    this.modoRecordado,
     required this.base,
     required this.ruta,
   });
@@ -286,7 +291,11 @@ class _PantallaViajeState extends State<PantallaViaje> {
           PopupMenuButton<String>(
             tooltip: 'Diagnóstico',
             onSelected: (que) => _ir(switch (que) {
-              'sensores' => PantallaSensores(servicio: widget.servicio),
+              'sensores' => PantallaSensores(
+                servicio: widget.servicio,
+                satelites: widget.satelites,
+                modoRecordado: widget.modoRecordado,
+              ),
               'respaldo' => PantallaRespaldo(
                 base: widget.base,
                 viajes: widget.registro,
@@ -691,9 +700,15 @@ class _Cascada extends StatelessWidget {
           final normal = modo == ModoGps.normal;
           final sinCartel = aviso != null && aviso != EstadoAviso.concedido;
           return Card(
+            // **No va en rojo, y es a propósito.** Mauro lo vio el 2026-09-19:
+            // un cartel de error mientras el viaje medía perfecto —105
+            // muestras, ninguna descartada—. El rojo es para lo que IMPIDE
+            // medir; esto es una advertencia sobre una capacidad que se
+            // perdió, no una falla. Un rojo que aparece cuando todo anda
+            // enseña a no mirar los rojos.
             color: normal && !sinCartel
                 ? t.colorScheme.surfaceContainerHighest
-                : t.colorScheme.errorContainer,
+                : t.colorScheme.tertiaryContainer,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -708,9 +723,11 @@ class _Cascada extends StatelessWidget {
                     normal
                         ? 'Es el modo bueno: servicio en primer plano, sigue '
                               'midiendo con la pantalla apagada.'
-                        : 'Se bajó a este modo porque el anterior no entregó '
-                              'ni una posición en su plazo. Contámelo: dice '
-                              'dónde está el problema.',
+                        : 'Está midiendo bien. Lo que se pierde es concreto: '
+                              'sin servicio en primer plano, el GPS se '
+                              'apaga si se apaga la pantalla, y el sistema '
+                              'puede matar la aplicación. Dejá la pantalla '
+                              'encendida mientras dure el viaje.',
                     style: t.textTheme.bodySmall,
                   ),
                   if (sinCartel) ...[

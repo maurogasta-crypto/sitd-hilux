@@ -239,6 +239,29 @@ void main() {
     await sub.cancel();
   });
 
+  test('avisa cuál fue el modo que entregó, para poder recordarlo', () async {
+    final anotados = <ModoGps>[];
+    hechas = {};
+    final c = FuenteEnCascada(
+      escalones: rapidos,
+      construir: (m) => hechas[m] = FuenteFalsa(m),
+      pedirAviso: () async => EstadoAviso.concedido,
+      alEntregar: anotados.add,
+    );
+    final sub = c.lecturas.listen((_) {});
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    hechas[ModoGps.sinNotificacion]!.control.add(Lectura(muestra(1)));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    expect(anotados, [ModoGps.sinNotificacion]);
+
+    // Y avisa UNA vez: lo que importa es cuál entregó, no cuántas veces.
+    hechas[ModoGps.sinNotificacion]!.control.add(Lectura(muestra(2)));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(anotados.length, 1);
+    await sub.cancel();
+  });
+
   test('cada modo tiene su nombre para la pantalla', () {
     expect(nombreDeModo(ModoGps.normal), 'Normal');
     expect(nombreDeModo(ModoGps.sinNotificacion), 'Sin notificación');

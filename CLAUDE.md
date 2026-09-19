@@ -577,6 +577,39 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   y si dice «Normal», la cascada nunca hizo falta. Un solo viaje contesta lo
   que tres salidas a la calle no contestaron.
 
+- **El modo que entregó se RECUERDA, y la cascada arranca por ahí.** El primer
+  viaje que midió de verdad —2026-09-19, 105 muestras, ninguna descartada, 3,79
+  m de precisión— perdió sus primeros **noventa segundos** esperando a `normal`,
+  que en este teléfono no entrega, antes de bajar a `sinNotificacion`. Sin
+  memoria, cada viaje vuelve a pagar ese descubrimiento, y en un tramo corto
+  eso es el tramo entero.
+
+  Se guarda en `ajustes` y **la cascada no se saca**: si el modo recordado deja
+  de andar, baja igual, y el orden de los escalones sigue siendo el mismo — un
+  teléfono donde `normal` funcione lo sigue prefiriendo. Lo único que cambia es
+  por cuál empieza.
+
+- **Un cartel rojo es para lo que IMPIDE medir, no para lo que se perdió.** El
+  2026-09-19 el viaje medía perfecto y la pantalla mostraba un cartel de error
+  sobre el modo del GPS. Estaba diciendo algo cierto —bajó de escalón— pero en
+  el color equivocado: **un rojo que aparece cuando todo anda enseña a no mirar
+  los rojos**. Va en tono de advertencia, y dice la consecuencia concreta en
+  vez del hecho técnico: sin servicio en primer plano el GPS se apaga con la
+  pantalla, así que hay que dejarla encendida.
+
+- **La pantalla de diagnóstico no puede usar un modo que la aplicación ya sabe
+  que no anda.** Mismo día, misma sesión: el viaje medía y la pantalla de
+  sensores, al lado, no mostraba una sola lectura. El viaje bajaba de escalón
+  solo y la pantalla se quedaba clavada en `normal`. La que existe para
+  diagnosticar estaba usando el modo roto. Su selector arranca en el modo
+  recordado.
+
+- **La escucha del motor GNSS es UNA y se comparte.** El canal nativo es uno
+  solo, así que cuando la pantalla de sensores armaba la suya y la apagaba al
+  salir, apagaba la de toda la aplicación: el reporte salió con 30 satélites a
+  la vista y `enganchado: false`. La arma `Arranque` y ninguna pantalla la
+  apaga.
+
 - **El OBD2 es opcional y va detrás de una interfaz.** Esta Hilux puede hablar
   **MOBD**, el protocolo propio de Toyota, y no OBD2 genérico: el conector
   entra y el ECU no contesta. El régimen del motor se obtiene igual, por

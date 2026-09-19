@@ -79,6 +79,11 @@ class FuenteEnCascada implements FuenteDeMuestras {
   /// permiso de ubicación quedó dado — que es lo único que le faltaba.
   final Satelites? satelites;
 
+  /// Dónde se anota el modo que entregó, para que el próximo viaje arranque
+  /// por ahí en vez de volver a esperar noventa segundos. Ver
+  /// `modo_recordado.dart`.
+  final void Function(ModoGps)? alEntregar;
+
   /// En qué quedó ese permiso la última vez que se pidió, o `null` si todavía
   /// no se pidió. La pantalla del viaje lo muestra cuando no es «concedido»:
   /// sin cartel, el servicio en primer plano es invisible y un Xiaomi lo mata
@@ -89,6 +94,7 @@ class FuenteEnCascada implements FuenteDeMuestras {
     FuenteDeMuestras Function(ModoGps)? construir,
     PedirAviso? pedirAviso,
     this.satelites,
+    this.alEntregar,
     this.escalones = escalonesPorDefecto,
   }) : construir = construir ?? ((m) => FuenteGps(modo: m)),
        pedirAviso = pedirAviso ?? pedirAvisoDelSistema,
@@ -132,6 +138,7 @@ class FuenteEnCascada implements FuenteDeMuestras {
 
   void _recibir(Lectura l) {
     if (!_entrego) {
+      alEntregar?.call(modo.value);
       bitacora.anotar(
         Origen.gps,
         'PRIMERA entrega del receptor, en modo ${nombreDeModo(modo.value)}'
