@@ -66,21 +66,41 @@ meterlo: sirve para no perder la historia, no para restaurarla en el teléfono.)
 
 **La solución es una clave propia en GitHub Secrets**, y el workflow ya la usa
 si está —sigue compilando con la de depuración si no, avisando en las notas del
-release cuál usó—. Lo que falta es generarla, y para eso hace falta `keytool`,
-que no está en un teléfono.
+release cuál usó—. Lo que falta es generarla, y para eso hace falta `keytool`.
 
-> **Al 2026-09-16 no hay computadora a disposición, así que se sigue
-> desinstalando en cada tanda.** Es una decisión con un costo conocido y no un
-> olvido. El día que haya una computadora a mano, son diez minutos:
+> **Y esto se puede hacer DESDE EL TELÉFONO.** Hasta el 2026-09-20 acá decía que
+> `keytool` «no está en un teléfono» y que había que esperar una computadora.
+> Era falso: `keytool` viene con cualquier JDK, y en Android hay JDK — **Termux**.
+> Sobre esa premisa equivocada se decidió el 2026-09-16 seguir desinstalando en
+> cada tanda, y eso costó cuatro días de base borrada en cada actualización.
+
+En **Termux**, una sola vez:
 
 ```bash
+pkg install openjdk-17
+
 keytool -genkeypair -v \
   -keystore sitd-hilux.jks -storetype JKS \
   -keyalg RSA -keysize 4096 -validity 10000 \
   -alias sitd -dname "CN=SITD Hilux, O=SITD, C=UY"
 
-base64 -w0 sitd-hilux.jks > sitd-hilux.jks.b64   # en Mac: base64 -i … -o …
+base64 -w0 sitd-hilux.jks > sitd-hilux.jks.b64
 ```
+
+Pide una contraseña dos veces: es la que va en `FIRMA_STORE_PASS` y
+`FIRMA_KEY_PASS`. En una computadora es el mismo comando, sin el `pkg install`
+(y en Mac, `base64 -i … -o …`).
+
+**Lo que se gana no es sólo dejar de desinstalar.** Si la instalación no borra
+la base, **la configuración de la nube tampoco se pierde**: vive en `ajustes`
+del mismo SQLite. Hoy hay que volver a pegarla en cada tanda, y con la clave
+propia se pega **una sola vez**. Son el mismo problema y se arreglan juntos.
+
+**Y por eso la credencial no va adentro del APK**, aunque parezca el atajo: el
+APK se baja sin cuenta de un repositorio público, así que una contraseña adentro
+sería un dato público. Que la aplicación «la lea de algún lado» tiene el mismo
+agujero — cualquier lugar del que pueda leerla sin credenciales es un lugar del
+que puede leerla cualquiera.
 
 Después, en **Settings → Secrets and variables → Actions → New repository
 secret**, cuatro veces:

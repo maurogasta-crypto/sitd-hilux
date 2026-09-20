@@ -203,16 +203,40 @@ avisando en las notas del release cuál se usó, así que ninguna tanda falla po
 una credencial que todavía no se cargó. El paso a paso está en el `README.md`;
 los nombres exactos, en la tabla de arriba.
 
-**Lo que falta es `keytool`, y eso no está en un teléfono.** Mauro no tiene
-computadora a disposición —sólo la web y su Android—, así que el 2026-09-16
-decidió **seguir desinstalando por ahora** antes que meter material de clave en
-el repositorio, aunque fuera cifrado. Es una decisión consciente con un costo
-conocido, no un olvido: **cada tanda borra la base**.
+**Hasta el 2026-09-20 este archivo decía que falta `keytool` «y eso no está en
+un teléfono». Era falso, y ésa es la parte que importa:** el 2026-09-16 se
+decidió seguir desinstalando en cada tanda sobre una premisa equivocada, y la
+premisa costó cuatro días de base borrada.
 
-Y tiene una consecuencia que ordena lo que sigue: mientras esto siga así, lo
-que de verdad salva la historia es **poder volver a meter un respaldo**
-(`hilux:R2`), no el respaldo en sí. Por eso ese pendiente dejó de ser una deuda
-tranquila.
+**`keytool` viene con cualquier JDK, y en Android hay JDK: Termux.** `pkg
+install openjdk-17` y el comando del `README.md` corre igual que en una
+computadora. No hace falta meter material de clave en el repositorio, que era el
+otro cuerno del dilema y sigue estando prohibido.
+
+> **La lección general, que vale más que el caso:** una decisión tomada sobre
+> «esto no se puede» tiene que decir *por qué* no se puede, con el detalle
+> suficiente como para que alguien la pueda refutar. «No hay computadora» es
+> cierto; «`keytool` no está en un teléfono» no lo es, y era lo que sostenía la
+> decisión entera.
+
+**Y esto resuelve DOS problemas de un saque, que es lo que no se había visto.**
+Con la clave propia cargada, una tanda nueva se instala **encima** de la
+anterior: no hay que desinstalar, y **el SQLite sobrevive**. Eso quiere decir
+que la configuración de la nube —que vive en `ajustes` de esa misma base— deja
+de perderse en cada actualización. El problema de «tener que pegar la
+credencial de nuevo cada vez» no se arregla metiéndola en el APK: **desaparece
+solo** cuando la instalación deja de borrar la base.
+
+**Por eso NO se mete la credencial en el paquete, y no es terquedad.** El APK se
+descarga sin cuenta desde un repositorio público: una contraseña adentro no
+sería una contraseña, sería un dato público. Y «que la aplicación la lea de
+algún lado» tiene el mismo agujero — cualquier lugar del que pueda leerla sin
+credenciales es un lugar del que puede leerla cualquiera. La credencial se
+teclea una vez y sobrevive, que es lo que se buscaba.
+
+Mientras la clave propia no esté cargada, sigue valiendo lo de antes: cada tanda
+borra la base, y lo que de verdad salva la historia es **poder volver a meter un
+respaldo** (`hilux:R2`), no el respaldo en sí.
 
 **El `.jks` no entra al repositorio ni a un chat**, y si se pierde no hay forma
 de volver a firmar una actualización: eso es lo que hay que cuidar, más que las
