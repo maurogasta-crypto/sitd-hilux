@@ -834,6 +834,18 @@ registra como entregado nada que no se haya entregado.
   teclea: es el mismo que muestra «Estado», así que con mirar los dos se sabe
   si lo instalado es lo publicado.
 
+- **La contraseña de la nube no vive en el teléfono, desde `sitd-19`.** Se usa
+  UNA vez, se guarda el `refreshToken` que devuelve ese mismo login, y se
+  borra del `ajustes`. Lo que gana no es comodidad: **un token se revoca desde
+  la consola sin tocar la contraseña**, y lo que se lleva quien saque el
+  archivo del teléfono deja de ser la cuenta entera de esa base. El código ya
+  hacía el login en cada subida y tiraba el `refreshToken`; lo único que
+  faltaba era guardarlo. Ver `features/nube/sesion.dart`.
+
+  **Ojo con el nombre del campo:** `signInWithPassword` contesta en camelCase
+  (`refreshToken`, `idToken`) y el extremo que renueva, en snake_case
+  (`id_token`). Es el mismo Firebase y son dos APIs distintas.
+
 - **Sellos de versión.** `selloApp` en `lib/core/version.dart` sube en cada
   tanda. Se ve en la barra de la aplicación: es la única forma de saber qué APK
   quedó instalado en un teléfono atornillado a una cabina.

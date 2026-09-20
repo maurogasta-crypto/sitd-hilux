@@ -3,6 +3,7 @@ import '../respaldo/reporte.dart';
 import 'cola.dart';
 import 'credencial.dart';
 import 'recorte.dart';
+import 'sesion.dart';
 import 'subida.dart';
 
 /// Cómo terminó una tanda de subidas.
@@ -44,6 +45,10 @@ class ServicioNube {
   final GuardaDeCredencial guarda;
   final Subida subida;
 
+  /// Dónde vive el `refreshToken`. Opcional para no romper al banco viejo:
+  /// sin él, todo funciona como antes y se entra con la contraseña siempre.
+  final GuardaDeSesion? sesion;
+
   /// Cómo se arma el reporte de un viaje. Inyectable para el banco.
   final Map<String, dynamic> Function(int viaje) armar;
 
@@ -52,6 +57,7 @@ class ServicioNube {
     required this.guarda,
     required this.subida,
     required this.armar,
+    this.sesion,
   });
 
   bool get configurada => guarda.configurada;
@@ -63,7 +69,12 @@ class ServicioNube {
   /// como estaba y se reintenta después.
   Future<Tanda> subirPendientes({int tope = 10}) async {
     final c = guarda.credencial;
-    if (c == null || !c.completa) {
+    // Con una sesión viva la contraseña ya no hace falta: se usó una vez, se
+    // guardó el token que devolvió, y se borró. Ver `GuardaDeSesion`.
+    final puede =
+        c != null &&
+        (c.completa || (c.identificaProyecto && (sesion?.hay ?? false)));
+    if (!puede) {
       return const Tanda(
         pararDeIntentar: true,
         primeraFalla: 'La nube no está configurada.',
@@ -103,10 +114,17 @@ class ServicioNube {
         credencial: c,
         id: _idDe(p.viaje, c),
         reporte: listo.reporte,
+        sesion: sesion,
       );
       if (r.ok) {
         cola.marcarSubido(p.viaje);
         subidos++;
+        // La primera subida que sale bien deja el token guardado. A partir de
+        // ahí la contraseña no tiene por qué seguir en el teléfono, y se
+        // borra: es todo el punto de esta tanda.
+        if (sesion != null && sesion!.hay && c.clave.isNotEmpty) {
+          guarda.olvidarClave();
+        }
       } else {
         cola.marcarFalla(p.viaje, r.falla ?? 'sin motivo');
         fallaron++;

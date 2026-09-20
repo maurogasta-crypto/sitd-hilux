@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../../core/bitacora.dart';
 import 'credencial.dart';
+import 'sesion.dart';
 
 /// Cómo salió un intento de subir.
 class Resultado {
@@ -55,8 +56,49 @@ class Subida {
   Subida({http.Client? cliente, this.espera = const Duration(seconds: 20)})
     : cliente = cliente ?? http.Client();
 
-  /// Entra con mail y contraseña y devuelve el token, o `null`.
-  Future<String?> _entrar(Credencial c) async {
+  /// Consigue un `idToken` para escribir, o `null`.
+  ///
+  /// **Prueba primero con el `refreshToken` guardado**, y sólo cae en la
+  /// contraseña si no hay token o si el que hay dejó de servir. Es lo que
+  /// permite que la contraseña no tenga que vivir en el teléfono: se usa una
+  /// vez, se guarda el token que devuelve el login, y de ahí en más se
+  /// renueva con eso.
+  ///
+  /// El token muerto —revocado desde la consola, o caducado— se olvida en vez
+  /// de reintentarse para siempre: si no, un token revocado dejaría la
+  /// aplicación sin poder subir y sin decir por qué.
+  Future<String?> _entrar(Credencial c, GuardaDeSesion? sesion) async {
+    final guardado = sesion?.token;
+    if (guardado != null) {
+      final t = await _renovar(c, guardado);
+      if (t != null) return t;
+      sesion?.olvidar();
+    }
+    return _conContrasena(c, sesion);
+  }
+
+  /// Cambia el `refreshToken` por un `idToken` nuevo.
+  Future<String?> _renovar(Credencial c, String refresco) async {
+    final r = await cliente
+        .post(
+          Uri.parse(
+            'https://securetoken.googleapis.com/v1/token?key=${c.apiKey}',
+          ),
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: {'grant_type': 'refresh_token', 'refresh_token': refresco},
+        )
+        .timeout(espera);
+    if (r.statusCode != 200) return null;
+    final m = jsonDecode(r.body);
+    // Ojo con el nombre: este extremo contesta en snake_case, no en camelCase
+    // como el de `signInWithPassword`. Es el mismo Firebase y son dos APIs.
+    return m is Map ? m['id_token'] as String? : null;
+  }
+
+  /// El login de siempre. Guarda el `refreshToken` que devuelve, que es lo
+  /// que hace que esto no tenga que repetirse.
+  Future<String?> _conContrasena(Credencial c, GuardaDeSesion? sesion) async {
+    if (c.clave.isEmpty) return null;
     final r = await cliente
         .post(
           Uri.parse(
@@ -73,7 +115,10 @@ class Subida {
         .timeout(espera);
     if (r.statusCode != 200) return null;
     final m = jsonDecode(r.body);
-    return m is Map ? m['idToken'] as String? : null;
+    if (m is! Map) return null;
+    final refresco = m['refreshToken'] as String?;
+    if (refresco != null && refresco.isNotEmpty) sesion?.guardar(refresco);
+    return m['idToken'] as String?;
   }
 
   /// Sube un reporte con el identificador [id].
@@ -84,15 +129,20 @@ class Subida {
     required Credencial credencial,
     required String id,
     required Map<String, dynamic> reporte,
+    GuardaDeSesion? sesion,
   }) async {
-    if (!credencial.completa) {
+    // Con una sesión viva alcanza con que la configuración identifique al
+    // proyecto: la contraseña puede no estar, y ése es justamente el punto.
+    final listo = credencial.completa ||
+        (credencial.identificaProyecto && (sesion?.hay ?? false));
+    if (!listo) {
       return const Resultado.mal(
         'Todavía no está configurada la nube.',
         esCulpaNuestra: true,
       );
     }
     try {
-      final token = await _entrar(credencial);
+      final token = await _entrar(credencial, sesion);
       if (token == null) {
         return const Resultado.mal(
           'El usuario o la contraseña de la nube no son correctos.',

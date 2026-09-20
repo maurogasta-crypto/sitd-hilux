@@ -13,6 +13,7 @@ import '../features/vibracion/servicio_vibracion.dart';
 import '../features/nube/cola.dart';
 import '../features/nube/credencial.dart';
 import '../features/nube/servicio_nube.dart';
+import '../features/nube/sesion.dart';
 import '../features/nube/subida.dart';
 import '../features/odometro/registro.dart';
 import '../features/respaldo/reporte.dart';
@@ -135,6 +136,11 @@ class Arranque {
         cola: cola,
         guarda: GuardaDeCredencial(base),
         subida: Subida(),
+        // Desde `sitd-19`: la contraseña se usa UNA vez, se guarda el
+        // `refreshToken` que devuelve el login y se borra. Lo que queda en el
+        // teléfono deja de ser la cuenta entera, y se revoca desde la consola
+        // sin tocar la contraseña. Ver `GuardaDeSesion`.
+        sesion: GuardaDeSesion(base),
         // Un documento POR VIAJE y no el reporte entero: así cada documento
         // queda chico —bien abajo del límite de 1 MB de Firestore— y la
         // colección acumulada ES la historia.
