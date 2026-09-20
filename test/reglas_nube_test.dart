@@ -15,7 +15,21 @@ void main() {
   setUpAll(() => reglas = File('firestore.rules').readAsStringSync());
 
   // La que importa más. Este repositorio es público.
-  test('NO hay un solo UID real: los tres son marcadores', () {
+  //
+  // Comprueba contra la LISTA de marcadores y no contra un prefijo, y el
+  // cambio es del 2026-09-20. Antes pedía `startsWith('UID-')`, que dejaba
+  // pasar cualquier nombre nuevo con esa forma: el marcador de Mauro se
+  // llamaba acá `UID-DE-MAURO` y en `reglas.txt` del panel `TU-UID-ACA`, o
+  // sea dos nombres para la misma cosa, y el panel no reconocía el de acá —
+  // al tocar «Copiar para publicar» se negaba y no había forma de seguir
+  // desde el teléfono. Es el mismo error que `perm`/`permiso` entre CasaYourte
+  // y Casa Verde: misma idea, nombre distinto, y se rompe sin dar error.
+  //
+  // Con la lista, renombrar un marcador falla ACÁ en vez de fallar en el panel
+  // seis meses después.
+  const marcadores = ['TU-UID-ACA', 'UID-DEL-AGENTE'];
+
+  test('NO hay un solo UID real: todos son marcadores conocidos', () {
     final uids = RegExp(r"uid == '([^']+)'")
         .allMatches(reglas)
         .map((m) => m.group(1)!)
@@ -24,10 +38,20 @@ void main() {
     expect(uids, isNotEmpty, reason: 'si no hay ninguno, algo se borró');
     for (final u in uids) {
       expect(
-        u,
-        startsWith('UID-'),
-        reason: 'ese UID parece real, y este repositorio es público',
+        marcadores,
+        contains(u),
+        reason: 'ese UID no es uno de los marcadores del ecosistema '
+            '($marcadores). Si parece real, este repositorio es público; si es '
+            'un marcador nuevo, el panel no lo va a saber completar.',
       );
+    }
+  });
+
+  // Los dos tienen que estar. Sin el de Mauro nadie administra la base; sin el
+  // del agente, el chat no puede leer los reportes y la ronda lo marca con ✖.
+  test('los dos marcadores están, y son los que el panel sabe completar', () {
+    for (final m in marcadores) {
+      expect(reglas, contains(m), reason: 'falta el marcador $m');
     }
   });
 

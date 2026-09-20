@@ -2,11 +2,23 @@ rules_version = '2';
 
 // Reglas de Firestore para la base de SITD-Hilux — proyecto `hilux-1b6f1`.
 //
+// --8<-- PLANTILLA
 // ════════════════════════════════════════════════════════════════════════
 //  Esta es una PLANTILLA. Los dos UID van como marcadores a propósito:
 //  este repositorio es PÚBLICO, y un UID real no entra nunca a un archivo.
-//  Mauro los reemplaza al pegar esto en la consola de Firebase.
+//
+//  NO se completa a mano: el panel lo hace solo. En «Sitios» → SITD-Hilux →
+//  «Copiar para publicar», con los dos UID sacados de `acceso.uids` del
+//  proyecto. Eso deja el texto listo para pegar en la consola de Firebase, y
+//  los UID reales existen únicamente en esa pantalla — nunca en este archivo.
+//
+//  Los marcadores se llaman `TU-UID-ACA` y `UID-DEL-AGENTE`, igual que en
+//  `reglas.txt` del panel. Hasta el 2026-09-20 el primero acá se llamaba
+//  `UID-DE-MAURO`: mismo significado, nombre distinto, y el panel no lo
+//  reconocía. Dos nombres para la misma cosa es exactamente el error que este
+//  ecosistema ya pagó con `perm`/`permiso` — se rompe sin dar error.
 // ════════════════════════════════════════════════════════════════════════
+// --8<-- FIN PLANTILLA
 //
 // Hay exactamente tres actores y cada uno puede una sola cosa:
 //
@@ -31,7 +43,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function soyYo() {
-      return request.auth != null && request.auth.uid == 'UID-DE-MAURO';
+      return request.auth != null && request.auth.uid == 'TU-UID-ACA';
     }
 
     // **El teléfono entra como Mauro**, porque no se creó un usuario aparte.
