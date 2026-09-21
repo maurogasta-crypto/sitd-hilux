@@ -235,9 +235,12 @@ algún lado» tiene el mismo agujero — cualquier lugar del que pueda leerla si
 credenciales es un lugar del que puede leerla cualquiera. La credencial se
 teclea una vez y sobrevive, que es lo que se buscaba.
 
-Mientras la clave propia no esté cargada, sigue valiendo lo de antes: cada tanda
-borra la base, y lo que de verdad salva la historia es **poder volver a meter un
-respaldo** (`hilux:R2`), no el respaldo en sí.
+**La clave propia quedó cargada el 2026-09-21**, así que una tanda ya se
+instala encima de la anterior y la base sobrevive. Y lo otro que salvaba la
+historia —**poder volver a meter un respaldo**, `hilux:R2`— también está:
+`sitd-23` reemplazando y `sitd-25` sumando. Las dos redes existen; ninguna
+hace innecesaria a la otra, porque la firma no salva un teléfono que se
+rompe.
 
 **El `.jks` no entra al repositorio ni a un chat**, y si se pierde no hay forma
 de volver a firmar una actualización: eso es lo que hay que cuidar, más que las
@@ -308,9 +311,46 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
 - **Los derivados no se guardan.** Consumo, autonomía y factor se calculan al
   leer. En la base entra lo que Mauro tecleó y lo que midió el sensor.
 
-- **El respaldo se puede volver a meter** (`sitd-23`, 2026-09-21). Era la
-  deuda más vieja del proyecto: desde `sitd-7` se podía sacar una copia y no
-  devolverla. Cuatro cosas que no se tocan, porque son las que separan una
+- **El respaldo se puede volver a meter, y desde `sitd-25` SUMANDO** — que es
+  la forma que se ofrece primero, porque no pierde nada. Hasta `sitd-24` la
+  única era reemplazar, pensada para el teléfono vacío: el recién formateado,
+  el que reemplaza al que se rompió. **El 2026-09-21 apareció el otro caso, y
+  es el común:** el teléfono tenía dos viajes de esa noche —uno de 69,82 km— y
+  un archivo tenía los dos de la anterior —uno de 103,2 km—. Ninguno de los
+  dos juegos contenía al otro, y la única herramienta que había obligaba a
+  elegir cuál perder. El cartel decía la verdad y la decisión igual era mala:
+  el respaldo estaba resolviendo «restaurar» cuando lo que hacía falta era
+  **juntar**.
+
+  **Un viaje repetido se reconoce por el instante en que arrancó** (`inicio`),
+  no por su `id`: las dos bases numeran desde uno y por su cuenta, así que el
+  viaje 2 de un archivo no tiene nada que ver con el viaje 2 del teléfono —
+  fue justamente el problema a resolver. Dos viajes del mismo teléfono no
+  pueden empezar en el mismo milisegundo, así que ese campo alcanza. De ahí
+  sale la propiedad que lo hace usable sin miedo: **meter dos veces el mismo
+  archivo da lo mismo que meterlo una.**
+
+  **Y ante un repetido gana el del teléfono, no el del archivo.** Es lo
+  conservador: el archivo es viejo por definición y lo vivo puede haberse
+  corregido después. La contra hay que saberla — si la copia viva de un viaje
+  quedó incompleta y la del archivo está entera, sumar **no** la arregla; para
+  ese caso está reemplazar.
+
+  **Cada tabla entra de una de dos formas, y eso está declarado.** Las que
+  cuelgan de un viaje (`puntos`, `vibraciones`, `subidas`) entran enteras con
+  él y se les traduce el número; las que viven sueltas (`cargas`, `eventos`)
+  se reconocen de a una por su llave natural, declarada en `llaveNatural`. La
+  de `eventos` son **los tres campos** y no sólo el instante, porque la
+  bitácora escribe varias líneas en el mismo milisegundo al arrancar: con la
+  llave corta se habría perdido todo menos una.
+
+  **Las llaves que ya existen se leen ANTES, a un conjunto**, y no con un
+  `INSERT ... SELECT ... WHERE NOT EXISTS`: esa forma lee la tabla en la que
+  está escribiendo, y si lo que ya insertó cuenta o no para el `NOT EXISTS` es
+  justamente lo que SQLite no promete.
+
+  Era la deuda más vieja del proyecto: desde `sitd-7` se podía sacar una copia
+  y no devolverla. Cuatro cosas que no se tocan, porque son las que separan una
   importación de una pérdida: **se mira la versión del esquema antes de nada**
   —una base más nueva que la aplicación NO se importa, porque lo que todavía
   no sabe guardar se perdería sin aviso—; **se dice qué se pierde con los
@@ -736,11 +776,11 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   alimentaría eso, y lo primero que hay que resolver entonces es dónde vive el
   recorrido y con qué credenciales — no el modelo.
 
-- **Todavía no se puede VOLVER a meter un respaldo en el teléfono, y desde el
-  2026-09-16 eso importa más que antes.** Mientras la firma siga siendo la de
-  depuración, cada tanda obliga a desinstalar y desinstalar borra la base: el
-  respaldo guarda la historia pero no la devuelve. Está dicho en la pantalla
-  con esas palabras y es `hilux:R2`.
+- **`hilux:R2` está cerrado desde el 2026-09-21, y en dos tandas.** Decía que
+  un respaldo se podía sacar y no devolver — cierto desde `sitd-7` y grave
+  mientras cada actualización borrara la base. `sitd-23` lo devolvió
+  reemplazando y `sitd-25` sumando; el detalle está en el punto de arriba.
+  **Si este archivo vuelve a decir que no se puede, está desactualizado.**
 
 - **Los tres modos del GPS se prueban SOLOS, en cascada, y no a mano.** Hasta
   `sitd-10` los tres existían pero había que elegirlos en la pantalla de

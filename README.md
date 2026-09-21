@@ -136,6 +136,40 @@ Y dos advertencias que valen más que el procedimiento:
    mano en la web de GitHub. El entregable de un chat es el nombre exacto de
    cada variable y dónde va, que es lo que está en esta tabla.
 
+## Volver a meter un respaldo: sumar o reemplazar
+
+Son dos, y **la que se ofrece primero es sumar, porque no pierde nada.**
+
+| | Qué hace | Para cuándo |
+|---|---|---|
+| **Sumar** | junta los viajes del archivo con los que ya tiene el teléfono | el caso común: dos juegos que no se contienen |
+| **Reemplazar** | borra lo del teléfono y deja sólo lo del archivo | el teléfono vacío: recién formateado, o el que reemplaza al que se rompió |
+
+Hasta `sitd-24` existía sólo la segunda, pensada para el teléfono vacío. **El
+2026-09-21 apareció el otro caso, que es el común:** el teléfono tenía dos
+viajes de esa noche —uno de 69,82 km— y un archivo tenía los dos de la
+anterior —uno de 103,2 km—. Ninguno de los dos juegos contenía al otro, y la
+única herramienta que había obligaba a elegir cuál perder. El cartel decía la
+verdad y la decisión igual era mala: el respaldo estaba resolviendo
+«restaurar» cuando lo que hacía falta era **juntar**.
+
+**Un viaje repetido se reconoce por el instante en que arrancó.** Dos viajes
+del mismo teléfono no pueden empezar en el mismo milisegundo, así que alcanza
+con eso y no hace falta inventar un identificador. Por eso **meter dos veces
+el mismo archivo no duplica nada**, y por eso se puede meter sin acordarse de
+si ya se metió.
+
+**Ante un repetido gana el del teléfono, no el del archivo.** Es lo
+conservador: el archivo es viejo por definición y lo vivo puede haberse
+corregido después. La contra hay que saberla — si la copia viva de un viaje
+quedó incompleta y la del respaldo está entera, sumar **no** la arregla; para
+ese caso está reemplazar.
+
+Las dos comparten lo que separa una importación de una pérdida: se mira la
+versión del esquema antes de tocar nada, se dicen los números de los dos
+lados, todo va en una transacción, y **la configuración de la nube no viaja**
+— la del archivo puede estar rotada, la que vale es la del teléfono.
+
 ## Cómo se actualiza
 
 Es siempre lo mismo y conviene tenerlo claro, porque va a pasar en cada tanda:
@@ -353,7 +387,10 @@ lib/
 │   │   ├── consumo.dart     Consumo de lleno a lleno, calculado al leer.
 │   │   └── registro_cargas.dart  Cargas y el ajuste del tanque.
 │   ├── respaldo/
-│   │   └── reporte.dart     Qué sale del teléfono, y qué no.
+│   │   ├── reporte.dart     Qué sale del teléfono, y qué no.
+│   │   ├── saneado.dart     Le saca a la copia lo que abre algo, y lo
+│   │   │                    comprueba sobre los BYTES del archivo.
+│   │   └── importar.dart    Volver a meterlo: sumando o reemplazando.
 │   ├── nube/
 │   │   ├── credencial.dart  Los cuatro datos que Mauro pega a mano. NO
 │   │   │                    están en el repositorio ni en el APK.
@@ -403,8 +440,8 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-24` | `lib/core/version.dart` |
-| Esquema de la base | `3` | `lib/core/db/esquema.dart` |
+| Aplicación | `sitd-25` | `lib/core/version.dart` |
+| Esquema de la base | `5` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
 **manda el archivo**: esta tabla se copia a mano y se desactualiza en silencio.

@@ -246,7 +246,17 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
     }
   }
 
-  /// Importar, con la pregunta que dice qué se pierde ANTES de perderlo.
+  /// Meter un respaldo, con la pregunta que dice qué pasa ANTES de que pase.
+  ///
+  /// **Son dos caminos y el que se ofrece primero es el que no pierde nada.**
+  /// Hasta `sitd-24` había uno solo —reemplazar—, pensado para el teléfono
+  /// vacío. El 2026-09-21 apareció el caso común: dos juegos de viajes que no
+  /// se contienen, uno en el teléfono y otro en un archivo, y la única
+  /// herramienta que había obligaba a elegir cuál perder.
+  ///
+  /// El cartel dice los números de los DOS lados y cuántos viajes del archivo
+  /// faltan acá, que es lo único con lo que alguien puede decidir. «¿Estás
+  /// seguro?» no es una pregunta: no dice qué pasa si uno contesta que sí.
   Future<void> _importar(String ruta) async {
     final revision = revisarRespaldo(viva: widget.base, ruta: ruta);
     if (!mounted) return;
@@ -254,55 +264,94 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
       setState(() => _resultado = revision.problema);
       return;
     }
-    final quiere = await showDialog<bool>(
+    final trae = revision.candidato!;
+    final forma = await showDialog<_FormaDeMeter>(
       context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Reemplazar la historia'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Este teléfono tiene ahora:\n${revision.actual.resumen}.'),
-            const SizedBox(height: 10),
-            Text('El respaldo trae:\n${revision.candidato!.resumen}.'),
-            const SizedBox(height: 14),
-            Text(
-              'Lo de arriba SE PIERDE y no hay papelera. Si todavía no lo '
-              'guardaste, cancelá y sacá una copia primero.',
-              style: Theme.of(c).textTheme.bodySmall,
+      builder: (c) {
+        final chico = Theme.of(c).textTheme.bodySmall;
+        return AlertDialog(
+          title: const Text('Meter el respaldo'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Este teléfono tiene ahora:\n${revision.actual.resumen}.'),
+                const SizedBox(height: 10),
+                Text('El respaldo trae:\n${trae.resumen}.'),
+                const SizedBox(height: 10),
+                Text(
+                  revision.sumarTraeAlgo
+                      ? 'De esos, ${revision.viajesNuevos} '
+                            '${revision.viajesNuevos == 1 ? 'viaje no está' : 'viajes no están'} '
+                            'en el teléfono.'
+                      : 'Todos esos viajes ya están en el teléfono: sumar no '
+                            'traería nada nuevo.',
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  revision.sumarTraeAlgo
+                      ? 'SUMAR los junta y no pierde nada: quedarían '
+                            '${revision.viajesDespuesDeSumar} viajes.'
+                      : 'SUMAR no haría nada, y tampoco rompería nada.',
+                  style: chico,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'REEMPLAZAR deja SÓLO lo del respaldo: lo que este teléfono '
+                  'tiene ahora se pierde y no hay papelera. Si todavía no lo '
+                  'guardaste, cancelá y sacá una copia primero.',
+                  style: chico,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(c, _FormaDeMeter.reemplazar),
+              child: const Text('Reemplazar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(c, _FormaDeMeter.sumar),
+              child: const Text('Sumar'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('Reemplazar'),
-          ),
-        ],
-      ),
+        );
+      },
     );
-    if (quiere != true) return;
+    if (forma == null) return;
 
     try {
       final dir = await getTemporaryDirectory();
-      final problema = importarRespaldo(
-        viva: widget.base,
-        ruta: ruta,
-        carpetaDeTrabajo: dir.path,
-      );
-      final ahora = revisarRespaldo(viva: widget.base, ruta: ruta).actual;
-      if (mounted) {
-        setState(
-          () => _resultado =
-              problema ??
-              'Listo: quedaron ${ahora.resumen}. Volvé a la pantalla '
-                  'principal para verlos.',
+      final String texto;
+      if (forma == _FormaDeMeter.sumar) {
+        final r = sumarRespaldo(
+          viva: widget.base,
+          ruta: ruta,
+          carpetaDeTrabajo: dir.path,
         );
+        texto = r.salioBien && !r.nadaNuevo
+            ? '${r.resumen} Quedaron '
+                  '${revisarRespaldo(viva: widget.base, ruta: ruta).actual.resumen}. '
+                  'Volvé a la pantalla principal para verlos.'
+            : r.resumen;
+      } else {
+        final problema = importarRespaldo(
+          viva: widget.base,
+          ruta: ruta,
+          carpetaDeTrabajo: dir.path,
+        );
+        final ahora = revisarRespaldo(viva: widget.base, ruta: ruta).actual;
+        texto =
+            problema ??
+            'Listo: quedaron ${ahora.resumen}. Volvé a la pantalla '
+                'principal para verlos.';
       }
+      if (mounted) setState(() => _resultado = texto);
     } catch (e) {
       if (mounted) setState(() => _resultado = 'No se pudo importar: $e');
     }
@@ -458,13 +507,16 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
             icono: Icons.settings_backup_restore,
             titulo: 'Volver a meter un respaldo',
             texto:
-                'Reemplaza los viajes, las cargas y las vibraciones de este '
-                'teléfono por los del archivo. Antes de tocar nada te dice '
-                'QUÉ se pierde, con los números de los dos lados.\n\n'
-                'La configuración de la nube NO se toca: la que vale es la que '
-                'este teléfono tiene ahora.',
+                'SUMAR junta los viajes del archivo con los que ya tiene este '
+                'teléfono, sin perder ninguno de los dos lados. Los que ya '
+                'estén no se duplican, así que meter dos veces el mismo '
+                'archivo no rompe nada.\n\n'
+                'REEMPLAZAR deja sólo lo del archivo, y es para un teléfono '
+                'vacío. Antes de tocar nada te dice qué pasa con cada una, con '
+                'los números de los dos lados.\n\n'
+                'La configuración de la nube NO se toca en ninguno de los dos '
+                'casos: la que vale es la que este teléfono tiene ahora.',
             boton: 'Elegir el archivo',
-            peligroso: true,
             onPressed: _trabajando ? null : _elegirRespaldo,
           ),
           const SizedBox(height: 8),
@@ -775,3 +827,8 @@ class _Cuenta extends StatelessWidget {
     );
   }
 }
+
+/// Las dos formas de meter un respaldo. Están acá y no en `importar.dart`
+/// porque son una pregunta de pantalla: el módulo expone las dos funciones y
+/// no sabe cuál eligió nadie.
+enum _FormaDeMeter { sumar, reemplazar }
