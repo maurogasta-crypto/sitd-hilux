@@ -592,6 +592,32 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   idéntico a un sensor que está pero se colgó. Por eso el estado sale de un
   reloj: sin una lectura después del tiempo de gracia, se dice «no contesta».
 
+- **El respaldo completo NO lleva credenciales, y eso se comprueba sobre los
+  bytes** (desde `sitd-21`, 2026-09-21). El botón hacía `File(ruta).copy(...)`
+  —una copia cruda— y desde `sitd-17` la credencial de la nube vive en la tabla
+  `ajustes` de esa misma base: **el respaldo salía con la contraseña de
+  Firebase en texto plano.** Se descubrió el día que Mauro compartió uno para
+  que lo revisara un chat, y hubo que rotar la contraseña.
+
+  El proyecto tenía el instinto correcto aplicado al archivo equivocado: la
+  prueba de las coordenadas revisa el texto entero del reporte JSON, y no había
+  ninguna equivalente para el `.db`. Ahora `respaldo/saneado.dart` saca de la
+  copia todo lo que abre algo —`nube_config`, `nube_refresh`, y cualquier clave
+  que empiece con `nube_`— y la pantalla **comprueba** el resultado antes de
+  compartir: si el secreto sigue en el archivo, no se comparte nada.
+
+  **Dos detalles que hacen la diferencia entre arreglarlo y creer que se
+  arregló.** Un `DELETE` de SQLite no borra: marca la página como libre y deja
+  el texto donde estaba, así que hace falta un `VACUUM`. Y el modo WAL viaja en
+  el encabezado del archivo, así que sin un `PRAGMA journal_mode = DELETE` el
+  borrado se iría a un `-wal` aparte y el `.db` compartido seguiría trayendo lo
+  viejo. Por eso la verificación mira los **bytes** del archivo y no una
+  consulta: una consulta habría dicho que estaba todo limpio.
+
+  Las claves selladas se leen de donde se escriben (`claveDeLaCredencial` y
+  `claveDeLaSesion`), no de una copia: renombrar una no puede dejar el saneado
+  mirando a un lugar que ya no existe.
+
 - **Sacar los datos son DOS cosas, y no se mezclan nunca.** El *reporte para
   desarrollo* no lleva una sola coordenada y se puede mandar por un chat; el
   *respaldo completo* es una copia de la base y lleva dónde estuvo la camioneta

@@ -100,6 +100,16 @@ la base, **la configuración de la nube tampoco se pierde**: vive en `ajustes`
 del mismo SQLite. Hoy hay que volver a pegarla en cada tanda, y con la clave
 propia se pega **una sola vez**. Son el mismo problema y se arreglan juntos.
 
+**Y que viva ahí tiene una consecuencia que costó una contraseña.** El botón
+«Respaldo completo» copiaba el archivo de la base tal cual, con esa tabla
+adentro: hasta `sitd-21` el respaldo salía con la contraseña de Firebase en
+texto plano. Desde `sitd-21` la copia se **sanea** antes de compartirse —se le
+sacan `nube_config`, `nube_refresh` y cualquier clave que empiece con `nube_`,
+con `VACUUM` para que no queden en las páginas libres— y la pantalla
+**comprueba los bytes del archivo** antes de entregarlo: si algo quedó, no se
+comparte nada. El respaldo sigue llevando los viajes, las cargas, las
+vibraciones y el recorrido, así que sigue sin ir a un chat.
+
 **Y por eso la credencial no va adentro del APK**, aunque parezca el atajo: el
 APK se baja sin cuenta de un repositorio público, así que una contraseña adentro
 sería un dato público. Que la aplicación «la lea de algún lado» tiene el mismo
@@ -393,7 +403,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-20` | `lib/core/version.dart` |
+| Aplicación | `sitd-21` | `lib/core/version.dart` |
 | Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

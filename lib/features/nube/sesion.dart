@@ -1,5 +1,12 @@
 import '../../core/db/base.dart';
 
+/// La clave de `ajustes` donde vive el `refreshToken`.
+///
+/// Es pública porque `respaldo/saneado.dart` la necesita para sacarla de las
+/// copias de la base: si se renombra acá, el saneado la sigue sin que nadie
+/// tenga que acordarse.
+const String claveDeLaSesion = 'nube_refresh';
+
 /// El `refreshToken` de Firebase, que es lo que reemplaza a guardar la
 /// contraseña en el teléfono.
 ///
@@ -28,7 +35,7 @@ import '../../core/db/base.dart';
 class GuardaDeSesion {
   final Base base;
 
-  static const String _clave = 'nube_refresh';
+  static const String _clave = claveDeLaSesion;
 
   GuardaDeSesion(this.base);
 

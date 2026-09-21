@@ -62,11 +62,17 @@ class Credencial {
   String get resumen => '$mail → $proyecto';
 }
 
+/// La clave de `ajustes` donde vive la configuración de la nube.
+///
+/// Es pública porque `respaldo/saneado.dart` la necesita para sacarla de las
+/// copias: si se renombra acá, el saneado la sigue sin que nadie se acuerde.
+const String claveDeLaCredencial = 'nube_config';
+
 /// Dónde vive la configuración de la nube: en `ajustes`, tecleada a mano.
 class GuardaDeCredencial {
   final Base base;
 
-  static const String _clave = 'nube_config';
+  static const String _clave = claveDeLaCredencial;
 
   GuardaDeCredencial(this.base);
 

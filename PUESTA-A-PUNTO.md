@@ -92,6 +92,10 @@ Trae, además del marcador unificado de las reglas:
   consola sin tocar la contraseña.
 - **`sitd-20`** — la cascada del GPS vuelve a preguntar por qué modo empezar en
   **cada viaje**, en vez de una sola vez al abrir la aplicación.
+- **`sitd-21`** — el respaldo completo deja de llevar la contraseña adentro.
+  Hasta acá el botón copiaba el archivo de la base tal cual, y la credencial
+  de la nube vive en esa base: **cualquier respaldo hecho antes de esta tanda
+  trae la contraseña en texto plano.** Ver la nota de abajo.
 
 ### Cómo sabés que salió bien
 
@@ -121,6 +125,15 @@ Android no las deja convivir.
    diga `0 esperando`. Lo que ya está en la nube no se pierde.
 2. Si querés el respaldo completo (el que lleva el recorrido), sacalo también.
    Va a Drive, **no a un chat**.
+
+> **Los respaldos viejos llevan la contraseña.** Hasta `sitd-21` el botón
+> copiaba el archivo de la base tal cual, y la configuración de la nube vive
+> adentro de esa base. Cualquier `.db` que hayas guardado o compartido antes de
+> esta tanda trae la contraseña de Firebase legible. Después de instalar esta
+> versión: cambiá esa contraseña en la consola de Firebase del proyecto
+> `hilux-1b6f1` (Authentication → el usuario → *Reset password*), volvé a
+> pegarla una vez en la aplicación, y borrá los respaldos viejos de donde
+> estén. Los que saque la aplicación de acá en adelante ya salen sin ella.
 
 ### Después de instalar
 
