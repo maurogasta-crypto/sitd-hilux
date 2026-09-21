@@ -88,8 +88,61 @@ jobs:
             echo "::warning::Sin FIRMA_JKS: se firma con la clave de depuración, que se genera nueva en cada corrida. Este APK NO se va a poder instalar encima del anterior."
             exit 0
           fi
-          # `base64 -d` falla con un salto de línea de más; se limpian antes.
-          printf '%s' "$FIRMA_JKS" | tr -d '\n' | base64 -d > android/app/firma.jks
+          # ── QUÉ SALIÓ MAL, DICHO CON NOMBRE Y APELLIDO ───────────────────
+          # Hasta el 2026-09-21 esto era una línea sola y, cuando fallaba, el
+          # log entero decía `base64: invalid input`. Con eso no se sabe si el
+          # pegado se cortó, si trajo basura, o si la contraseña no es la que
+          # abre el keystore — y cada intento cuesta una corrida y un viaje al
+          # teléfono. Ahora cada causa tiene su mensaje y su salida.
+          #
+          # Se limpia TODO el espacio en blanco y no sólo `\n`: un pegado desde
+          # un teléfono puede traer retornos de carro y espacios, y el `tr -d
+          # '\n'` de antes los dejaba pasar derecho al decodificador.
+          LIMPIO=$(printf '%s' "$FIRMA_JKS" | tr -d '[:space:]')
+          LARGO=${#LIMPIO}
+          echo "FIRMA_JKS mide $LARGO caracteres una vez limpio."
+          echo "En el teléfono, comparalo con:  wc -c < ~/sitd-hilux.jks.b64"
+          echo "(ese número puede dar uno más, por el salto final del archivo)"
+
+          if [ $((LARGO % 4)) -ne 0 ]; then
+            echo "::error::FIRMA_JKS mide $LARGO caracteres y base64 siempre es múltiplo de 4: el pegado se CORTÓ. Es lo que más pasa copiando desde el teléfono. Volvé a copiar la salida entera de 'cat ~/sitd-hilux.jks.b64' y recreá el secreto."
+            exit 1
+          fi
+
+          if ! printf '%s' "$LIMPIO" | base64 -d > android/app/firma.jks 2>/dev/null; then
+            echo "::error::FIRMA_JKS mide lo que tiene que medir pero no es base64 válido: tiene algún carácter que no corresponde. Suele ser que se copió de más —una línea del prompt de Termux, por ejemplo— o que el pegado juntó dos pedazos. Generá el .b64 de nuevo con 'base64 -w0 sitd-hilux.jks > sitd-hilux.jks.b64' y copialo entero."
+            exit 1
+          fi
+
+          # Un JKS empieza con FE ED FE ED; un PKCS12, con 30 82. Si no es
+          # ninguno de los dos, lo que se decodificó no es un keystore: el
+          # secreto lleva otro archivo, o se cortó justo en un múltiplo de 4.
+          CABECERA=$(head -c 4 android/app/firma.jks | od -An -tx1 | tr -d ' \n')
+          case "$CABECERA" in
+            feedfeed|3082*) : ;;
+            *)
+              echo "::error::FIRMA_JKS decodificó, pero lo que salió no es un keystore (empieza con $CABECERA, y tendría que empezar con feedfeed). O el secreto lleva otro archivo, o el pegado se cortó. Rehacelo desde 'base64 -w0 sitd-hilux.jks'."
+              exit 1 ;;
+          esac
+
+          # Por ruta y no por PATH: `setup-java` exporta JAVA_HOME siempre, y
+          # así no depende de que además lo haya puesto en el PATH.
+          if ! "$JAVA_HOME/bin/keytool" -list -keystore android/app/firma.jks \
+               -storepass "$FIRMA_STORE_PASS" > /tmp/keytool.txt 2>&1; then
+            echo "::error::El archivo decodificó y empieza como un keystore, pero no se pudo abrir. Las dos causas, en orden de probabilidad: (1) FIRMA_STORE_PASS no es la contraseña que tecleaste en keytool al generarlo; (2) el pegado se cortó por un lugar que igual dio múltiplo de 4, y el archivo está incompleto — lo dice el largo de arriba comparado con el del teléfono. Lo que dijo keytool:"
+            # No lleva la contraseña adentro: es el motivo, la ruta y el tipo.
+            sed 's/^/    /' /tmp/keytool.txt | head -8
+            exit 1
+          fi
+
+          ALIAS_USADO=${FIRMA_ALIAS:-sitd}
+          if ! grep -qi "^$ALIAS_USADO," /tmp/keytool.txt; then
+            echo "::error::El keystore abre, pero adentro no está el alias '$ALIAS_USADO'. Revisá FIRMA_ALIAS: tiene que ser el mismo '-alias' que le pasaste a keytool (en la guía es 'sitd')."
+            echo "Alias que sí tiene el keystore:"
+            grep -i ', PrivateKeyEntry' /tmp/keytool.txt | cut -d, -f1 || true
+            exit 1
+          fi
+
           cat > android/key.properties <<PROPS
           storeFile=firma.jks
           storePassword=$FIRMA_STORE_PASS

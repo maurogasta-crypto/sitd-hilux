@@ -48,11 +48,29 @@ que va en `FIRMA_STORE_PASS` y `FIRMA_KEY_PASS`.
 
 ```bash
 base64 -w0 sitd-hilux.jks > sitd-hilux.jks.b64
+wc -c < sitd-hilux.jks.b64
 cat sitd-hilux.jks.b64
 ```
 
 Sale un chorro largo de letras y números, **todo en una sola línea**. Copiálo
 entero — mantené apretado, «Seleccionar todo», copiar.
+
+> **Anotá el número que te dio `wc -c`.** Es el largo del chorro, y es la
+> única forma de saber si el pegado llegó completo: copiar cinco mil
+> caracteres desde la pantalla de un teléfono falla seguido y **no avisa**.
+> Cuando corra el CI, el paso «Preparar la firma» imprime el largo que
+> recibió. Si los dos números no coinciden (salvo por uno, que es el salto
+> final del archivo), el pegado se cortó y hay que rehacerlo.
+>
+> Para un keystore de 3799 bytes, por ejemplo, el chorro mide 5068
+> caracteres.
+
+**Pasó el 2026-09-21, en el primer intento real.** El pegado se cortó y la
+corrida falló con un único renglón, `base64: invalid input`, que no decía
+cuál de los cuatro secretos estaba mal. Desde esa fecha el paso comprueba,
+en este orden, que el largo sea múltiplo de 4, que decodifique, que lo que
+salga empiece como un keystore, que `FIRMA_STORE_PASS` lo abra y que
+`FIRMA_ALIAS` esté adentro — y cada falla dice cuál es y qué hacer.
 
 > **Guardá el `.jks` ANTES de seguir.** Compartilo a Drive, a tu gestor de
 > contraseñas, a donde sobreviva a que se rompa el teléfono. **Si lo perdés no
