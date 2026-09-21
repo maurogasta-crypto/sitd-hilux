@@ -308,6 +308,25 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
 - **Los derivados no se guardan.** Consumo, autonomía y factor se calculan al
   leer. En la base entra lo que Mauro tecleó y lo que midió el sensor.
 
+- **El odómetro del tablero se revisa contra el GPS antes de guardarlo**
+  (`sitd-22`, 2026-09-21). El viaje del 2026-09-20 se cerró con `4055086` en
+  vez de `405086` —un cinco de más—, el dato quedó guardado, se subió a la
+  nube y se descubrió tres días después leyendo el respaldo con los ojos. Lo
+  que faltaba no era un límite sino **comparar contra lo que el GPS acababa de
+  medir del mismo viaje**: un tablero que dice diez veces lo que dice el GPS
+  no es un tablero, es un dedo. `validacion_odometro.dart` no importa nada de
+  Flutter a propósito, así que se puede correr con `dart` a secas.
+
+  Y el cartel **ofrece el número que sí cierra**: probando sacar cada dígito,
+  `4055086` da `405086`. Eso es lo que lo convierte en una solución y no en un
+  aviso. Ninguno de los tres caminos pierde el viaje.
+- **Un viaje que el GPS no midió entero NO calibra**, aunque sus dos odómetros
+  estén bien. Lo marcó Mauro sobre ese mismo viaje: «se puede desestimar ese
+  valor porque no había comenzado a medir desde el inicio». Si faltan
+  kilómetros del lado del GPS, el factor de neumáticos sale más chico y nada
+  avisa. El umbral es 98 % de cobertura y sale de lo que se quiere medir: el
+  factor anda por el 5 %, así que perder un 7 % del recorrido mete un error
+  más grande que el efecto buscado. Ese viaje llegó al 92,9 %.
 - **Cada moneda es un sistema aparte.** UYU y USD no se suman nunca. El costo
   de una ventana de consumo es un mapa por moneda y no un número, para que no
   haya dónde sumarlas ni por accidente.

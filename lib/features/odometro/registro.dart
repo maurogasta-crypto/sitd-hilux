@@ -3,6 +3,7 @@ import 'package:sqlite3/sqlite3.dart';
 import '../../core/db/base.dart';
 import 'integrador.dart';
 import 'muestra.dart';
+import 'validacion_odometro.dart';
 
 /// Un viaje, tal como quedó guardado.
 ///
@@ -221,11 +222,29 @@ class RegistroDeViajes {
   /// Sólo entran los tramos largos: `factorRobusto` descarta los de menos de
   /// 20 km, porque el odómetro del tablero avanza de a 1 km y en un tramo
   /// corto el error de leerlo domina sobre lo que se quiere medir.
+  ///
+  /// **Y desde `sitd-22` tampoco entra un viaje que el GPS no midió entero**,
+  /// aunque sus dos odómetros estén bien. Lo marcó Mauro sobre el viaje del
+  /// 2026-09-20: «se puede desestimar ese valor porque no había comenzado a
+  /// medir desde el inicio». Si faltan kilómetros del lado del GPS, el factor
+  /// sale más chico y NADA avisa — que es la peor forma de equivocarse. El
+  /// criterio está en `sirveParaCalibrar`, con su número justificado.
   List<ParCalibracion> paresDeCalibracion() => base.db
       .select(
-        'SELECT metros, odo_tablero_ini, odo_tablero_fin FROM viajes '
+        'SELECT metros, odo_tablero_ini, odo_tablero_fin, cortes, muestras, '
+        'inicio, fin FROM viajes '
         'WHERE fin IS NOT NULL AND odo_tablero_ini IS NOT NULL '
         'AND odo_tablero_fin IS NOT NULL AND odo_tablero_fin > odo_tablero_ini',
+      )
+      .where(
+        (f) => sirveParaCalibrar(
+          cortes: (f['cortes'] as num?)?.toInt() ?? 0,
+          segundosDelViaje:
+              (((f['fin'] as num).toInt() - (f['inicio'] as num).toInt()) /
+                      1000)
+                  .round(),
+          muestras: (f['muestras'] as num?)?.toInt() ?? 0,
+        ),
       )
       .map(
         (f) => ParCalibracion(

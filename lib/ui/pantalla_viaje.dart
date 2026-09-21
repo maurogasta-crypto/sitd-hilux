@@ -17,6 +17,7 @@ import '../features/odometro/modo_recordado.dart';
 import '../features/odometro/fuente_gps.dart';
 import '../features/permisos/avisos.dart';
 import '../features/odometro/servicio.dart';
+import '../features/odometro/validacion_odometro.dart';
 import '../features/vibracion/analisis.dart';
 import '../features/vibracion/registro_vibracion.dart';
 import '../features/vibracion/servicio_vibracion.dart';
@@ -197,6 +198,48 @@ class _PantallaViajeState extends State<PantallaViaje> {
     return valor;
   }
 
+  /// El cartel del odómetro imposible. **Ofrece el número que sí cierra**, que
+  /// es lo que convierte un aviso en una solución: sacando un dígito, `4055086`
+  /// da `405086`. Los otros dos caminos son volver a escribirlo y dejarlo sin
+  /// anotar — ninguno de los tres pierde el viaje.
+  Future<_Odometro?> _confirmarOdometro(RevisionOdometro r) async {
+    final sug = r.sugerido;
+    return showDialog<_Odometro>(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => AlertDialog(
+        title: const Text('Ese odómetro no cierra'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(r.mensaje),
+            const SizedBox(height: 12),
+            Text(
+              'El viaje NO se pierde: elegí una y seguimos.',
+              style: Theme.of(c).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, const _Odometro(null)),
+            child: const Text('Terminar sin anotarlo'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Volver a escribirlo'),
+          ),
+          if (sug != null)
+            FilledButton(
+              onPressed: () => Navigator.pop(c, _Odometro(sug)),
+              child: Text('Usar ${sug.toStringAsFixed(0)}'),
+            ),
+        ],
+      ),
+    );
+  }
+
   void _ir(Widget pantalla) =>
       Navigator.of(context)
           .push(MaterialPageRoute<void>(builder: (_) => pantalla));
@@ -230,8 +273,40 @@ class _PantallaViajeState extends State<PantallaViaje> {
       aceptar: 'Terminar',
     );
     if (pedido == null) return;
+
+    /* ── EL ODÓMETRO SE REVISA ANTES DE GUARDARLO (`sitd-22`) ──────────────
+       El viaje del 2026-09-20 se cerró con `4055086` en vez de `405086` —un
+       cinco de más— y el dato quedó guardado, se subió a la nube y se
+       descubrió tres días después leyendo el respaldo con los ojos. Lo que
+       faltaba no era un límite, era comparar contra lo que el GPS acababa de
+       medir del MISMO viaje. */
+    var odo = pedido.valor;
+    // La lectura de salida no está en el estado vivo —ahí va lo que cambia
+    // cada segundo— sino en el registro, que es donde se guardó al arrancar.
+    final abierto = widget.registro.abierto;
+    final revision = revisarOdometro(
+      odoInicial: abierto?.odoTableroIni,
+      odoFinal: odo,
+      kmGps: viaje.kilometros,
+    );
+    if (!revision.entra) {
+      if (!mounted) return;
+      final corregido = await _confirmarOdometro(revision);
+      // Cerró el cartel sin elegir: no se termina el viaje, que sigue abierto
+      // y se puede volver a intentar. Perder el viaje por un dedo sería peor.
+      if (corregido == null) return;
+      odo = corregido.valor;
+    } else if (revision.veredicto == Veredicto.sospechoso && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(revision.mensaje),
+          duration: const Duration(seconds: 8),
+        ),
+      );
+    }
+
     await widget.vibracion.detener();
-    await widget.servicio.terminar(odoTablero: pedido.valor);
+    await widget.servicio.terminar(odoTablero: odo);
     await widget.despierta.segun(midiendo: false);
     if (mounted) await _avisarDeLaVibracion();
   }
