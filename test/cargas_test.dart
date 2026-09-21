@@ -161,9 +161,18 @@ void main() {
       'un viaje que el GPS no midio entero no da par, aunque este anotado',
       () {
         final id = viajes.abrir(inicio: 0, odoTablero: 1000);
-        // Empieza a medir recién al minuto: el tablero contó ese minuto y el
-        // GPS no. Es el caso real, reducido.
-        for (var i = 60; i <= 5000; i++) {
+        /* Empieza a medir recién a los 500 s de 5000: el tablero contó ese
+           tramo y el GPS no. Cobertura 90 %, contra el 98 % que pide
+           `sirveParaCalibrar` — y la proporción no es de adorno, es la del
+           caso real, donde aquel viaje llegó al 92,9 %.
+
+           OJO CON ESTE NÚMERO. La primera versión de esta prueba dejaba
+           afuera UN MINUTO de 5000 s, que da 98,8 % y CALIFICA: el hueco era
+           más chico que el umbral, así que la prueba pasaba por el lado
+           equivocado y afirmaba lo contrario de lo que dice su nombre. La
+           corrida la agarró. Si algún día se afloja `coberturaMinima`, este
+           500 hay que volver a calcularlo. */
+        for (var i = 500; i <= 5000; i++) {
           viajes.guardarPunto(
             id,
             Muestra(
