@@ -133,7 +133,8 @@ class Subida {
   }) async {
     // Con una sesión viva alcanza con que la configuración identifique al
     // proyecto: la contraseña puede no estar, y ése es justamente el punto.
-    final listo = credencial.completa ||
+    final listo =
+        credencial.completa ||
         (credencial.identificaProyecto && (sesion?.hay ?? false));
     if (!listo) {
       return const Resultado.mal(

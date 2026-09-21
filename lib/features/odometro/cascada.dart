@@ -139,10 +139,7 @@ class FuenteEnCascada implements FuenteDeMuestras {
   }) : construir = construir ?? ((m) => FuenteGps(modo: m)),
        pedirAviso = pedirAviso ?? pedirAvisoDelSistema,
        modo = ValueNotifier(
-         escalonesEmpezandoPor(
-           modoPreferido?.call(),
-           escalones,
-         ).first.modo,
+         escalonesEmpezandoPor(modoPreferido?.call(), escalones).first.modo,
        );
 
   int _indice = 0;

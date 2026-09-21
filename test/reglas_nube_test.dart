@@ -40,7 +40,8 @@ void main() {
       expect(
         marcadores,
         contains(u),
-        reason: 'ese UID no es uno de los marcadores del ecosistema '
+        reason:
+            'ese UID no es uno de los marcadores del ecosistema '
             '($marcadores). Si parece real, este repositorio es público; si es '
             'un marcador nuevo, el panel no lo va a saber completar.',
       );

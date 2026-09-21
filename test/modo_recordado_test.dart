@@ -144,13 +144,16 @@ void _pruebasDelOrdenVivo() {
     );
   });
 
-  test('un modo preferido que no existe no rompe: queda el orden de siempre', () {
-    final c = FuenteEnCascada(
-      construir: (m) => _FuenteMuda(),
-      modoPreferido: () => null,
-    );
-    expect(c.modo.value, escalonesPorDefecto.first.modo);
-  });
+  test(
+    'un modo preferido que no existe no rompe: queda el orden de siempre',
+    () {
+      final c = FuenteEnCascada(
+        construir: (m) => _FuenteMuda(),
+        modoPreferido: () => null,
+      );
+      expect(c.modo.value, escalonesPorDefecto.first.modo);
+    },
+  );
 
   test('la cascada NUNCA pierde escalones al reordenar', () {
     for (final m in ModoGps.values) {
