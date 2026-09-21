@@ -181,7 +181,7 @@ RevisionRespaldo revisarRespaldo({required Base viva, required String ruta}) {
           'Ese archivo no se puede abrir como base de datos (${e.message}).',
     );
   } finally {
-    db?.dispose();
+    db?.close();
   }
 }
 

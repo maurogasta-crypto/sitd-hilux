@@ -133,8 +133,9 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
 
   /// Dónde busca respaldos para volver a meter, y qué encontró.
   ///
-  /// **Es la carpeta EXTERNA DE LA APLICACIÓN** (`Android/data/<paquete>/
-  /// files`), y la elección no es de comodidad: es la única a la que se llega
+  /// **Es la carpeta EXTERNA DE LA APLICACIÓN** —la que Android le da a cada
+  /// aplicación adentro de `Android/data`— y la elección no es de comodidad:
+  /// es la única a la que se llega
   /// sin pedir un permiso de almacenamiento ni agregar un selector de
   /// archivos. Este proyecto no tiene ninguno de los dos, y agregar un
   /// complemento nativo es justo lo que la verificación previa de acá NO
@@ -155,7 +156,9 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
         'respaldos',
       ),
     );
-    if (!dir.existsSync()) dir.createSync(recursive: true);
+    if (!dir.existsSync()) {
+      dir.createSync(recursive: true);
+    }
     return dir;
   }
 
@@ -177,8 +180,9 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
         });
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() => _resultado = 'No se pudo mirar la carpeta: $e');
+      }
     } finally {
       if (mounted) setState(() => _trabajando = false);
     }
