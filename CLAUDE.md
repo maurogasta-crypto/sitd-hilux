@@ -308,6 +308,29 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
 - **Los derivados no se guardan.** Consumo, autonomía y factor se calculan al
   leer. En la base entra lo que Mauro tecleó y lo que midió el sensor.
 
+- **El respaldo se puede volver a meter** (`sitd-23`, 2026-09-21). Era la
+  deuda más vieja del proyecto: desde `sitd-7` se podía sacar una copia y no
+  devolverla. Cuatro cosas que no se tocan, porque son las que separan una
+  importación de una pérdida: **se mira la versión del esquema antes de nada**
+  —una base más nueva que la aplicación NO se importa, porque lo que todavía
+  no sabe guardar se perdería sin aviso—; **se dice qué se pierde con los
+  números de los dos lados** y no un «¿estás seguro?»; **todo va en UNA
+  transacción**, así que si falla en el medio el teléfono queda como estaba; y
+  **la configuración de la nube no viaja** — la del archivo puede estar
+  rotada, la que vale es la que el teléfono tiene ahora.
+
+  **Y las columnas se nombran, nunca `SELECT *`.** Copiar por posición depende
+  de que las dos bases tengan las columnas en el mismo orden, que hoy es una
+  coincidencia del camino y no una garantía: el día que una tabla se cree con
+  las columnas ya puestas en vez de agregarlas con `ALTER`, `SELECT *` metería
+  la precisión en el campo de los cortes **sin dar error**. Se usan sólo las
+  que están en las dos.
+
+  El archivo llega por la carpeta externa de la aplicación, que es la única a
+  la que se entra sin permiso de almacenamiento ni selector de archivos —
+  ninguno de los dos existe acá, y agregar un complemento nativo es justo lo
+  que la verificación previa NO cubre. El respaldo que saca la pantalla queda
+  también ahí, para que el camino de vuelta no dependa de nada.
 - **El odómetro del tablero se revisa contra el GPS antes de guardarlo**
   (`sitd-22`, 2026-09-21). El viaje del 2026-09-20 se cerró con `4055086` en
   vez de `405086` —un cinco de más—, el dato quedó guardado, se subió a la

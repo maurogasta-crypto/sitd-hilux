@@ -15,6 +15,7 @@ import '../core/version.dart';
 import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/registro.dart';
 import '../features/respaldo/reporte.dart';
+import '../features/respaldo/importar.dart';
 import '../features/respaldo/saneado.dart';
 import '../features/sensores/satelites.dart';
 import '../features/vibracion/registro_vibracion.dart';
@@ -130,6 +131,122 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
     }
   }
 
+  /// Dónde busca respaldos para volver a meter, y qué encontró.
+  ///
+  /// **Es la carpeta EXTERNA DE LA APLICACIÓN** (`Android/data/<paquete>/
+  /// files`), y la elección no es de comodidad: es la única a la que se llega
+  /// sin pedir un permiso de almacenamiento ni agregar un selector de
+  /// archivos. Este proyecto no tiene ninguno de los dos, y agregar un
+  /// complemento nativo es justo lo que la verificación previa de acá NO
+  /// cubre — ya costó una corrida con `permission_handler`.
+  ///
+  /// La contra, dicha para que no sorprenda: en Android 11 y posteriores
+  /// algunos gestores de archivos de terceros no dejan entrar a
+  /// `Android/data`. El del sistema sí. Si eso molesta, lo que sigue es un
+  /// selector de archivos, y eso pide una tanda con la compilación al lado.
+  String? _carpeta;
+  List<File> _respaldos = const [];
+
+  Future<Directory> _carpetaDeRespaldos() async {
+    final base = await getExternalStorageDirectory();
+    final dir = Directory(
+      p.join(
+        (base ?? await getApplicationDocumentsDirectory()).path,
+        'respaldos',
+      ),
+    );
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+    return dir;
+  }
+
+  Future<void> _buscarRespaldos() async {
+    setState(() => _trabajando = true);
+    try {
+      final dir = await _carpetaDeRespaldos();
+      final hallados =
+          dir
+              .listSync()
+              .whereType<File>()
+              .where((f) => f.path.toLowerCase().endsWith('.db'))
+              .toList()
+            ..sort((a, b) => b.path.compareTo(a.path));
+      if (mounted) {
+        setState(() {
+          _carpeta = dir.path;
+          _respaldos = hallados;
+        });
+      }
+    } catch (e) {
+      if (mounted)
+        setState(() => _resultado = 'No se pudo mirar la carpeta: $e');
+    } finally {
+      if (mounted) setState(() => _trabajando = false);
+    }
+  }
+
+  /// Importar, con la pregunta que dice qué se pierde ANTES de perderlo.
+  Future<void> _importar(String ruta) async {
+    final revision = revisarRespaldo(viva: widget.base, ruta: ruta);
+    if (!mounted) return;
+    if (!revision.sePuede) {
+      setState(() => _resultado = revision.problema);
+      return;
+    }
+    final quiere = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Reemplazar la historia'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Este teléfono tiene ahora:\n${revision.actual.resumen}.'),
+            const SizedBox(height: 10),
+            Text('El respaldo trae:\n${revision.candidato!.resumen}.'),
+            const SizedBox(height: 14),
+            Text(
+              'Lo de arriba SE PIERDE y no hay papelera. Si todavía no lo '
+              'guardaste, cancelá y sacá una copia primero.',
+              style: Theme.of(c).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Reemplazar'),
+          ),
+        ],
+      ),
+    );
+    if (quiere != true) return;
+
+    setState(() => _trabajando = true);
+    try {
+      final dir = await getTemporaryDirectory();
+      final problema = importarRespaldo(
+        viva: widget.base,
+        ruta: ruta,
+        carpetaDeTrabajo: dir.path,
+      );
+      final ahora = revisarRespaldo(viva: widget.base, ruta: ruta).actual;
+      if (mounted) {
+        setState(
+          () => _resultado =
+              problema ??
+              'Listo: quedaron ${ahora.resumen}. Volvé a la pantalla '
+                  'principal para verlos.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _trabajando = false);
+    }
+  }
+
   /// El respaldo de verdad: una copia del archivo de la base.
   ///
   /// **Antes de copiar hay que cerrar el WAL.** En modo WAL lo último que se
@@ -177,6 +294,15 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
       }
 
       final tamano = await copia.length();
+
+      /* Y queda una copia en la carpeta desde la que se puede VOLVER A
+         METER. Sin esto, el camino de ida funciona y el de vuelta depende de
+         que el gestor de archivos del teléfono llegue a `Android/data`. */
+      try {
+        await copia.copy(p.join((await _carpetaDeRespaldos()).path, nombre));
+      } catch (_) {
+        // Que no se pueda dejar la copia local no invalida compartirla.
+      }
 
       await SharePlus.instance.share(
         ShareParams(
@@ -249,7 +375,9 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
                 'un chat.\n\n'
                 'NO lleva la contraseña de la nube ni la sesión: se sacan de '
                 'la copia antes de compartirla, y si no se pudieran sacar no '
-                'se comparte nada.',
+                'se comparte nada.\n\n'
+                'Queda además una copia en el teléfono, en la carpeta desde '
+                'la que se puede volver a meter.',
             boton: 'Guardar una copia',
             peligroso: true,
             onPressed: _trabajando ? null : _compartirLaBase,
@@ -264,15 +392,46 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
               ),
             ),
           const SizedBox(height: 16),
-          Text(
-            'Todavía no hay forma de VOLVER a meter un respaldo en el '
-            'teléfono: eso necesita una sesión con la cadena de compilación. '
-            'Está anotado y no se olvidó — pero guardar es lo urgente, porque '
-            'lo que no se guardó no se puede restaurar después.',
-            style: t.textTheme.bodySmall?.copyWith(
-              color: t.colorScheme.outline,
-            ),
+          const SizedBox(height: 12),
+          _Opcion(
+            icono: Icons.settings_backup_restore,
+            titulo: 'Volver a meter un respaldo',
+            texto:
+                'Reemplaza los viajes, las cargas y las vibraciones de este '
+                'teléfono por los del archivo. Antes de tocar nada te dice '
+                'QUÉ se pierde, con los números de los dos lados.\n\n'
+                'La configuración de la nube NO se toca: la que vale es la que '
+                'este teléfono tiene ahora.',
+            boton: 'Buscar respaldos',
+            peligroso: true,
+            onPressed: _trabajando ? null : _buscarRespaldos,
           ),
+          if (_carpeta != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _respaldos.isEmpty
+                    ? 'No encontré ningún archivo .db en:\n$_carpeta\n\n'
+                          'Copiá ahí el respaldo con el gestor de archivos y '
+                          'volvé a tocar «Buscar respaldos». Los que saca esta '
+                          'pantalla ya quedan guardados en esa carpeta.'
+                    : 'En $_carpeta:',
+                style: t.textTheme.bodySmall?.copyWith(
+                  color: t.colorScheme.outline,
+                ),
+              ),
+            ),
+          for (final r in _respaldos)
+            Card(
+              child: ListTile(
+                title: Text(p.basename(r.path)),
+                subtitle: Text(
+                  '${(r.statSync().size / 1024 / 1024).toStringAsFixed(1)} MB',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _trabajando ? null : () => _importar(r.path),
+              ),
+            ),
         ],
       ),
     );
