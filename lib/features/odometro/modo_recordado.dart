@@ -1,8 +1,11 @@
 import '../../core/bitacora.dart';
 import '../../core/db/base.dart';
-import 'cascada.dart';
-export 'cascada.dart' show escalonesEmpezandoPor;
 import 'fuente_gps.dart';
+
+// `escalonesEmpezandoPor` vive en `cascada.dart` —acá sería un import
+// circular— y se reexporta para que quien ya la pedía a este archivo no tenga
+// que cambiar nada.
+export 'cascada.dart' show escalonesEmpezandoPor;
 
 /// Qué modo de pedir posiciones funcionó la última vez.
 ///
