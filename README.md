@@ -74,6 +74,10 @@ release cuál usó—. Lo que falta es generarla, y para eso hace falta `keytool
 > Sobre esa premisa equivocada se decidió el 2026-09-16 seguir desinstalando en
 > cada tanda, y eso costó cuatro días de base borrada en cada actualización.
 
+> **El paso a paso completo está en `PUESTA-A-PUNTO.md`**, escrito para
+> hacerse desde el teléfono y con el orden que importa: primero los secretos,
+> después el merge. Acá queda el comando.
+
 En **Termux**, una sola vez:
 
 ```bash
@@ -389,7 +393,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-19` | `lib/core/version.dart` |
+| Aplicación | `sitd-20` | `lib/core/version.dart` |
 | Esquema de la base | `3` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

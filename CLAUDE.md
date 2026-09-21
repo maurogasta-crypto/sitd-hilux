@@ -87,6 +87,7 @@ por una sesión con la cadena de compilación puesta.
 | Dónde | Qué hay |
 |---|---|
 | `README.md` | mapa de archivos, sellos, cómo se instala el APK |
+| `PUESTA-A-PUNTO.md` | dejar de desinstalar en cada tanda: la clave de firma en Termux, el orden de los pasos y la última desinstalación |
 | `CLAUDE.md` (este archivo) | las reglas |
 
 ## Secretos
@@ -682,6 +683,22 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   el problema es el servicio en primer plano —lo más creíble en un HyperOS 3—;
   y si dice «Normal», la cascada nunca hizo falta. Un solo viaje contesta lo
   que tres salidas a la calle no contestaron.
+
+- **Y el orden de los escalones se vuelve a preguntar EN CADA VIAJE, no al
+  abrir la aplicación** (2026-09-21). Hasta `sitd-19` se calculaba una sola vez
+  en `arranque.dart` y `FuenteEnCascada.escalones` era `final`, así que lo que
+  la cascada aprendía a mitad de sesión no se usaba hasta reiniciar. El primer
+  viaje real lo dejó medido: la bitácora anotó «el modo Sin notificación
+  entregó, el próximo viaje arranca por ahí» y al reanudar volvió a empezar por
+  «Normal» y pagó los noventa segundos otra vez. Ahora la cascada recibe una
+  FUNCIÓN (`modoPreferido`) y la consulta al soltar, que es entre un viaje y el
+  siguiente.
+
+  **La regla general, que es la que no hay que deshacer:** un dato que se
+  aprende mientras la aplicación corre no se puede leer una sola vez al
+  arrancar. Es el mismo error que la pantalla de sensores usando un modo que la
+  aplicación ya sabía que no andaba — la tercera vez que este proyecto lo
+  comete.
 
 - **El modo que entregó se RECUERDA, y la cascada arranca por ahí.** El primer
   viaje que midió de verdad —2026-09-19, 105 muestras, ninguna descartada, 3,79

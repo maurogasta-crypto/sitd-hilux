@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sitd_hilux/core/db/base.dart';
 import 'package:sitd_hilux/features/odometro/cascada.dart';
+import 'package:sitd_hilux/features/odometro/fuente.dart';
 import 'package:sitd_hilux/features/odometro/fuente_gps.dart';
 import 'package:sitd_hilux/features/odometro/modo_recordado.dart';
 
@@ -90,4 +93,91 @@ void main() {
     recordado.recordar(ModoGps.sinNotificacion);
     expect(base.leerAjuste('modo_gps_que_anduvo'), antes);
   });
+
+  _pruebasDelOrdenVivo();
+}
+
+/// Lo que se agregó el 2026-09-21, y cubre una falla MEDIDA en el primer
+/// viaje real.
+///
+/// Ese viaje anotó en su bitácora «el modo Sin notificación entregó, el
+/// próximo viaje arranca por ahí» y, al reanudarse, volvió a empezar por
+/// «Normal» y pagó los noventa segundos de nuevo. La causa: el orden de los
+/// escalones se calculaba UNA vez, al abrir la aplicación, y
+/// `FuenteEnCascada.escalones` era `final`. Lo aprendido a mitad de sesión no
+/// se usaba hasta reiniciar.
+///
+/// Ahora la cascada recibe una FUNCIÓN y vuelve a preguntar al soltar — o sea
+/// entre un viaje y el siguiente. Estas pruebas miran eso desde afuera, por el
+/// modo con el que arranca, que es lo que se ve en la pantalla del viaje.
+void _pruebasDelOrdenVivo() {
+  test('sin preferencia, arranca por el primer escalón', () {
+    final c = FuenteEnCascada(construir: (m) => _FuenteMuda());
+    expect(c.modo.value, escalonesPorDefecto.first.modo);
+  });
+
+  test('con preferencia, arranca por ésa desde el principio', () {
+    final c = FuenteEnCascada(
+      construir: (m) => _FuenteMuda(),
+      modoPreferido: () => ModoGps.receptorDirecto,
+    );
+    expect(c.modo.value, ModoGps.receptorDirecto);
+  });
+
+  test('lo que cambia DESPUÉS de construir se usa al soltar', () async {
+    ModoGps? preferido;
+    final c = FuenteEnCascada(
+      construir: (m) => _FuenteMuda(),
+      modoPreferido: () => preferido,
+    );
+    expect(c.modo.value, escalonesPorDefecto.first.modo);
+
+    // Esto es lo que hacía la cascada vieja y no se usaba: aprender a mitad
+    // de sesión.
+    preferido = ModoGps.sinNotificacion;
+    await c.detener();
+
+    expect(
+      c.modo.value,
+      ModoGps.sinNotificacion,
+      reason: 'el viaje siguiente tiene que empezar por el modo que entregó',
+    );
+  });
+
+  test('un modo preferido que no existe no rompe: queda el orden de siempre', () {
+    final c = FuenteEnCascada(
+      construir: (m) => _FuenteMuda(),
+      modoPreferido: () => null,
+    );
+    expect(c.modo.value, escalonesPorDefecto.first.modo);
+  });
+
+  test('la cascada NUNCA pierde escalones al reordenar', () {
+    for (final m in ModoGps.values) {
+      final e = escalonesEmpezandoPor(m, escalonesPorDefecto);
+      expect(
+        e.length,
+        escalonesPorDefecto.length,
+        reason: 'reordenar por $m perdió un escalón',
+      );
+      expect(e.map((x) => x.modo).toSet(), {
+        for (final d in escalonesPorDefecto) d.modo,
+      });
+    }
+  });
+}
+
+/// Una fuente que no entrega nunca. Alcanza para mirar con qué modo arranca
+/// la cascada, que es lo único que prueban los casos de arriba.
+class _FuenteMuda implements FuenteDeMuestras {
+  final _c = StreamController<Lectura>();
+
+  @override
+  Stream<Lectura> get lecturas => _c.stream;
+
+  @override
+  Future<Disponibilidad> preparar() async => Disponibilidad.listo;
+
+  @override
+  Future<void> detener() async => _c.close();
 }

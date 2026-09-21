@@ -119,7 +119,12 @@ class Arranque {
       final cascada = FuenteEnCascada(
         satelites: satelites,
         alEntregar: recordado.recordar,
-        escalones: escalonesEmpezandoPor(recordado.modo, escalonesPorDefecto),
+        // Una FUNCIÓN y no el orden ya calculado: así la cascada vuelve a
+        // preguntar al empezar cada viaje. Antes se calculaba una sola vez
+        // acá, y lo que se aprendía a mitad de sesión no se usaba hasta
+        // reiniciar la aplicación — el primer viaje real lo dejó medido el
+        // 2026-09-20, pagando los noventa segundos dos veces seguidas.
+        modoPreferido: () => recordado.modo,
       );
       final servicio = ServicioOdometria(
         registro: registro,
