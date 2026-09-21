@@ -15,6 +15,7 @@ import '../core/version.dart';
 import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/registro.dart';
 import '../features/respaldo/reporte.dart';
+import '../features/respaldo/saneado.dart';
 import '../features/sensores/satelites.dart';
 import '../features/vibracion/registro_vibracion.dart';
 
@@ -144,7 +145,37 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
       widget.base.db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
       final dir = await getTemporaryDirectory();
       final nombre = 'sitd-${_fechaDeArchivo(DateTime.now())}.db';
+
+      // Qué buscar después, leído de la base VIVA y antes de tocar la copia.
+      final secretos = valoresQueNoSalen(widget.base);
+
       final copia = await File(widget.ruta).copy(p.join(dir.path, nombre));
+
+      // SANEAR, que es sacarlo, y COMPROBAR, que es otra cosa. Ver
+      // `saneado.dart`: un `DELETE` de SQLite deja el texto en el archivo, así
+      // que lo que vale es lo que digan los bytes.
+      //
+      // Las dos son sincrónicas y bloquean la pantalla mientras corren, igual
+      // que el `wal_checkpoint` de arriba. Sobre una base de unos megabytes se
+      // mide en milisegundos; si algún día el respaldo pesa de verdad, esto es
+      // lo primero que hay que mandar a un isolate.
+      final sacadas = sanearCopia(copia.path);
+      final quedo = loQueSeEscapa(copia.path, secretos);
+      if (quedo != null) {
+        // No se comparte nada. Es el único final posible: compartir igual y
+        // avisar sería avisar de algo que ya salió del teléfono.
+        await copia.delete();
+        if (mounted) {
+          setState(
+            () => _resultado =
+                'NO se compartió: el saneado no pudo sacar una credencial de '
+                'la copia. Es una falla del programa, no tuya — reportala '
+                'desde acá y no compartas respaldos hasta que esté arreglada.',
+          );
+        }
+        return;
+      }
+
       final tamano = await copia.length();
 
       await SharePlus.instance.share(
@@ -157,9 +188,12 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
         ),
       );
       if (mounted) {
+        final nota = sacadas.isEmpty
+            ? ''
+            : ' · sin credenciales (${sacadas.length})';
         setState(
           () => _resultado =
-              '$nombre · ${(tamano / 1024 / 1024).toStringAsFixed(1)} MB',
+              '$nombre · ${(tamano / 1024 / 1024).toStringAsFixed(1)} MB$nota',
         );
       }
     } catch (e) {
@@ -206,12 +240,16 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
             icono: Icons.save_outlined,
             titulo: 'Respaldo completo',
             texto:
-                'Una copia del archivo de la base, tal cual está. Es el '
-                'respaldo de verdad: si el teléfono se pierde o se rompe, esto '
-                'es lo único que devuelve los viajes.\n\n'
+                'Una copia del archivo de la base, con los viajes, las '
+                'cargas y las vibraciones. Es el respaldo de verdad: si el '
+                'teléfono se pierde o se rompe, esto es lo único que los '
+                'devuelve.\n\n'
                 'LLEVA EL RECORRIDO: dónde estuvo la camioneta, minuto a '
                 'minuto. Va a Drive, a una computadora o a una tarjeta — no a '
-                'un chat.',
+                'un chat.\n\n'
+                'NO lleva la contraseña de la nube ni la sesión: se sacan de '
+                'la copia antes de compartirla, y si no se pudieran sacar no '
+                'se comparte nada.',
             boton: 'Guardar una copia',
             peligroso: true,
             onPressed: _trabajando ? null : _compartirLaBase,

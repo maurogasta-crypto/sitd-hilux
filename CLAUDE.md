@@ -87,6 +87,7 @@ por una sesión con la cadena de compilación puesta.
 | Dónde | Qué hay |
 |---|---|
 | `README.md` | mapa de archivos, sellos, cómo se instala el APK |
+| `PUESTA-A-PUNTO.md` | dejar de desinstalar en cada tanda: la clave de firma en Termux, el orden de los pasos y la última desinstalación |
 | `CLAUDE.md` (este archivo) | las reglas |
 
 ## Secretos
@@ -203,16 +204,40 @@ avisando en las notas del release cuál se usó, así que ninguna tanda falla po
 una credencial que todavía no se cargó. El paso a paso está en el `README.md`;
 los nombres exactos, en la tabla de arriba.
 
-**Lo que falta es `keytool`, y eso no está en un teléfono.** Mauro no tiene
-computadora a disposición —sólo la web y su Android—, así que el 2026-09-16
-decidió **seguir desinstalando por ahora** antes que meter material de clave en
-el repositorio, aunque fuera cifrado. Es una decisión consciente con un costo
-conocido, no un olvido: **cada tanda borra la base**.
+**Hasta el 2026-09-20 este archivo decía que falta `keytool` «y eso no está en
+un teléfono». Era falso, y ésa es la parte que importa:** el 2026-09-16 se
+decidió seguir desinstalando en cada tanda sobre una premisa equivocada, y la
+premisa costó cuatro días de base borrada.
 
-Y tiene una consecuencia que ordena lo que sigue: mientras esto siga así, lo
-que de verdad salva la historia es **poder volver a meter un respaldo**
-(`hilux:R2`), no el respaldo en sí. Por eso ese pendiente dejó de ser una deuda
-tranquila.
+**`keytool` viene con cualquier JDK, y en Android hay JDK: Termux.** `pkg
+install openjdk-17` y el comando del `README.md` corre igual que en una
+computadora. No hace falta meter material de clave en el repositorio, que era el
+otro cuerno del dilema y sigue estando prohibido.
+
+> **La lección general, que vale más que el caso:** una decisión tomada sobre
+> «esto no se puede» tiene que decir *por qué* no se puede, con el detalle
+> suficiente como para que alguien la pueda refutar. «No hay computadora» es
+> cierto; «`keytool` no está en un teléfono» no lo es, y era lo que sostenía la
+> decisión entera.
+
+**Y esto resuelve DOS problemas de un saque, que es lo que no se había visto.**
+Con la clave propia cargada, una tanda nueva se instala **encima** de la
+anterior: no hay que desinstalar, y **el SQLite sobrevive**. Eso quiere decir
+que la configuración de la nube —que vive en `ajustes` de esa misma base— deja
+de perderse en cada actualización. El problema de «tener que pegar la
+credencial de nuevo cada vez» no se arregla metiéndola en el APK: **desaparece
+solo** cuando la instalación deja de borrar la base.
+
+**Por eso NO se mete la credencial en el paquete, y no es terquedad.** El APK se
+descarga sin cuenta desde un repositorio público: una contraseña adentro no
+sería una contraseña, sería un dato público. Y «que la aplicación la lea de
+algún lado» tiene el mismo agujero — cualquier lugar del que pueda leerla sin
+credenciales es un lugar del que puede leerla cualquiera. La credencial se
+teclea una vez y sobrevive, que es lo que se buscaba.
+
+Mientras la clave propia no esté cargada, sigue valiendo lo de antes: cada tanda
+borra la base, y lo que de verdad salva la historia es **poder volver a meter un
+respaldo** (`hilux:R2`), no el respaldo en sí.
 
 **El `.jks` no entra al repositorio ni a un chat**, y si se pierde no hay forma
 de volver a firmar una actualización: eso es lo que hay que cuidar, más que las
@@ -567,6 +592,32 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   idéntico a un sensor que está pero se colgó. Por eso el estado sale de un
   reloj: sin una lectura después del tiempo de gracia, se dice «no contesta».
 
+- **El respaldo completo NO lleva credenciales, y eso se comprueba sobre los
+  bytes** (desde `sitd-21`, 2026-09-21). El botón hacía `File(ruta).copy(...)`
+  —una copia cruda— y desde `sitd-17` la credencial de la nube vive en la tabla
+  `ajustes` de esa misma base: **el respaldo salía con la contraseña de
+  Firebase en texto plano.** Se descubrió el día que Mauro compartió uno para
+  que lo revisara un chat, y hubo que rotar la contraseña.
+
+  El proyecto tenía el instinto correcto aplicado al archivo equivocado: la
+  prueba de las coordenadas revisa el texto entero del reporte JSON, y no había
+  ninguna equivalente para el `.db`. Ahora `respaldo/saneado.dart` saca de la
+  copia todo lo que abre algo —`nube_config`, `nube_refresh`, y cualquier clave
+  que empiece con `nube_`— y la pantalla **comprueba** el resultado antes de
+  compartir: si el secreto sigue en el archivo, no se comparte nada.
+
+  **Dos detalles que hacen la diferencia entre arreglarlo y creer que se
+  arregló.** Un `DELETE` de SQLite no borra: marca la página como libre y deja
+  el texto donde estaba, así que hace falta un `VACUUM`. Y el modo WAL viaja en
+  el encabezado del archivo, así que sin un `PRAGMA journal_mode = DELETE` el
+  borrado se iría a un `-wal` aparte y el `.db` compartido seguiría trayendo lo
+  viejo. Por eso la verificación mira los **bytes** del archivo y no una
+  consulta: una consulta habría dicho que estaba todo limpio.
+
+  Las claves selladas se leen de donde se escriben (`claveDeLaCredencial` y
+  `claveDeLaSesion`), no de una copia: renombrar una no puede dejar el saneado
+  mirando a un lugar que ya no existe.
+
 - **Sacar los datos son DOS cosas, y no se mezclan nunca.** El *reporte para
   desarrollo* no lleva una sola coordenada y se puede mandar por un chat; el
   *respaldo completo* es una copia de la base y lleva dónde estuvo la camioneta
@@ -658,6 +709,22 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   el problema es el servicio en primer plano —lo más creíble en un HyperOS 3—;
   y si dice «Normal», la cascada nunca hizo falta. Un solo viaje contesta lo
   que tres salidas a la calle no contestaron.
+
+- **Y el orden de los escalones se vuelve a preguntar EN CADA VIAJE, no al
+  abrir la aplicación** (2026-09-21). Hasta `sitd-19` se calculaba una sola vez
+  en `arranque.dart` y `FuenteEnCascada.escalones` era `final`, así que lo que
+  la cascada aprendía a mitad de sesión no se usaba hasta reiniciar. El primer
+  viaje real lo dejó medido: la bitácora anotó «el modo Sin notificación
+  entregó, el próximo viaje arranca por ahí» y al reanudar volvió a empezar por
+  «Normal» y pagó los noventa segundos otra vez. Ahora la cascada recibe una
+  FUNCIÓN (`modoPreferido`) y la consulta al soltar, que es entre un viaje y el
+  siguiente.
+
+  **La regla general, que es la que no hay que deshacer:** un dato que se
+  aprende mientras la aplicación corre no se puede leer una sola vez al
+  arrancar. Es el mismo error que la pantalla de sensores usando un modo que la
+  aplicación ya sabía que no andaba — la tercera vez que este proyecto lo
+  comete.
 
 - **El modo que entregó se RECUERDA, y la cascada arranca por ahí.** El primer
   viaje que midió de verdad —2026-09-19, 105 muestras, ninguna descartada, 3,79
@@ -809,6 +876,18 @@ registra como entregado nada que no se haya entregado.
   numerado de cada corrida. Y el sello del título **sale del código**, no se
   teclea: es el mismo que muestra «Estado», así que con mirar los dos se sabe
   si lo instalado es lo publicado.
+
+- **La contraseña de la nube no vive en el teléfono, desde `sitd-19`.** Se usa
+  UNA vez, se guarda el `refreshToken` que devuelve ese mismo login, y se
+  borra del `ajustes`. Lo que gana no es comodidad: **un token se revoca desde
+  la consola sin tocar la contraseña**, y lo que se lleva quien saque el
+  archivo del teléfono deja de ser la cuenta entera de esa base. El código ya
+  hacía el login en cada subida y tiraba el `refreshToken`; lo único que
+  faltaba era guardarlo. Ver `features/nube/sesion.dart`.
+
+  **Ojo con el nombre del campo:** `signInWithPassword` contesta en camelCase
+  (`refreshToken`, `idToken`) y el extremo que renueva, en snake_case
+  (`id_token`). Es el mismo Firebase y son dos APIs distintas.
 
 - **Sellos de versión.** `selloApp` en `lib/core/version.dart` sube en cada
   tanda. Se ve en la barra de la aplicación: es la única forma de saber qué APK

@@ -50,16 +50,29 @@ class Credencial {
       mail.isNotEmpty &&
       clave.isNotEmpty;
 
+  /// Lo mínimo para renovar una sesión ya abierta: sin la contraseña.
+  ///
+  /// Desde `sitd-19`, cuando hay un `refreshToken` guardado la contraseña deja
+  /// de hacer falta — y deja de guardarse. Esto es lo que se exige entonces.
+  bool get identificaProyecto =>
+      proyecto.isNotEmpty && apiKey.isNotEmpty && mail.isNotEmpty;
+
   /// Lo que se muestra en pantalla. **Nunca incluye la contraseña**: la
   /// pantalla de ajustes es la que uno fotografía para pedir ayuda.
   String get resumen => '$mail → $proyecto';
 }
 
+/// La clave de `ajustes` donde vive la configuración de la nube.
+///
+/// Es pública porque `respaldo/saneado.dart` la necesita para sacarla de las
+/// copias: si se renombra acá, el saneado la sigue sin que nadie se acuerde.
+const String claveDeLaCredencial = 'nube_config';
+
 /// Dónde vive la configuración de la nube: en `ajustes`, tecleada a mano.
 class GuardaDeCredencial {
   final Base base;
 
-  static const String _clave = 'nube_config';
+  static const String _clave = claveDeLaCredencial;
 
   GuardaDeCredencial(this.base);
 
@@ -85,6 +98,27 @@ class GuardaDeCredencial {
     }
     base.escribirAjuste(_clave, pegado.trim());
     return null;
+  }
+
+  /// Borra SÓLO la contraseña, dejando el resto de la configuración.
+  ///
+  /// Se llama después del primer login exitoso: a partir de ahí la sesión se
+  /// renueva con el `refreshToken` y la contraseña no tiene por qué seguir
+  /// viviendo en el teléfono. Si el token se revoca, la aplicación lo dice y
+  /// hay que volver a configurarla — que es el precio, y es barato al lado de
+  /// que lo que queda guardado deje de ser la cuenta entera.
+  void olvidarClave() {
+    final c = credencial;
+    if (c == null) return;
+    base.escribirAjuste(
+      _clave,
+      jsonEncode({
+        'proyecto': c.proyecto,
+        'apiKey': c.apiKey,
+        'mail': c.mail,
+        'clave': '',
+      }),
+    );
   }
 
   void olvidar() => base.escribirAjuste(_clave, '');

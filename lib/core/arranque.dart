@@ -13,6 +13,7 @@ import '../features/vibracion/servicio_vibracion.dart';
 import '../features/nube/cola.dart';
 import '../features/nube/credencial.dart';
 import '../features/nube/servicio_nube.dart';
+import '../features/nube/sesion.dart';
 import '../features/nube/subida.dart';
 import '../features/odometro/registro.dart';
 import '../features/respaldo/reporte.dart';
@@ -118,7 +119,12 @@ class Arranque {
       final cascada = FuenteEnCascada(
         satelites: satelites,
         alEntregar: recordado.recordar,
-        escalones: escalonesEmpezandoPor(recordado.modo, escalonesPorDefecto),
+        // Una FUNCIÓN y no el orden ya calculado: así la cascada vuelve a
+        // preguntar al empezar cada viaje. Antes se calculaba una sola vez
+        // acá, y lo que se aprendía a mitad de sesión no se usaba hasta
+        // reiniciar la aplicación — el primer viaje real lo dejó medido el
+        // 2026-09-20, pagando los noventa segundos dos veces seguidas.
+        modoPreferido: () => recordado.modo,
       );
       final servicio = ServicioOdometria(
         registro: registro,
@@ -135,6 +141,11 @@ class Arranque {
         cola: cola,
         guarda: GuardaDeCredencial(base),
         subida: Subida(),
+        // Desde `sitd-19`: la contraseña se usa UNA vez, se guarda el
+        // `refreshToken` que devuelve el login y se borra. Lo que queda en el
+        // teléfono deja de ser la cuenta entera, y se revoca desde la consola
+        // sin tocar la contraseña. Ver `GuardaDeSesion`.
+        sesion: GuardaDeSesion(base),
         // Un documento POR VIAJE y no el reporte entero: así cada documento
         // queda chico —bien abajo del límite de 1 MB de Firestore— y la
         // colección acumulada ES la historia.

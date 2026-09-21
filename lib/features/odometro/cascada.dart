@@ -54,6 +54,23 @@ const List<Escalon> escalonesPorDefecto = [
 /// siguiente y se dice cuál quedó puesto.** El modo activo se muestra en la
 /// pantalla del viaje, así que cuando el viaje termina se sabe cuál funcionó —
 /// que es exactamente el dato que hoy falta para arreglar la causa.
+/// Los escalones reordenados para que [primero] quede adelante.
+///
+/// **No se saca ninguno**: si el recordado deja de andar, la cascada sigue
+/// teniendo a dónde bajar. Lo único que cambia es por cuál empieza.
+///
+/// Vive acá desde el 2026-09-21 y antes estaba en `modo_recordado.dart`. Se
+/// mudó porque la cascada tiene que poder reordenarse SOLA al empezar cada
+/// viaje, y ese archivo ya importa a éste: dejarla allá era un import
+/// circular. `modo_recordado.dart` la sigue exportando, así que nada de lo que
+/// ya la usaba cambió.
+List<Escalon> escalonesEmpezandoPor(ModoGps? primero, List<Escalon> todos) {
+  if (primero == null) return todos;
+  final i = todos.indexWhere((e) => e.modo == primero);
+  if (i <= 0) return todos;
+  return [todos[i], ...todos.where((e) => e.modo != primero)];
+}
+
 class FuenteEnCascada implements FuenteDeMuestras {
   final List<Escalon> escalones;
 
@@ -70,7 +87,7 @@ class FuenteEnCascada implements FuenteDeMuestras {
 
   /// Los modos que se probaron, en orden, incluido el actual.
   List<ModoGps> get probados =>
-      escalones.take(_indice + 1).map((e) => e.modo).toList();
+      _orden.take(_indice + 1).map((e) => e.modo).toList();
 
   /// Cómo se pide el permiso de notificaciones. Inyectable para el banco.
   final PedirAviso pedirAviso;
@@ -84,6 +101,28 @@ class FuenteEnCascada implements FuenteDeMuestras {
   /// `modo_recordado.dart`.
   final void Function(ModoGps)? alEntregar;
 
+  /// Con qué modo conviene empezar, PREGUNTADO al empezar cada viaje.
+  ///
+  /// **Es una función y no un valor, y ésa es toda la corrección del
+  /// 2026-09-21.** Antes el orden de los escalones se calculaba UNA vez, al
+  /// abrir la aplicación (`arranque.dart` llamaba a `escalonesEmpezandoPor` y
+  /// le pasaba el resultado ya hecho). Entonces lo que la cascada aprendía a
+  /// mitad de sesión no se usaba hasta reiniciar.
+  ///
+  /// Se vio en el primer viaje real, el 2026-09-20: la bitácora anotó «el modo
+  /// Sin notificación entregó, el próximo viaje arranca por ahí» y al reanudar
+  /// el viaje volvió a empezar por «Normal» y pagó los noventa segundos otra
+  /// vez. Preguntando cada vez, eso no vuelve a pasar.
+  final ModoGps? Function()? modoPreferido;
+
+  /// El orden con el que se está trabajando ahora. Sale de [escalones] pasado
+  /// por [modoPreferido], y se recalcula al soltar — o sea entre un viaje y el
+  /// siguiente.
+  late List<Escalon> _orden = escalonesEmpezandoPor(
+    modoPreferido?.call(),
+    escalones,
+  );
+
   /// En qué quedó ese permiso la última vez que se pidió, o `null` si todavía
   /// no se pidió. La pantalla del viaje lo muestra cuando no es «concedido»:
   /// sin cartel, el servicio en primer plano es invisible y un Xiaomi lo mata
@@ -95,10 +134,13 @@ class FuenteEnCascada implements FuenteDeMuestras {
     PedirAviso? pedirAviso,
     this.satelites,
     this.alEntregar,
+    this.modoPreferido,
     this.escalones = escalonesPorDefecto,
   }) : construir = construir ?? ((m) => FuenteGps(modo: m)),
        pedirAviso = pedirAviso ?? pedirAvisoDelSistema,
-       modo = ValueNotifier(escalones.first.modo);
+       modo = ValueNotifier(
+         escalonesEmpezandoPor(modoPreferido?.call(), escalones).first.modo,
+       );
 
   int _indice = 0;
   bool _entrego = false;
@@ -117,7 +159,7 @@ class FuenteEnCascada implements FuenteDeMuestras {
   }
 
   void _engancharse() {
-    final escalon = escalones[_indice];
+    final escalon = _orden[_indice];
     modo.value = escalon.modo;
     bitacora.anotar(
       Origen.gps,
@@ -166,7 +208,7 @@ class FuenteEnCascada implements FuenteDeMuestras {
     _control?.addError(e);
   }
 
-  bool get _hayMas => !_entrego && _indice + 1 < escalones.length;
+  bool get _hayMas => !_entrego && _indice + 1 < _orden.length;
 
   /// El escalón cerró el stream por su cuenta. Si hay a dónde bajar se baja;
   /// si no, se cierra la salida, porque quedarse escuchando un stream muerto
@@ -217,7 +259,7 @@ class FuenteEnCascada implements FuenteDeMuestras {
       'Permiso de notificaciones: ${textoDeAviso(aviso.value!)}.',
     );
     // El permiso de ubicación tampoco depende del modo.
-    final d = await (_actual ?? construir(escalones[_indice].modo)).preparar();
+    final d = await (_actual ?? construir(_orden[_indice].modo)).preparar();
     // Y recién ACÁ, con el permiso ya resuelto, tiene sentido volver a pedirle
     // al sistema la cuenta de satélites: sin permiso de ubicación fina la
     // rechaza, y en `sitd-13` se pedía al abrir la aplicación y nunca más.
@@ -245,7 +287,11 @@ class FuenteEnCascada implements FuenteDeMuestras {
     _control = null;
     _indice = 0;
     _entrego = false;
-    modo.value = escalones.first.modo;
+    // Se vuelve a preguntar ACÁ, que es entre un viaje y el siguiente: si
+    // durante el que terminó se aprendió cuál modo entrega, el próximo empieza
+    // por ése en vez de volver a esperar los noventa segundos del primero.
+    _orden = escalonesEmpezandoPor(modoPreferido?.call(), escalones);
+    modo.value = _orden.first.modo;
     await sub?.cancel();
     await vieja?.detener();
   }

@@ -1,7 +1,11 @@
 import '../../core/bitacora.dart';
 import '../../core/db/base.dart';
-import 'cascada.dart';
 import 'fuente_gps.dart';
+
+// `escalonesEmpezandoPor` vive en `cascada.dart` —acá sería un import
+// circular— y se reexporta para que quien ya la pedía a este archivo no tenga
+// que cambiar nada.
+export 'cascada.dart' show escalonesEmpezandoPor;
 
 /// Qué modo de pedir posiciones funcionó la última vez.
 ///
@@ -55,13 +59,9 @@ class ModoRecordado {
   void olvidar() => base.escribirAjuste(_clave, '');
 }
 
-/// Los escalones reordenados para que [primero] quede adelante.
-///
-/// **No se saca ninguno**: si el recordado deja de andar, la cascada sigue
-/// teniendo a dónde bajar. Lo único que cambia es por cuál empieza.
-List<Escalon> escalonesEmpezandoPor(ModoGps? primero, List<Escalon> todos) {
-  if (primero == null) return todos;
-  final i = todos.indexWhere((e) => e.modo == primero);
-  if (i <= 0) return todos;
-  return [todos[i], ...todos.where((e) => e.modo != primero)];
-}
+// `escalonesEmpezandoPor` se mudó a `cascada.dart` el 2026-09-21 y se
+// reexporta desde acá para que nada de lo que ya la importaba cambie.
+//
+// Se mudó porque la cascada tiene que poder reordenarse SOLA al empezar cada
+// viaje, y este archivo ya importa a aquél: dejarla acá era un import
+// circular. Es la misma función, en el lugar donde se usa.
