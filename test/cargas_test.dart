@@ -151,6 +151,43 @@ void main() {
       expect(f.aReal(100), greaterThan(100));
     });
 
+    /* ── LO QUE AGREGÓ `sitd-22` ──────────────────────────────────────────
+       Un viaje bien anotado en las dos puntas TAMPOCO calibra si el GPS no lo
+       midió entero. Lo marcó Mauro sobre el viaje del 2026-09-20: «se puede
+       desestimar ese valor porque no había comenzado a medir desde el
+       inicio». Si faltan kilómetros del lado del GPS, el factor sale más
+       chico y nada avisa. */
+    test(
+      'un viaje que el GPS no midio entero no da par, aunque este anotado',
+      () {
+        final id = viajes.abrir(inicio: 0, odoTablero: 1000);
+        // Empieza a medir recién al minuto: el tablero contó ese minuto y el
+        // GPS no. Es el caso real, reducido.
+        for (var i = 60; i <= 5000; i++) {
+          viajes.guardarPunto(
+            id,
+            Muestra(
+              t: i * 1000,
+              lat: -34.9,
+              lon: -56.2,
+              velocidad: 20,
+              precision: 5,
+            ),
+          );
+        }
+        viajes.recalcular(id);
+        viajes.cerrar(id, fin: 5000 * 1000, odoTablero: 1095);
+        expect(viajes.paresDeCalibracion(), isEmpty);
+      },
+    );
+
+    test('un viaje que lo midio entero si da su par', () {
+      // El mismo de arriba, sin el minuto perdido. Es el control: sin esto,
+      // la prueba anterior pasaría aunque `paresDeCalibracion` estuviera rota.
+      viajeDe(km: 100, odoIni: 1000, odoFin: 1095);
+      expect(viajes.paresDeCalibracion(), hasLength(1));
+    });
+
     test('un viaje sin cerrar todavia no cuenta', () {
       viajeDe(km: 100, odoIni: 1000, odoFin: 1095, cerrado: false);
       expect(viajes.paresDeCalibracion(), isEmpty);

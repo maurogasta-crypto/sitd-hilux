@@ -229,11 +229,16 @@ class RegistroDeViajes {
   /// medir desde el inicio». Si faltan kilómetros del lado del GPS, el factor
   /// sale más chico y NADA avisa — que es la peor forma de equivocarse. El
   /// criterio está en `sirveParaCalibrar`, con su número justificado.
+  ///
+  /// Sale de `_seleccion` y no de una consulta propia, y **no es un detalle de
+  /// estilo**: `muestras` NO es una columna de `viajes`, es una subconsulta
+  /// sobre `puntos` que este archivo define en un solo lugar. Escribirla de
+  /// nuevo acá fue exactamente el error de la primera versión de `sitd-22` —
+  /// pedía una columna inexistente, y eso no lo ve ni el analizador ni el
+  /// formateador porque vive adentro de una cadena. Lo agarró el banco.
   List<ParCalibracion> paresDeCalibracion() => base.db
       .select(
-        'SELECT metros, odo_tablero_ini, odo_tablero_fin, cortes, muestras, '
-        'inicio, fin FROM viajes '
-        'WHERE fin IS NOT NULL AND odo_tablero_ini IS NOT NULL '
+        '$_seleccion WHERE fin IS NOT NULL AND odo_tablero_ini IS NOT NULL '
         'AND odo_tablero_fin IS NOT NULL AND odo_tablero_fin > odo_tablero_ini',
       )
       .where(
