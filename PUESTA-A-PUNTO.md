@@ -49,11 +49,28 @@ que va en `FIRMA_STORE_PASS` y `FIRMA_KEY_PASS`.
 ```bash
 base64 -w0 sitd-hilux.jks > sitd-hilux.jks.b64
 wc -c < sitd-hilux.jks.b64
-cat sitd-hilux.jks.b64
+cp sitd-hilux.jks.b64 /sdcard/Download/firma.txt
 ```
 
-Sale un chorro largo de letras y números, **todo en una sola línea**. Copiálo
-entero — mantené apretado, «Seleccionar todo», copiar.
+Ese `wc -c` es el largo del chorro. **Anotalo** (ojo: `-c`, que cuenta
+caracteres; `-l` cuenta renglones y siempre va a dar 0, que es justamente lo
+que uno quiere con `-w0`).
+
+Después abrí `Download/firma.txt` desde el gestor de archivos —con un editor de
+texto, o con el navegador, que nunca falla—, «Seleccionar todo», copiar, y
+pegar en GitHub. Al terminar, `rm /sdcard/Download/firma.txt`.
+
+> **`/sdcard` es la memoria interna**, no una tarjeta. El nombre quedó de
+> Android viejo y confunde: no hace falta tener una SD puesta.
+
+> **NO uses `cat` para copiarlo, y esto pasó de verdad el 2026-09-21.** Un
+> `cat` de cinco mil caracteres deja el final del chorro pegado al prompt, y de
+> ahí se va con cualquier cosa que uno copie después de la terminal — ese día
+> un pedazo de la clave terminó pegado en un chat sin que nadie lo quisiera.
+> Fueron unas decenas de caracteres de cinco mil, así que no hubo que rotar
+> nada, pero el camino del archivo evita el problema entero. Seleccionar cinco
+> mil caracteres a mano en una terminal además **falla seguido y no avisa**:
+> el primer intento de esta guía se cortó en 5035 y la corrida lo dijo.
 
 > **Anotá el número que te dio `wc -c`.** Es el largo del chorro, y es la
 > única forma de saber si el pegado llegó completo: copiar cinco mil
