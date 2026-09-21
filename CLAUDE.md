@@ -326,11 +326,24 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   la precisión en el campo de los cortes **sin dar error**. Se usan sólo las
   que están en las dos.
 
-  El archivo llega por la carpeta externa de la aplicación, que es la única a
-  la que se entra sin permiso de almacenamiento ni selector de archivos —
-  ninguno de los dos existe acá, y agregar un complemento nativo es justo lo
-  que la verificación previa NO cubre. El respaldo que saca la pantalla queda
-  también ahí, para que el camino de vuelta no dependa de nada.
+  **Y el archivo se elige con el selector del sistema** (`file_picker`, desde
+  `sitd-24`). La primera versión lo hacía copiar a la carpeta externa de la
+  aplicación, para no agregar un complemento nativo — y no sirve: **desde
+  Android 11 nadie de afuera entra a `Android/data`**, ni un gestor de
+  archivos ni Termux. Medido en el Redmi 15 el 2026-09-21: `ls` sobre esa
+  ruta contesta «No such file or directory», y el gestor muestra la carpeta
+  vacía. Pedirle a alguien que copie un archivo ahí es pedirle algo que su
+  teléfono no le deja hacer.
+
+  El selector no pide ningún permiso —el sistema entrega el archivo elegido y
+  nada más— y resuelve el caso entero: el respaldo se trae de Descargas, de
+  Drive o de donde esté. **Ojo con `PlatformFile.path`: en Android vale
+  `null`**, porque el selector devuelve un `content://` y no una ruta. Se lee
+  por stream. Usar ese campo habría fallado en silencio.
+
+  Los que saca la propia pantalla siguen quedando en la carpeta de la
+  aplicación, y hay un segundo camino que los lista — eso sí funciona, porque
+  ahí la que entra es la aplicación misma.
 - **El odómetro del tablero se revisa contra el GPS antes de guardarlo**
   (`sitd-22`, 2026-09-21). El viaje del 2026-09-20 se cerró con `4055086` en
   vez de `405086` —un cinco de más—, el dato quedó guardado, se subió a la

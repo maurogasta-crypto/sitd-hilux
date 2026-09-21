@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -188,6 +189,63 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
     }
   }
 
+  /// Elegir el archivo con el selector del sistema.
+  ///
+  /// **Es la ÚNICA forma que funciona en Android 11 y posteriores**, y no es
+  /// una preferencia: se midió. Desde esa versión nadie de afuera entra a
+  /// `Android/data` —ni un gestor de archivos ni Termux, probado en el Redmi
+  /// 15 el 2026-09-21 con «No such file or directory»—, así que pedirle a
+  /// alguien que copie un archivo a la carpeta de la aplicación es pedirle
+  /// algo que su teléfono no le deja hacer.
+  ///
+  /// ## Y por eso NO se usa `PlatformFile.path`
+  ///
+  /// El selector devuelve un `content://`, no una ruta: en Android ese campo
+  /// vale `null`. Usarlo habría fallado en silencio. El archivo se lee por
+  /// stream —que anda con cualquier origen— y se deja en una ruta propia, que
+  /// es además lo que el importador necesita.
+  ///
+  /// Se acepta CUALQUIER extensión a propósito: filtrar por `.db` hace que el
+  /// selector esconda archivos que sí sirven, y la revisión de adentro ya
+  /// rechaza lo que no es una base de esta aplicación, con un mensaje claro.
+  Future<void> _elegirRespaldo() async {
+    setState(() {
+      _trabajando = true;
+      _resultado = null;
+    });
+    String? copiado;
+    try {
+      final elegidos = await FilePicker.pickFiles(
+        dialogTitle: 'Elegí el respaldo',
+      );
+      if (elegidos.isEmpty) return;
+
+      final dir = await getTemporaryDirectory();
+      copiado = p.join(dir.path, 'elegido.db');
+      final salida = File(copiado).openWrite();
+      try {
+        await salida.addStream(elegidos.first.readAsByteStream());
+      } finally {
+        await salida.close();
+      }
+      if (mounted) await _importar(copiado);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _resultado = 'No se pudo leer ese archivo: $e');
+      }
+    } finally {
+      if (copiado != null) {
+        try {
+          final f = File(copiado);
+          if (f.existsSync()) f.deleteSync();
+        } on FileSystemException {
+          // El temporal que no se puede borrar no invalida nada.
+        }
+      }
+      if (mounted) setState(() => _trabajando = false);
+    }
+  }
+
   /// Importar, con la pregunta que dice qué se pierde ANTES de perderlo.
   Future<void> _importar(String ruta) async {
     final revision = revisarRespaldo(viva: widget.base, ruta: ruta);
@@ -229,7 +287,6 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
     );
     if (quiere != true) return;
 
-    setState(() => _trabajando = true);
     try {
       final dir = await getTemporaryDirectory();
       final problema = importarRespaldo(
@@ -246,8 +303,8 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
                   'principal para verlos.',
         );
       }
-    } finally {
-      if (mounted) setState(() => _trabajando = false);
+    } catch (e) {
+      if (mounted) setState(() => _resultado = 'No se pudo importar: $e');
     }
   }
 
@@ -406,20 +463,38 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
                 'QUÉ se pierde, con los números de los dos lados.\n\n'
                 'La configuración de la nube NO se toca: la que vale es la que '
                 'este teléfono tiene ahora.',
-            boton: 'Buscar respaldos',
+            boton: 'Elegir el archivo',
             peligroso: true,
-            onPressed: _trabajando ? null : _buscarRespaldos,
+            onPressed: _trabajando ? null : _elegirRespaldo,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Se abre el selector del teléfono: buscá el .db donde lo tengas — '
+            'Descargas, Drive, una tarjeta. Desde Android 11 ésta es la única '
+            'forma que funciona, porque el sistema no deja que nadie de afuera '
+            'entre a la carpeta de la aplicación.',
+            style: t.textTheme.bodySmall?.copyWith(
+              color: t.colorScheme.outline,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: _trabajando ? null : _buscarRespaldos,
+              child: const Text('o mirar los que guardó esta pantalla'),
+            ),
           ),
           if (_carpeta != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
                 _respaldos.isEmpty
-                    ? 'No encontré ningún archivo .db en:\n$_carpeta\n\n'
-                          'Copiá ahí el respaldo con el gestor de archivos y '
-                          'volvé a tocar «Buscar respaldos». Los que saca esta '
-                          'pantalla ya quedan guardados en esa carpeta.'
-                    : 'En $_carpeta:',
+                    ? 'No hay ninguno guardado todavía. Los respaldos que saca '
+                          'esta pantalla quedan acá y aparecen en esta lista. '
+                          'Para uno que esté en otro lado, usá «Elegir el '
+                          'archivo».'
+                    : 'Guardados en el teléfono:',
                 style: t.textTheme.bodySmall?.copyWith(
                   color: t.colorScheme.outline,
                 ),

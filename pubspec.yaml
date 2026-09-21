@@ -45,6 +45,13 @@ dependencies:
   # quedo abierto se retoma. Ver `fuente_gps.dart`.
   geolocator: ^14.0.3
   sensors_plus: ^7.1.0
+  # El selector de archivos del sistema (SAF). Entró en `sitd-24` y el motivo
+  # está medido: desde Android 11 NADIE de afuera entra a `Android/data`, ni
+  # un gestor de archivos ni Termux —probado en el Redmi 15 el 2026-09-21, con
+  # «No such file or directory»—. Sin un selector, un respaldo que está en
+  # Descargas o en Drive no se puede volver a meter. Y no pide ningún permiso:
+  # el sistema entrega el archivo que la persona eligió, y nada más.
+  file_picker: ^13.1.0
   share_plus: ^13.3.0
   wakelock_plus: ^1.8.0
   # El permiso de notificaciones, en tiempo de ejecucion.
