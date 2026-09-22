@@ -483,6 +483,8 @@ lib/
 │   │   └── importar.dart    Volver a meterlo: sumando, reemplazando, o
 │   │                        bajando un viaje de la nube.
 │   ├── vibracion/
+│   │   ├── rueda.dart       La geometría de la rueda, en UN solo lugar. NO
+│   │   │                    se usa para medir distancia, y dice por qué.
 │   │   ├── sacudon.dart     La lectura del acelerómetro, SIN el complemento.
 │   │   ├── calidad.dart     Mide la medición: frecuencia real, regularidad,
 │   │   │                    saturación y nitidez. Corre con `dart` a secas.
@@ -539,7 +541,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-28` | `lib/core/version.dart` |
+| Aplicación | `sitd-29` | `lib/core/version.dart` |
 | Esquema de la base | `6` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

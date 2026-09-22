@@ -96,6 +96,7 @@ por una sesión con la cadena de compilación puesta.
 |---|---|
 | `README.md` | mapa de archivos, sellos, cómo se instala el APK |
 | `PUESTA-A-PUNTO.md` | dejar de desinstalar en cada tanda: la clave de firma en Termux, el orden de los pasos y la última desinstalación |
+| `MEDICION.md` | **la ciencia de lo que muestra el panel**: la derivación de cada indicador, qué componente se puede distinguir y hasta qué velocidad, y los cuatro números que la auditoría del 2026-09-22 encontró mal |
 | `CLAUDE.md` (este archivo) | las reglas |
 
 ## Secretos
@@ -900,6 +901,41 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   todo entregara 200, Nyquist sube a 100 y **el tacómetro sale del
   acelerómetro solo, sin micrófono y sin la etapa E**. La pantalla lo dice en
   RPM: «motor visible hasta N RPM».
+
+- **La geometría de la rueda vive en UN archivo, y cuatro comentarios decían
+  cosas distintas** (`sitd-29`, 2026-09-22). La auditoría encontró que
+  `espectro.dart` y `ventana.dart` afirmaban «un desbalanceo a 60 km/h está
+  alrededor de 8 Hz y a 110 alrededor de 15», y con la rueda **medida** de esta
+  camioneta la cuenta da **6,98 y 12,80** — un 15 y un 17 % de más. No era un
+  error de tipeo: esos comentarios se escribieron con una cubierta genérica,
+  antes de que Mauro midiera los 76 cm bajo carga, y cuando este archivo se
+  corrigió con el número medido nadie volvió a esos dos. Un número repetido en
+  cuatro lugares diverge — es el mismo error que los sellos de versión y que el
+  texto de las reglas.
+
+  Ahora está en `rueda.dart`, con su banco (`test/rueda_test.dart`) que compara
+  contra **valores calculados a mano**, no contra el código: si alguien vuelve
+  a escribir un número redondo «que estaba bien», falla ahí.
+
+  **Y de paso se cayó una afirmación de fondo:** `espectro.dart` decía que el
+  cardán vivía en la zona de 4 a 17 Hz junto con las ruedas. No — gira 3,58
+  veces por vuelta de rueda, así que **se sale de esa banda arriba de unos
+  41 km/h** y del espectro entero arriba de 60. Con este muestreo el cardán
+  sólo es observable andando despacio.
+
+  **Y esto NO se usa para medir distancia**, que es la regla de fondo del
+  proyecto y por eso está escrita adentro del archivo, donde está la tentación:
+  el GPS ya mide la distancia real y el factor del tablero se aprende de los
+  viajes. El diámetro sirve para LEER un espectro, no para convertir vueltas en
+  kilómetros.
+
+- **El pico dominante se muestra con su margen, porque el espaciado de bins no
+  es la resolución** (`sitd-29`). La FFT rellena con ceros hasta la próxima
+  potencia de dos —251 muestras pasan a 256— y eso junta los bins, pero
+  **rellenar interpola: no agrega información**. Lo que separa dos tonos es la
+  duración de la ventana, `1/T`, y la de Hann ensancha ese lóbulo un 50 %. Con
+  cinco segundos son 0,30 Hz, contra los 0,195 del espaciado. Mostrar
+  «16,82 Hz» era prometer dos decimales que no existen; ahora dice «16,8 ± 0,3».
 
 - **El cuadro de observaciones está A LA VISTA, no adentro del diálogo de
   guardar** (`sitd-28`, 2026-09-22). Lo pidió Mauro en una línea —«un cuadro

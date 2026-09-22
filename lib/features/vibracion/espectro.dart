@@ -3,13 +3,33 @@ import 'dart:math' as math;
 /// Los bordes de las bandas, en hertz.
 ///
 /// **Por qué éstos y no bandas parejas.** Lo que se busca tiene frecuencia
-/// proporcional a las vueltas de la rueda: un desbalanceo a 60 km/h está
-/// alrededor de 8 Hz y a 110 km/h alrededor de 15 Hz. La zona de 4 a 17 Hz es
-/// donde vive casi todo lo mecánico de una camioneta —ruedas, semiejes,
-/// cardán—, así que ahí las bandas son angostas; abajo de 2 Hz está el
-/// bamboleo de la suspensión y el camino, que cambia con el terreno y no dice
-/// nada de la mecánica, y arriba de 17 Hz el acelerómetro de un teléfono ya
-/// está midiendo el propio soporte.
+/// proporcional a las vueltas de la rueda: con la rueda medida de esta
+/// camioneta (76 cm bajo carga, ver `rueda.dart`) un desbalanceo a 60 km/h
+/// está en **6,98 Hz** y a 110 km/h en **12,80 Hz**. La zona de 4 a 17 Hz es
+/// donde vive lo mecánico que gira a la velocidad de la rueda —el desbalanceo,
+/// la ovalización, los semiejes—, así que ahí las bandas son angostas; abajo
+/// de 2 Hz está el bamboleo de la suspensión y el camino, que cambia con el
+/// terreno y no dice nada de la mecánica, y arriba de 17 Hz el acelerómetro de
+/// un teléfono ya está midiendo el propio soporte.
+///
+/// **Ojo con dos afirmaciones que este comentario hacía y eran falsas**, las
+/// dos encontradas auditando el 2026-09-22:
+///
+/// Decía «8 Hz a 60 km/h y 15 a 110». Esos números salían de una cubierta
+/// genérica, de antes de que Mauro midiera la suya, y están un 15 y un 17 %
+/// por encima de los reales. Ahora la cuenta sale de `rueda.dart`, que es el
+/// único lugar donde vive el diámetro, y hay una prueba que la fija.
+///
+/// Y decía que el **cardán** vivía en esta zona. No: el cardán gira unas 3,58
+/// veces por cada vuelta de rueda, así que **se sale de la banda de 17 Hz
+/// arriba de unos 41 km/h** y de todo el espectro arriba de unos 60. Con este
+/// muestreo el cardán sólo es observable andando despacio, y eso no estaba
+/// dicho en ningún lado.
+///
+/// **Y el borde de arriba se pasa de Nyquist.** Muestreando a 49,85 Hz —que es
+/// lo que entrega este teléfono midiendo un viaje— el techo del espectro son
+/// 24,93 Hz, así que los últimos 0,07 Hz de la banda 17-25 no existen. Es
+/// chico y no cambia nada; está dicho para que nadie lo descubra dos veces.
 const List<double> bordesHz = [0.5, 2, 4, 6, 8, 10, 13, 17, 25];
 
 /// Cuántas bandas hay: los huecos que dejan los bordes de arriba. Escrito a

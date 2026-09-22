@@ -19,9 +19,14 @@ const int cubetaMaxima = 9;
 /// En qué cubeta cae una velocidad, o `null` si va demasiado lento.
 ///
 /// **Comparar espectros de velocidades distintas hace que todo sea anomalía**:
-/// un desbalanceo a 60 km/h está alrededor de 8 Hz y a 110 alrededor de 15. Si
-/// se mezclaran, el mismo defecto aparecería como energía en media docena de
-/// bandas y nunca se repetiría igual.
+/// con la rueda medida de esta camioneta un desbalanceo a 60 km/h está en 6,98
+/// Hz y a 110 en 12,80 (ver `rueda.dart`). Si se mezclaran, el mismo defecto
+/// aparecería como energía en media docena de bandas y nunca se repetiría
+/// igual.
+///
+/// **Esos dos números decían 8 y 15 hasta el 2026-09-22**, y eran de una
+/// cubierta genérica: un 15 y un 17 % de más. La cuenta vive ahora en un solo
+/// lugar y tiene su prueba.
 int? cubetaDe(double kmh) {
   if (!kmh.isFinite || kmh < velocidadMinimaKmh) return null;
   final c = ((kmh - velocidadMinimaKmh) / anchoDeCubeta).floor();

@@ -57,6 +57,7 @@ library;
 import 'dart:math' as math;
 
 import 'espectro.dart';
+import 'rueda.dart';
 import 'sacudon.dart';
 
 /// Cuántas muestras hacen falta para que los números signifiquen algo.
@@ -64,6 +65,12 @@ import 'sacudon.dart';
 /// Con menos de esto el p95 del intervalo es el segundo valor más grande de un
 /// puñado y se mueve solo. No es un número mágico: es «dos segundos a 50 Hz».
 const int muestrasMinimas = 100;
+
+/// La velocidad más alta a la que tiene sentido preguntarse si algo se ve.
+///
+/// Una Hilux cargada arriba de esto es rara, y es el mismo criterio con el que
+/// la última cubeta de velocidad junta todo lo que va más rápido.
+const double velocidadMasAltaQueImporta = 120;
 
 /// Cuán cerca del máximo tiene que estar un valor para contarlo como
 /// recortado contra el fondo de escala.
@@ -117,6 +124,20 @@ class Calidad {
   final double picoHz;
   final double picoMagnitud;
 
+  /// Con cuánta finura se pueden separar dos frecuencias, en hertz.
+  ///
+  /// **NO es el espaciado entre bins, y confundirlos es el error clásico.** La
+  /// FFT rellena con ceros hasta la próxima potencia de dos, y eso hace que
+  /// los bins queden más juntos — pero rellenar INTERPOLA, no agrega
+  /// información: no se puede inventar resolución que la ventana no tomó. Lo
+  /// que de verdad separa dos tonos es la duración de la ventana, `1/T`, y la
+  /// ventana de Hann ensancha ese lóbulo alrededor de un 50 %.
+  ///
+  /// Sin este número, «pico dominante: 16,82 Hz» se lee con dos decimales de
+  /// precisión que no existen. Con una ventana de cinco segundos lo honesto es
+  /// «16,8 ± 0,3».
+  final double resolucionHz;
+
   /// Por qué motivo esta medición no sirve, o `null` si sirve.
   final String? problema;
 
@@ -132,6 +153,7 @@ class Calidad {
     required this.piso,
     required this.picoHz,
     required this.picoMagnitud,
+    this.resolucionHz = 0,
     this.problema,
   });
 
@@ -171,10 +193,21 @@ class Calidad {
   /// este modo de medición. A 50 Hz da 747 RPM — o sea, ni el ralentí.
   double get rpmMaximoVisible => nyquist * 30;
 
-  /// Si el 1× de la rueda se ve a cualquier velocidad de ruta.
+  /// La velocidad más alta a la que el desbalanceo de rueda todavía entra en
+  /// el espectro, en km/h.
+  double get velocidadHastaLaQueSeVeLaRueda =>
+      velocidadMaximaVisible(nyquist, 1);
+
+  /// Si el 1× de la rueda se ve a cualquier velocidad que esta camioneta
+  /// pueda andar.
   ///
-  /// La rueda de 76 cm gira a 14,5 Hz a 120 km/h, que es el caso más exigente.
-  bool get laRuedaSeVe => nyquist > 14.5;
+  /// **El umbral sale de la cuenta y no de un número escrito a mano**, que era
+  /// lo que había hasta el 2026-09-22: decía «14,5 Hz a 120 km/h» y la rueda
+  /// medida de esta camioneta gira a 13,96 a esa velocidad. Cuatro por ciento,
+  /// nada grave, y exactamente la clase de número que se copia de un lado a
+  /// otro hasta que alguien lo usa para decidir algo.
+  bool get laRuedaSeVe =>
+      velocidadHastaLaQueSeVeLaRueda >= velocidadMasAltaQueImporta;
 
   /// Un renglón, para la pantalla y para el registro.
   String get resumen => sirve
@@ -288,6 +321,11 @@ Calidad medirCalidad(List<Sacudon> muestras) {
 
   // ── El espectro ───────────────────────────────────────────────────────
   final esp = magnitudes(centradas);
+  /* La resolución sale de cuánto DURÓ la ventana, no de cuántos bins hay. El
+     relleno con ceros junta los bins e interpola; la información que separa
+     dos tonos es 1/T, y la ventana de Hann ensancha el lóbulo ~50 %. */
+  final duracion = total / 1e6;
+  final resolucion = duracion <= 0 ? 0.0 : 1.5 / duracion;
   var piso = 0.0;
   var picoHz = 0.0;
   var picoMag = 0.0;
@@ -319,6 +357,7 @@ Calidad medirCalidad(List<Sacudon> muestras) {
     piso: piso,
     picoHz: picoHz,
     picoMagnitud: picoMag,
+    resolucionHz: resolucion,
   );
 }
 
@@ -372,10 +411,10 @@ List<Hallazgo> leerCalidad(Calidad c, {double velocidadKmh = 0}) {
   // ── La rueda ──────────────────────────────────────────────────────────
   out.add(
     c.laRuedaSeVe
-        ? const Hallazgo(
+        ? Hallazgo(
             Grado.bueno,
-            'La rueda se ve a cualquier velocidad: el 1× llega a 14,5 Hz a '
-            '120 km/h y entra.',
+            'La rueda se ve hasta '
+            '${c.velocidadHastaLaQueSeVeLaRueda.round()} km/h, o sea siempre.',
           )
         : Hallazgo(
             Grado.malo,
@@ -460,14 +499,16 @@ List<Hallazgo> leerCalidad(Calidad c, {double velocidadKmh = 0}) {
 
   // ── El cruce con la velocidad, cuando la hay ──────────────────────────
   if (velocidadKmh >= 20) {
-    final fRueda = (velocidadKmh / 3.6) / (math.pi * 0.76);
+    final fRueda = frecuenciaDeRueda(velocidadKmh);
     out.add(
       Hallazgo(
         Grado.dato,
         'A ${velocidadKmh.round()} km/h la rueda gira a '
         '${fRueda.toStringAsFixed(2)} Hz: ahí tendría que estar el '
         'desbalanceo, y en ${(2 * fRueda).toStringAsFixed(2)} Hz la '
-        'ovalización.',
+        'ovalización. El cardán estaría en '
+        '${(fRueda * relacionDiferencialAproximada).toStringAsFixed(1)} Hz, '
+        '${fRueda * relacionDiferencialAproximada > c.nyquist ? 'fuera del espectro' : 'adentro'}.',
       ),
     );
   }

@@ -154,7 +154,7 @@ class _PantallaCalidadState extends State<PantallaCalidad> {
     final t = DateTime.now().millisecondsSinceEpoch;
     final linea =
         '${formatearHora(t)} · ${c.hz.toStringAsFixed(1)} Hz · '
-        'pico ${c.picoHz.toStringAsFixed(1)} Hz · '
+        'pico ${c.picoHz.toStringAsFixed(1)}±${c.resolucionHz.toStringAsFixed(1)} Hz · '
         'nitidez ${c.nitidez.toStringAsFixed(1)}× · '
         'irreg ${c.irregularidad.toStringAsFixed(2)}';
     final actual = _observacion.text;
@@ -541,9 +541,17 @@ class _Numeros extends StatelessWidget {
       ('Muestras que faltaron', '${c.huecos} de ${c.muestras}'),
       ('Saturadas', '${c.saturadas}'),
       ('Energía (RMS)', c.rms.toStringAsFixed(3)),
-      ('Pico dominante', '${c.picoHz.toStringAsFixed(2)} Hz'),
+      (
+        'Pico dominante',
+        '${c.picoHz.toStringAsFixed(1)} ± '
+            '${c.resolucionHz.toStringAsFixed(1)} Hz',
+      ),
       ('Nitidez del pico', '${c.nitidez.toStringAsFixed(1)}×'),
       ('Motor visible hasta', '${c.rpmMaximoVisible.round()} RPM'),
+      (
+        'Rueda visible hasta',
+        '${c.velocidadHastaLaQueSeVeLaRueda.round()} km/h',
+      ),
     ];
     return Card(
       child: Padding(
