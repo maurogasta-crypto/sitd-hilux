@@ -236,7 +236,15 @@ preguntas:
 
 La última es la que compara dos soportes, y la única que no se puede adivinar.
 
-**Las pruebas se guardan con el soporte y la situación.** Comparar el tablero
+**Hay un cuadro de observaciones a la vista** (desde `sitd-28`), no escondido
+detrás del botón de guardar: el que mide está mirando números que se mueven y
+lo que quiere anotar se le ocurre en ese momento. El botón **«Anotar la
+lectura»** mete los números de ese instante adentro del texto, con la hora —
+una observación sin los números al lado no se puede releer tres días después.
+El borrador no se pierde al salir de la pantalla ni si el sistema cierra la
+aplicación.
+
+**Las pruebas se guardan con el soporte, la situación y la observación.** Comparar el tablero
 contra la palanca de cambios no se puede de memoria: uno mira, se baja, ata el
 teléfono en otro lado y ya no se acuerda del primero. Y sólo se comparan las
 que midieron lo mismo — un soporte que parece mejor puede ser el que se probó
@@ -531,7 +539,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-27` | `lib/core/version.dart` |
+| Aplicación | `sitd-28` | `lib/core/version.dart` |
 | Esquema de la base | `6` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

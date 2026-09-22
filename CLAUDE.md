@@ -901,6 +901,42 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   acelerómetro solo, sin micrófono y sin la etapa E**. La pantalla lo dice en
   RPM: «motor visible hasta N RPM».
 
+- **El cuadro de observaciones está A LA VISTA, no adentro del diálogo de
+  guardar** (`sitd-28`, 2026-09-22). Lo pidió Mauro en una línea —«un cuadro
+  donde se pueda colocar observaciones»— y el porqué es el mismo de siempre en
+  este proyecto: **el que mide está mirando números que se mueven**, y lo que
+  quiere escribir se le ocurre en ese momento, no cuando toca Guardar. Un
+  campo escondido detrás de un botón es un campo que en la práctica no se usa.
+
+  Tres decisiones que lo hacen servir de verdad:
+
+  **«Anotar la lectura» sella los números adentro del texto**, con la hora y
+  segundos. Una observación que dice «acá saltó» no se puede releer tres días
+  después: hace falta qué decía el instrumento en ese momento, y nadie va a
+  copiar nueve números a mano con el motor en marcha.
+
+  **El borrador vive en `ajustes`, no en memoria.** Un teléfono atornillado a
+  una cabina lo mata MIUI sin avisar, y perder lo que alguien acaba de
+  escribir es la clase de pérdida que este proyecto ya decidió no aceptar en
+  ningún lado. Se escribe cada cinco segundos, no en cada tecla.
+
+  **Se limpia al guardar**, porque la observación ya quedó con la prueba y se
+  ve en la lista. Dejarla escrita haría dudar de si se guardó, y además se le
+  pegaría a la prueba siguiente sin que nadie lo pida.
+
+  Y la observación **se muestra en la lista**, no detrás de un toque: si hay
+  que abrir algo para leerla, no se lee, y entonces no servía de nada haberla
+  escrito.
+
+- **Dos defectos de rendimiento que tenía la primera versión de esa pantalla**
+  (`sitd-28`), y los dos son de la clase que no se ve hasta que el aparato es
+  lento: la lista de pruebas se leía de la base **en cada `build`**, o sea dos
+  consultas por segundo para siempre; y el buffer de muestras era una `List`
+  con `removeAt(0)`, que a 400 Hz con 2048 elementos son casi un millón de
+  corrimientos por segundo. Ahora la lista se guarda en el estado y se refresca
+  sólo cuando cambia, y el buffer es una `ListQueue`. **En el Redmi 15 no se
+  habría notado; en el Helio G85 del Note 9, sí.**
+
 - **El tipo del dato no conoce al complemento que lo produce** (`sitd-27`).
   `Sacudon` vivía adentro de `fuente_vibracion.dart`, que importa
   `sensors_plus`, así que cualquier código puro que necesitara un `Sacudon`

@@ -75,3 +75,16 @@ String formatearFechaYHora(int ms) {
   String dos(int n) => n.toString().padLeft(2, '0');
   return '${dos(d.day)}/${dos(d.month)} ${dos(d.hour)}:${dos(d.minute)}';
 }
+
+/// La hora con segundos, como la diría alguien: `04:31:07`.
+///
+/// **Los segundos acá SÍ**, al revés que en [formatearFechaYHora]. Es para
+/// sellar una lectura en una observación mientras se mide: lo que se anota es
+/// «en este instante el pico saltó», y dos anotaciones del mismo minuto tienen
+/// que poder distinguirse. En una lista de viajes serían ruido; acá son el
+/// dato.
+String formatearHora(int ms) {
+  final d = DateTime.fromMillisecondsSinceEpoch(ms);
+  String dos(int n) => n.toString().padLeft(2, '0');
+  return '${dos(d.hour)}:${dos(d.minute)}:${dos(d.second)}';
+}

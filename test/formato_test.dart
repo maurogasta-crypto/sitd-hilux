@@ -79,4 +79,21 @@ void main() {
       expect(formatearFechaYHora(tarde), isNot(formatearFechaYHora(noche)));
     });
   });
+
+  group('la hora con segundos', () {
+    test('lleva los segundos, al revés que la fecha con hora', () {
+      final t = DateTime(2026, 9, 22, 4, 31, 7).millisecondsSinceEpoch;
+      expect(formatearHora(t), '04:31:07');
+      expect(formatearFechaYHora(t), '22/09 04:31');
+    });
+
+    test('distingue dos anotaciones del mismo minuto', () {
+      /* Es para lo que existe: se anota mientras los números se mueven, y dos
+         observaciones del mismo minuto tienen que poder separarse. */
+      final a = DateTime(2026, 9, 22, 4, 31, 7).millisecondsSinceEpoch;
+      final b = DateTime(2026, 9, 22, 4, 31, 44).millisecondsSinceEpoch;
+      expect(formatearFechaYHora(a), formatearFechaYHora(b));
+      expect(formatearHora(a), isNot(formatearHora(b)));
+    });
+  });
 }
