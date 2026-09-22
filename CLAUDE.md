@@ -117,12 +117,18 @@ exactamente igual.
 por Mauro el 2026-09-19. Es la **quinta** del ecosistema y la primera donde el
 que escribe es una aplicación Android y no una página web.
 
-**Sube el reporte PARA DESARROLLO y nada más** — el que no lleva una sola
-coordenada. El respaldo completo, con dónde estuvo la camioneta minuto a
-minuto, **no sale del teléfono por ningún canal**: ni por un chat ni por una
-nube. No es una convención: es el motivo por el que se pudo aceptar que exista
-una nube. Por eso el alcance **no es un parámetro** — está clavado en
+**`reportes/` lleva el reporte PARA DESARROLLO y nada más** — el que no lleva
+una sola coordenada. El alcance **no es un parámetro**: está clavado en
 `alcanceQueSeSube`, y el banco comprueba el texto que efectivamente se manda.
+Esa propiedad sigue intacta y hay que cuidarla.
+
+**Lo que cambió el 2026-09-21 es que hay una SEGUNDA colección.** `recorridos/`
+lleva dónde estuvo la camioneta, punto por punto, y sube cuando Mauro toca el
+botón. Hasta ese día la regla era que el recorrido no salía del teléfono por
+ningún canal; la dio vuelta él, a propósito, y el detalle entero —qué cambia,
+qué lo contiene y qué queda pendiente— está más abajo, en «Las decisiones de
+fondo». **Que sean dos colecciones y no una es la contención**: si algo sale
+mal, sale mal en un lugar.
 
 **La credencial NO está en el repositorio ni en el APK, y no puede estarlo.**
 El repositorio es público y el APK se descarga sin cuenta — comprobado el
@@ -384,6 +390,57 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   Los que saca la propia pantalla siguen quedando en la carpeta de la
   aplicación, y hay un segundo camino que los lista — eso sí funciona, porque
   ahí la que entra es la aplicación misma.
+- **El recorrido SÍ sale del teléfono desde el 2026-09-21, y esto da vuelta
+  una regla que estaba escrita en cinco lugares** (`sitd-26`). Hasta ese día
+  este archivo decía que el recorrido no sale por ningún canal, y que ése era
+  el motivo por el que se pudo aceptar que existiera una nube. **Lo cambió
+  Mauro, a propósito y con la objeción sobre la mesa:** «por más que haya
+  puntos o coordenadas… me interesa especialmente que sea bien dinámico el
+  acceso a TODA la información posible». Sin el recorrido, la mitad de las
+  preguntas de esta etapa no se pueden contestar — el relieve del camino,
+  cuándo el motor hace fuerza, cuándo frena.
+
+  **Lo que de verdad cambia es UNA cosa, y no es la que parece.** No es el
+  teléfono: quien lo tenga desbloqueado ya tiene el recorrido entero en el
+  SQLite, así que dejarlo leer lo que él mismo subió no le agrega nada. Lo
+  nuevo es que **el recorrido existe en un segundo lugar**, protegido por la
+  cuenta de Firebase de Mauro y nada más, y eso es irreversible: lo escrito
+  queda escrito aunque después se borre. Y que quien consiga la credencial
+  **sin** tener el teléfono puede bajárselo.
+
+  De ahí salen las tres decisiones que lo contienen: **colección aparte**
+  (`recorridos/`) con permiso de lectura propio, para que `reportes/` siga
+  sin una sola coordenada y su prueba siga valiendo; **el teléfono sigue sin
+  poder leer `reportes/`**; y **no sube solo** — sube cuando Mauro toca el
+  botón, porque el acto deliberado es la contención que le queda a la mitad
+  sensible. El paso que cierra esto del todo es de Mauro y está pendiente:
+  crear un usuario `telefono@…`, que es una función de una línea en las
+  reglas.
+
+  **El formato se midió antes de dejarlo fijo.** Columnas paralelas y deltas,
+  con las escalas adentro de cada documento: 22 bytes por punto, 117 KiB para
+  el viaje de 5343 puntos, contra los 584 KiB de una lista por punto. Y la
+  escala de la posición es 1e-6 y no 1e-5 porque con 1e-5 el **haversine de
+  control** se corría 73 m en un viaje de 70 km — el mismo «el ruido de
+  posición siempre suma y nunca resta» de la odometría, entrando por la
+  puerta de atrás. Ocho kilobytes más lo dejan en 1,2 m. El instante va
+  exacto, en milisegundos, porque la distancia se integra con `dt`.
+
+  **Y los kilómetros no se copian al bajar: se recalculan** desde las muestras
+  crudas. Es la regla de siempre —los derivados no se guardan— y acá además
+  cierra un agujero: un recorrido subido con una versión del filtro y bajado
+  con otra diría lo que el código de hoy no diría.
+
+- **El documento de un viaje se llama por el INSTANTE en que arrancó, no por
+  su número local** (`sitd-26`). **Era un error que metí yo con `sitd-25`:**
+  al sumar o reemplazar un respaldo los viajes se renumeran, así que un viaje
+  nuevo podía caer sobre el documento de otro, rebotar con un 409, y la cola
+  leerlo como «ya estaba» — ese viaje **nunca se subía y nada lo decía**. Es
+  la forma de fallar que este proyecto ya pagó tres veces: algo que parece
+  hecho y no lo está. El instante no se renumera, y es además la misma llave
+  con la que `importar.dart` reconoce un viaje repetido: un solo concepto de
+  «cuál viaje es éste» en todo el proyecto.
+
 - **El odómetro del tablero se revisa contra el GPS antes de guardarlo**
   (`sitd-22`, 2026-09-21). El viaje del 2026-09-20 se cerró con `4055086` en
   vez de `405086` —un cinco de más—, el dato quedó guardado, se subió a la

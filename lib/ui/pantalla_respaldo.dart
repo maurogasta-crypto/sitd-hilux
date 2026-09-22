@@ -12,6 +12,7 @@ import '../core/registro_eventos.dart';
 import '../features/nube/cola.dart';
 import '../features/nube/credencial.dart';
 import '../features/nube/servicio_nube.dart';
+import '../features/nube/subida.dart';
 import '../core/version.dart';
 import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/registro.dart';
@@ -20,6 +21,7 @@ import '../features/respaldo/importar.dart';
 import '../features/respaldo/saneado.dart';
 import '../features/sensores/satelites.dart';
 import '../features/vibracion/registro_vibracion.dart';
+import 'formato.dart';
 
 /// Sacar los datos del teléfono: para arreglar algo, o para no perderlos.
 ///
@@ -454,6 +456,13 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
               guarda: widget.guarda!,
             ),
             const SizedBox(height: 12),
+            if (widget.nube != null)
+              _Recorridos(
+                nube: widget.nube!,
+                guarda: widget.guarda!,
+                base: widget.base,
+              ),
+            if (widget.nube != null) const SizedBox(height: 12),
           ],
           _Opcion(
             icono: Icons.bug_report_outlined,
@@ -832,3 +841,203 @@ class _Cuenta extends StatelessWidget {
 /// porque son una pregunta de pantalla: el módulo expone las dos funciones y
 /// no sabe cuál eligió nadie.
 enum _FormaDeMeter { sumar, reemplazar }
+
+/// El recorrido en la nube: subirlo a mano, y volver a bajarlo.
+///
+/// ## Por qué esta tarjeta existe y está separada de la de arriba
+///
+/// La de arriba sube sola el reporte SIN coordenadas. Ésta sube **dónde
+/// estuvo la camioneta**, y lo hace únicamente cuando alguien toca el botón.
+///
+/// Son dos tarjetas y no una a propósito: el que las mira está parado al lado
+/// de la camioneta y tiene que poder ver de un vistazo cuál es cuál. Es la
+/// misma decisión que separa el reporte del respaldo más abajo en esta misma
+/// pantalla, y por el mismo motivo.
+class _Recorridos extends StatefulWidget {
+  final ServicioNube nube;
+  final GuardaDeCredencial guarda;
+  final Base base;
+
+  const _Recorridos({
+    required this.nube,
+    required this.guarda,
+    required this.base,
+  });
+
+  @override
+  State<_Recorridos> createState() => _RecorridosState();
+}
+
+class _RecorridosState extends State<_Recorridos> {
+  bool _trabajando = false;
+  String? _resultado;
+  List<RecorridoEnLaNube>? _arriba;
+
+  Future<void> _subir() async {
+    setState(() {
+      _trabajando = true;
+      _resultado = null;
+    });
+    final t = await widget.nube.subirRecorridos();
+    if (!mounted) return;
+    setState(() {
+      _trabajando = false;
+      _resultado = t.resumen;
+    });
+    await _mirar(callado: true);
+  }
+
+  /// Pregunta qué hay arriba. Con [callado] no toca el mensaje de resultado,
+  /// para no pisar lo que acaba de decir la subida.
+  Future<void> _mirar({bool callado = false}) async {
+    final c = widget.guarda.credencial;
+    if (c == null) return;
+    if (!callado) setState(() => _trabajando = true);
+    final lista = await widget.nube.subida.listarRecorridos(
+      credencial: c,
+      sesion: widget.nube.sesion,
+    );
+    if (!mounted) return;
+    setState(() {
+      _arriba = lista;
+      _trabajando = false;
+      if (!callado && lista.isEmpty) {
+        _resultado = 'No hay ningún recorrido en la nube todavía.';
+      }
+    });
+  }
+
+  Future<void> _bajar(RecorridoEnLaNube r) async {
+    final c = widget.guarda.credencial;
+    if (c == null) return;
+    setState(() {
+      _trabajando = true;
+      _resultado = null;
+    });
+    final b = await widget.nube.subida.bajarRecorrido(
+      credencial: c,
+      id: r.id,
+      sesion: widget.nube.sesion,
+    );
+    if (!mounted) return;
+    if (!b.hay) {
+      setState(() {
+        _trabajando = false;
+        _resultado = b.noEstaba
+            ? 'Ese recorrido ya no está en la nube.'
+            : b.falla;
+      });
+      return;
+    }
+    // Meterlo en la base es sincrónico y corto: son unos miles de INSERT
+    // adentro de una transacción.
+    final hecho = meterViajeDeLaNube(
+      viva: widget.base,
+      recorrido: b.texto!,
+      ficha: b.ficha,
+    );
+    setState(() {
+      _trabajando = false;
+      _resultado = hecho.resumen;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final c = widget.guarda.credencial;
+    final lista = _arriba;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.route_outlined, color: t.colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'El recorrido en la nube',
+                    style: t.textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Sube DÓNDE ESTUVO la camioneta, punto por punto, con la ficha '
+              'del viaje al lado. Es lo que deja bajar un viaje entero a otro '
+              'teléfono, y lo que deja cruzar todos los datos desde el chat.\n\n'
+              'No sube solo: sube cuando tocás el botón. Y una vez que un '
+              'recorrido está arriba, sacarlo de ahí se hace desde la consola '
+              'de Firebase — esta aplicación no lo borra.',
+              style: t.textTheme.bodySmall,
+            ),
+            if (_resultado != null) ...[
+              const SizedBox(height: 10),
+              Text(_resultado!, style: t.textTheme.bodyMedium),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _trabajando || c == null ? null : () => _mirar(),
+                    icon: const Icon(Icons.cloud_outlined),
+                    label: const Text('Ver qué hay'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _trabajando || c == null ? null : _subir,
+                    icon: _trabajando
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cloud_upload_outlined),
+                    label: const Text('Subir'),
+                  ),
+                ),
+              ],
+            ),
+            if (c == null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Falta configurar la nube, acá arriba.',
+                style: t.textTheme.bodySmall?.copyWith(
+                  color: t.colorScheme.outline,
+                ),
+              ),
+            ],
+            if (lista != null && lista.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Text(
+                'En la nube — tocá uno para traerlo a este teléfono:',
+                style: t.textTheme.bodySmall?.copyWith(
+                  color: t.colorScheme.outline,
+                ),
+              ),
+              for (final r in lista)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(formatearFechaYHora(r.inicio)),
+                  subtitle: Text(
+                    '${r.puntos} ${r.puntos == 1 ? 'punto' : 'puntos'}',
+                  ),
+                  trailing: const Icon(Icons.download_outlined),
+                  onTap: _trabajando ? null : () => _bajar(r),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}

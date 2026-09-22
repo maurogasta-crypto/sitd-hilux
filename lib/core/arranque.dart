@@ -146,6 +146,10 @@ class Arranque {
         // teléfono deja de ser la cuenta entera, y se revoca desde la consola
         // sin tocar la contraseña. Ver `GuardaDeSesion`.
         sesion: GuardaDeSesion(base),
+        // Desde `sitd-26`: con esto el servicio puede subir el RECORRIDO,
+        // que es lo único que sale del teléfono cuando alguien lo pide a
+        // mano. Sin esto todo lo demás anda igual y el recorrido no sube.
+        viajes: registro,
         // Un documento POR VIAJE y no el reporte entero: así cada documento
         // queda chico —bien abajo del límite de 1 MB de Firestore— y la
         // colección acumulada ES la historia.

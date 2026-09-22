@@ -170,6 +170,50 @@ versión del esquema antes de tocar nada, se dicen los números de los dos
 lados, todo va en una transacción, y **la configuración de la nube no viaja**
 — la del archivo puede estar rotada, la que vale es la del teléfono.
 
+## El recorrido en la nube
+
+**Desde `sitd-26`, y da vuelta una regla vieja del proyecto.** Hasta el
+2026-09-21 el recorrido no salía del teléfono por ningún canal. Lo cambió
+Mauro para poder cruzar todos los datos desde el chat: el relieve del camino,
+cuándo el motor hace fuerza, cuándo frena — nada de eso se puede contestar sin
+las coordenadas.
+
+| | `reportes/` | `recorridos/` |
+|---|---|---|
+| Qué lleva | todo menos dónde estuvo | dónde estuvo, punto por punto |
+| Cuándo sube | solo, al terminar cada viaje | **cuando tocás el botón** |
+| ¿Se puede mandar por un chat? | sí | no |
+| ¿El teléfono lo lee? | no | sí, para poder bajarlo |
+
+Son dos colecciones y no una a propósito: `reportes/` tiene una propiedad
+comprobada por una prueba que busca coordenadas en su texto entero, y meter el
+recorrido ahí la rompería. Separadas, si algo sale mal sale mal en un lugar.
+
+**Un viaje entero baja a otro teléfono.** El documento lleva el recorrido *y*
+la ficha del viaje, así que del otro lado se arma completo: instante, fin,
+odómetro y notas salen de la ficha, y los kilómetros **se recalculan** desde
+las muestras crudas en vez de copiarse — un recorrido subido con una versión
+del filtro y bajado con otra diría lo que el código de hoy no diría.
+
+**Cuánto ocupa.** Los puntos van en columnas paralelas y en deltas, con las
+escalas adentro del documento para que uno viejo se siga leyendo:
+
+```
+5343 puntos, una lista por punto ....  584 KiB  (112 B/punto)
+             columnas y deltas ......  117 KiB  ( 22 B/punto)
+```
+
+La posición se redondea a 1e-6 grados (11 cm), contra una precisión real del
+GPS de 3,8 a 10,4 m. **No es 1e-5, y el motivo se midió:** con 1e-5 el
+haversine de control se corría 73 m en un viaje de 70 km, porque el error de
+posición siempre suma y nunca resta. Ocho kilobytes más lo dejan en 1,2 m. El
+instante va exacto, en milisegundos: la distancia se integra con `dt`.
+
+**Lo que queda pendiente y es de Mauro:** crear un usuario `telefono@…` aparte
+en Firebase Authentication y cambiar `esElTelefono()` en `firestore.rules`.
+Hoy el teléfono entra como él, así que la credencial que vive en el teléfono
+es la suya. Es una función de una línea.
+
 ## Cómo se actualiza
 
 Es siempre lo mismo y conviene tenerlo claro, porque va a pasar en cada tanda:
@@ -390,11 +434,14 @@ lib/
 │   │   ├── reporte.dart     Qué sale del teléfono, y qué no.
 │   │   ├── saneado.dart     Le saca a la copia lo que abre algo, y lo
 │   │   │                    comprueba sobre los BYTES del archivo.
-│   │   └── importar.dart    Volver a meterlo: sumando o reemplazando.
+│   │   └── importar.dart    Volver a meterlo: sumando, reemplazando, o
+│   │                        bajando un viaje de la nube.
 │   ├── nube/
 │   │   ├── credencial.dart  Los cuatro datos que Mauro pega a mano. NO
 │   │   │                    están en el repositorio ni en el APK.
 │   │   ├── cola.dart        Los viajes que faltan subir. Sin señal esperan.
+│   │   ├── recorrido.dart   El recorrido empaquetado para que entre en un
+│   │   │                    documento: columnas paralelas y deltas.
 │   │   ├── recorte.dart     Que el documento entre en el límite de 1 MB,
 │   │   │                    sacando primero lo que se puede reconstruir.
 │   │   ├── subida.dart      Firestore por REST. Sin SDK: el SDK pediría un
@@ -440,7 +487,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-25` | `lib/core/version.dart` |
+| Aplicación | `sitd-26` | `lib/core/version.dart` |
 | Esquema de la base | `5` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

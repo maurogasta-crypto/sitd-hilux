@@ -59,6 +59,7 @@
 ///    vuelve a escribir.
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:sqlite3/sqlite3.dart';
@@ -66,7 +67,10 @@ import 'package:sqlite3/sqlite3.dart';
 import '../../core/db/base.dart';
 import '../../core/db/esquema.dart';
 import '../nube/credencial.dart';
+import '../nube/recorrido.dart';
 import '../nube/sesion.dart';
+import '../odometro/muestra.dart';
+import '../odometro/registro.dart';
 import 'saneado.dart';
 
 /// Las tablas cuyas filas **cuelgan de un viaje** y viajan con él.
@@ -659,3 +663,130 @@ int _cuantosDelViaje(Database db, String tabla, int viaje) {
 /// pegar sus campos.
 String _comoLlave(List<String> campos, Row fila) =>
     campos.map((c) => fila[c]).join('\u0000');
+
+/// Mete en el teléfono un viaje que vino de la NUBE.
+///
+/// ## Por qué está acá y no en `features/nube/`
+///
+/// Porque es lo mismo que sumar un respaldo, sólo que el archivo llegó por
+/// otra puerta: un viaje se reconoce por su `inicio`, el del teléfono le gana
+/// al de afuera, y meter dos veces el mismo da lo mismo que meterlo una. Esas
+/// tres reglas viven en este archivo y no pueden tener una segunda versión —
+/// el día que difieran, «ya está» va a querer decir dos cosas distintas según
+/// por dónde entró el viaje.
+///
+/// ## Y los kilómetros NO se copian de la ficha: se vuelven a calcular
+///
+/// La ficha que viaja en la nube trae `metros`, `cortes` y los contadores de
+/// descarte, y acá se ignoran todos. Se recalculan desde las muestras crudas,
+/// que es lo que este proyecto hace siempre —«los derivados no se guardan»— y
+/// que acá además cierra un agujero: si el recorrido se subió con una versión
+/// del filtro y se baja con otra, copiar los kilómetros viejos los dejaría
+/// diciendo lo que el código de hoy no diría. De la ficha se toma sólo lo que
+/// **no** se puede deducir de los puntos: cuándo terminó, el odómetro del
+/// tablero y las notas.
+class ViajeDeLaNube {
+  /// `null` si entró; si no, por qué no.
+  final String? problema;
+
+  /// `true` cuando ese viaje ya estaba en el teléfono. No es una falla.
+  final bool yaEstaba;
+
+  /// El número que le tocó acá, si entró.
+  final int? id;
+
+  /// Cuántos puntos se metieron.
+  final int puntos;
+
+  const ViajeDeLaNube({
+    this.problema,
+    this.yaEstaba = false,
+    this.id,
+    this.puntos = 0,
+  });
+
+  bool get salioBien => problema == null;
+
+  String get resumen {
+    if (problema != null) return problema!;
+    if (yaEstaba) {
+      return 'Ese viaje ya estaba en el teléfono. No se tocó nada.';
+    }
+    return 'Entró el viaje con sus $puntos '
+        '${puntos == 1 ? 'punto' : 'puntos'}. Volvé a la pantalla principal '
+        'para verlo.';
+  }
+}
+
+/// Baja al teléfono el viaje que describe [recorrido] (el texto codificado) y
+/// [ficha] (los datos del viaje, serializados; puede faltar).
+///
+/// Todo va en UNA transacción: si algo falla en el medio, no queda un viaje a
+/// medio armar con la mitad de sus puntos, que es la peor forma de quedar —
+/// se vería como un viaje real y diría kilómetros de menos.
+ViajeDeLaNube meterViajeDeLaNube({
+  required Base viva,
+  required String recorrido,
+  String? ficha,
+}) {
+  final List<Muestra> puntos;
+  try {
+    puntos = decodificarRecorrido(recorrido);
+  } on FormatException catch (e) {
+    return ViajeDeLaNube(problema: e.message.toString());
+  }
+  if (puntos.isEmpty) {
+    return const ViajeDeLaNube(problema: 'Ese recorrido no tiene puntos.');
+  }
+
+  Map<String, dynamic> datos = const {};
+  if (ficha != null && ficha.isNotEmpty) {
+    try {
+      final m = jsonDecode(ficha);
+      if (m is Map<String, dynamic>) datos = m;
+    } on FormatException {
+      // Una ficha ilegible no impide traer el recorrido: los kilómetros se
+      // recalculan igual y lo único que se pierde son el odómetro y las notas.
+      datos = const {};
+    }
+  }
+
+  // El instante de arranque sale de la ficha, y si no está, del primer punto.
+  final inicio = datos['inicio'] is int
+      ? datos['inicio'] as int
+      : puntos.first.t;
+
+  final registro = RegistroDeViajes(viva);
+  final db = viva.db;
+  final yaEsta = db.select('SELECT id FROM viajes WHERE inicio = ?', [
+    inicio,
+  ]).isNotEmpty;
+  if (yaEsta) return const ViajeDeLaNube(yaEstaba: true);
+
+  db.execute('BEGIN IMMEDIATE');
+  try {
+    final id = registro.abrir(
+      inicio: inicio,
+      odoTablero: (datos['odoTableroIni'] as num?)?.toDouble(),
+    );
+    for (final m in puntos) {
+      registro.guardarPunto(id, m);
+    }
+    registro.recalcular(id);
+    db.execute(
+      'UPDATE viajes SET fin = ?, odo_tablero_fin = ?, notas = ? '
+      'WHERE id = ?',
+      [
+        datos['fin'] is int ? datos['fin'] : puntos.last.t,
+        (datos['odoTableroFin'] as num?)?.toDouble(),
+        datos['notas'] is String ? datos['notas'] : null,
+        id,
+      ],
+    );
+    db.execute('COMMIT');
+    return ViajeDeLaNube(id: id, puntos: puntos.length);
+  } catch (e) {
+    db.execute('ROLLBACK');
+    return ViajeDeLaNube(problema: 'No se pudo meter ese viaje: $e');
+  }
+}

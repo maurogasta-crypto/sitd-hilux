@@ -59,3 +59,19 @@ String formatearFecha(int ms) {
   String dos(int n) => n.toString().padLeft(2, '0');
   return '${dos(d.day)}/${dos(d.month)}';
 }
+
+/// Una fecha con la hora, como la diría alguien: `21/09 20:27`.
+///
+/// **Existe porque [formatearFecha] sola no alcanza para una lista de
+/// viajes.** Dos viajes del mismo día se verían idénticos, y justamente el
+/// caso que hay que poder distinguir es el de la tarde contra el de la noche:
+/// el 2026-09-21 hubo cuatro viajes en dos días y tres caían en dos fechas.
+/// La hora es lo único que los separa mirando.
+///
+/// Sin segundos: el que mira esta lista está eligiendo cuál traer, no
+/// cronometrando.
+String formatearFechaYHora(int ms) {
+  final d = DateTime.fromMillisecondsSinceEpoch(ms);
+  String dos(int n) => n.toString().padLeft(2, '0');
+  return '${dos(d.day)}/${dos(d.month)} ${dos(d.hour)}:${dos(d.minute)}';
+}

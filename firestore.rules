@@ -20,19 +20,47 @@ rules_version = '2';
 // ════════════════════════════════════════════════════════════════════════
 // --8<-- FIN PLANTILLA
 //
-// Hay exactamente tres actores y cada uno puede una sola cosa:
+// Hay exactamente tres actores y cada uno puede poco:
 //
-//   el TELÉFONO  crea reportes. No lee, no modifica, no borra.
+//   el TELÉFONO  crea reportes y recorridos, y LEE recorridos —sólo eso—.
+//                No lee reportes, no modifica, no borra.
 //                Y acá el teléfono entra como MAURO (maurogasta@gmail.com),
 //                porque él decidió no crear un usuario aparte. Ver abajo.
-//   el AGENTE    lee reportes, y lee y escribe en `analisis/`.
+//   el AGENTE    lee reportes y recorridos, y lee y escribe en `analisis/`.
 //   Mauro        todo.
 //
-// **Por qué el teléfono no puede leer, y no es exceso de celo.** El APK se
-// descarga sin cuenta desde un repositorio público, así que hay que diseñar
-// como si la credencial del teléfono fuera conocida. Con estas reglas, lo peor
-// que puede hacer quien la tenga es escribir reportes de más — molesto y
-// visible, no grave. Si además pudiera leer, tendría la historia entera.
+// **Por qué el teléfono no puede leer REPORTES, y no es exceso de celo.** El
+// APK se descarga sin cuenta desde un repositorio público, así que hay que
+// diseñar como si la credencial del teléfono fuera conocida. Con estas reglas,
+// lo peor que puede hacer quien la tenga es escribir de más — molesto y
+// visible, no grave.
+//
+// ════════════════════════════════════════════════════════════════════════
+//  **Y por qué SÍ puede leer recorridos, que es lo que cambió el 2026-09-21.**
+//
+//  Mauro pidió poder volver a bajar un respaldo desde la base «por más que
+//  haya puntos o coordenadas», para poder cruzar todos los datos en esta
+//  etapa. Eso da vuelta una regla que este proyecto tenía escrita en cinco
+//  lugares —el recorrido no sale del teléfono— y conviene que quede escrito
+//  qué cambia de verdad, porque no es lo que parece:
+//
+//  · NO cambia nada del lado del teléfono. Quien tenga el teléfono
+//    desbloqueado ya tiene el recorrido entero en su SQLite; dejarlo leer lo
+//    que él mismo subió no le agrega nada.
+//  · SÍ cambia que el recorrido pasa a existir en un SEGUNDO lugar, donde lo
+//    protege esta regla y la cuenta de Firebase de Mauro. Y es irreversible:
+//    lo escrito queda escrito aunque después se borre.
+//  · Y cambia que quien consiga la credencial SIN tener el teléfono —una
+//    contraseña filtrada por otro lado— puede bajarse el recorrido. Ése es
+//    todo el costo nuevo, y es el motivo de las dos cosas de abajo: que
+//    `recorridos` sea una colección APARTE con permiso de lectura propio, y
+//    que el teléfono siga sin poder leer `reportes`.
+//
+//  **El paso que cierra esto del todo está pendiente y es de Mauro:** crear
+//  un usuario `telefono@…` aparte, cambiar `esElTelefono()` acá abajo y
+//  volver a pegar la configuración. Con eso, la credencial que vive en el
+//  teléfono deja de ser la suya. Es una función de una línea, a propósito.
+// ════════════════════════════════════════════════════════════════════════
 //
 // **Y por qué no puede modificar ni borrar:** un reporte subido es un hecho
 // del pasado. Que no se pueda reescribir es lo que hace que la colección sirva
@@ -80,6 +108,40 @@ service cloud.firestore {
       allow read: if soyYo() || esElAgente();
 
       // Un hecho del pasado no se reescribe. Borrar es sólo de Mauro.
+      allow update: if false;
+      allow delete: if soyYo();
+    }
+
+    // El recorrido de cada viaje: dónde estuvo la camioneta, punto por punto.
+    // Un documento por viaje, y **la llave es el INSTANTE EN QUE ARRANCÓ**, no
+    // el número que el viaje tiene en el teléfono. Ese número cambia —al
+    // sumar un respaldo los viajes se renumeran— y usarlo haría que un viaje
+    // nuevo cayera sobre el documento de otro: la escritura rebotaría con un
+    // 409, la aplicación lo leería como «ya estaba» y ese viaje **nunca se
+    // subiría, sin que nada avise**.
+    match /recorridos/{id} {
+      allow create: if esElTelefono()
+                    && request.resource.data.keys().hasOnly(
+                         ['datos', 'viaje', 'inicio', 'puntos', 'sello'])
+                    && request.resource.data.datos is string
+                    && request.resource.data.viaje is string
+                    // El viaje de 5343 puntos ocupa 117 KiB con el formato de
+                    // `recorrido.dart`. El tope real de un documento es 1 MB;
+                    // esto deja ocho veces de margen y sigue siendo un techo.
+                    && request.resource.data.datos.size() < 900000
+                    && request.resource.data.inicio is int
+                    && request.resource.data.puntos is int;
+
+      // **Acá el teléfono SÍ lee.** Ver el bloque grande de arriba. Lo otro
+      // que puede leer es `analisis/`, que ya podía y es otra cosa: ahí va lo
+      // que yo concluyo, no dato medido ni recorrido. `reportes/` sigue
+      // cerrado para él, y ésa es la que importa. Hay una prueba que compara
+      // la lista completa.
+      allow read: if soyYo() || esElAgente() || esElTelefono();
+
+      // Un recorrido subido es lo que midió el receptor: no se reescribe.
+      // Borrar es sólo de Mauro, y es la única forma de sacar un recorrido de
+      // la nube una vez que entró.
       allow update: if false;
       allow delete: if soyYo();
     }

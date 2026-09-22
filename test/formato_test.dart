@@ -57,4 +57,26 @@ void main() {
       expect(formatearFecha(t), '05/09');
     });
   });
+
+  group('la fecha con hora', () {
+    test('dice día, mes y hora, sin segundos', () {
+      final t = DateTime(2026, 9, 21, 20, 27, 49).millisecondsSinceEpoch;
+      expect(formatearFechaYHora(t), '21/09 20:27');
+    });
+
+    test('rellena con cero a la izquierda', () {
+      final t = DateTime(2026, 1, 5, 7, 3).millisecondsSinceEpoch;
+      expect(formatearFechaYHora(t), '05/01 07:03');
+    });
+
+    test('distingue dos viajes del MISMO día, que es para lo que existe', () {
+      /* Es el caso real del 2026-09-21: uno a las 19:52 y otro a las 20:27.
+         Con `formatearFecha` sola los dos dicen «21/09» y no hay forma de
+         elegir cuál traer de la nube. */
+      final tarde = DateTime(2026, 9, 21, 19, 52).millisecondsSinceEpoch;
+      final noche = DateTime(2026, 9, 21, 20, 27).millisecondsSinceEpoch;
+      expect(formatearFecha(tarde), formatearFecha(noche));
+      expect(formatearFechaYHora(tarde), isNot(formatearFechaYHora(noche)));
+    });
+  });
 }

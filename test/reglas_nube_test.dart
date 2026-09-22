@@ -11,8 +11,12 @@ import 'package:flutter_test/flutter_test.dart';
 /// escritas.
 void main() {
   late String reglas;
+  late Map<String, String> bloques;
 
-  setUpAll(() => reglas = File('firestore.rules').readAsStringSync());
+  setUpAll(() {
+    reglas = File('firestore.rules').readAsStringSync();
+    bloques = bloquesPorColeccion(reglas);
+  });
 
   // La que importa más. Este repositorio es público.
   //
@@ -56,17 +60,63 @@ void main() {
     }
   });
 
-  test('el teléfono sólo puede CREAR: ni leer, ni pisar, ni borrar', () {
-    expect(reglas, contains('allow create: if esElTelefono()'));
-    // Leer no: si la credencial del APK se conoce —y hay que asumir que sí—,
-    // quien la tenga no puede llevarse la historia.
-    expect(reglas, isNot(contains('allow read: if esElTelefono')));
-    // Un reporte subido es un hecho del pasado.
-    expect(reglas, contains('allow update: if false'));
+  test('el teléfono escribe en las dos colecciones suyas', () {
+    for (final c in ['reportes', 'recorridos']) {
+      expect(
+        bloques[c],
+        contains('allow create: if esElTelefono()'),
+        reason: 'el teléfono no puede escribir en $c',
+      );
+      // Un documento subido es un hecho del pasado.
+      expect(bloques[c], contains('allow update: if false'));
+      expect(bloques[c], contains('allow delete: if soyYo()'));
+    }
   });
 
-  test('el agente lee los reportes, pero no los puede pisar', () {
-    expect(reglas, contains('allow read: if soyYo() || esElAgente()'));
+  test('el teléfono NO lee los reportes', () {
+    /* Si la credencial del teléfono se conoce —y hay que asumir que sí—,
+       quien la tenga no puede llevarse la historia de los reportes.
+
+       **Y esto se pregunta POR BLOQUE, no sobre el archivo entero**, que es
+       el cambio del 2026-09-21. Antes decía
+       `isNot(contains('allow read: if esElTelefono'))` sobre todo el texto, y
+       el día que se agregó `recorridos` con
+       `allow read: if soyYo() || esElAgente() || esElTelefono();` la prueba
+       siguió en verde sin mirar nada: el permiso nuevo no empezaba con esas
+       palabras. Una prueba que pasa por casualidad es peor que no tenerla. */
+    expect(
+      leenDe(bloques['reportes']!),
+      isNot(contains('esElTelefono')),
+      reason: 'el teléfono quedó pudiendo leer los reportes',
+    );
+  });
+
+  test('la lista COMPLETA de lo que el teléfono puede leer', () {
+    /* Es el costo de la decisión del 2026-09-21 escrito como comprobación: la
+       credencial que vive en el teléfono alcanza para leer exactamente esto y
+       nada más. Si mañana el permiso se le cuela a otra colección, falla acá.
+
+       **`analisis` estaba desde antes y no es un descuido:** es lo que el
+       agente concluye, y la aplicación lo muestra en pantalla. No es dato
+       medido ni recorrido; si se filtrara, lo que se lleva es una opinión mía
+       sobre unos umbrales.
+
+       La que no está es la que importa: `reportes`. */
+    final lee = [
+      for (final e in bloques.entries)
+        if (leenDe(e.value).contains('esElTelefono')) e.key,
+    ]..sort();
+    expect(lee, ['analisis', 'recorridos']);
+  });
+
+  test('el agente lee los reportes Y los recorridos, y no los puede pisar', () {
+    for (final c in ['reportes', 'recorridos']) {
+      expect(
+        leenDe(bloques[c]!),
+        contains('esElAgente'),
+        reason: 'el chat no podría leer $c, y es para lo que existe',
+      );
+    }
     // Un reporte subido es lo que midió el teléfono: ni yo lo toco.
     expect(reglas, contains('allow update: if false'));
   });
@@ -108,3 +158,39 @@ void main() {
     expect(reglas, contains('json.size() < 900000'));
   });
 }
+
+/// El texto de cada `match /coleccion/{…} { … }`, por nombre de colección.
+///
+/// Existe porque preguntarle algo al archivo entero es preguntar mal: un
+/// permiso que se agrega en una colección no se puede distinguir de uno que
+/// se agrega en otra, y ése fue exactamente el agujero que dejó pasar el
+/// `allow read` del teléfono el 2026-09-21.
+Map<String, String> bloquesPorColeccion(String reglas) {
+  final salida = <String, String>{};
+  /* El comodín va en el patrón a propósito. `match /reportes/{id} {` tiene
+     DOS llaves, y la primera es la de `{id}`: buscar «la primera llave
+     después del nombre» agarra ésa, el conteo se cierra en el `}` de al lado
+     y cada bloque sale valiendo «{id}». Pasó, y las tres pruebas nuevas
+     fallaron con la lista vacía hasta que se arregló. */
+  final inicio = RegExp(r'match /(\w+)/\{[^}]*\}\s*\{');
+  for (final m in inicio.allMatches(reglas)) {
+    var nivel = 0;
+    var i = m.end - 1;
+    final desde = i;
+    while (i < reglas.length) {
+      if (reglas[i] == '{') nivel++;
+      if (reglas[i] == '}') {
+        nivel--;
+        if (nivel == 0) break;
+      }
+      i++;
+    }
+    salida[m.group(1)!] = reglas.substring(desde, i + 1);
+  }
+  return salida;
+}
+
+/// Las líneas de `allow read` de un bloque, juntas. Es sobre lo que hay que
+/// preguntar quién lee: el resto del bloque habla de escribir.
+String leenDe(String bloque) =>
+    bloque.split('\n').where((l) => l.contains('allow read')).join(' ');
