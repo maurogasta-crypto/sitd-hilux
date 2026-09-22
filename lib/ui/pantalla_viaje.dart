@@ -381,6 +381,9 @@ class _PantallaViajeState extends State<PantallaViaje> {
                 servicio: widget.servicio,
                 satelites: widget.satelites,
                 modoRecordado: widget.modoRecordado,
+                // Para poder abrir «Probar la medición», que guarda sus
+                // pruebas en la base.
+                base: widget.base,
               ),
               'respaldo' => PantallaRespaldo(
                 base: widget.base,

@@ -14,6 +14,8 @@ import '../features/odometro/muestra.dart';
 import '../features/odometro/servicio.dart';
 import '../features/sensores/sensores.dart';
 import 'formato.dart';
+import '../core/db/base.dart';
+import 'pantalla_calidad.dart';
 
 /// Qué ve el teléfono, ahora mismo, y en qué estado está cada sensor.
 ///
@@ -40,11 +42,17 @@ class PantallaSensores extends StatefulWidget {
   /// ahí y no en uno que ya se sabe que no anda en este teléfono.
   final ModoRecordado? modoRecordado;
 
+  /// La base, para poder abrir «Probar la medición» desde acá.
+  ///
+  /// Opcional: sin ella la pantalla es la de siempre y el botón no aparece.
+  final Base? base;
+
   const PantallaSensores({
     super.key,
     required this.servicio,
     this.satelites,
     this.modoRecordado,
+    this.base,
   });
 
   @override
@@ -275,7 +283,21 @@ class _PantallaSensoresState extends State<PantallaSensores> {
     final enViaje = e.midiendo;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sensores')),
+      appBar: AppBar(
+        title: const Text('Sensores'),
+        actions: [
+          if (widget.base != null)
+            IconButton(
+              tooltip: 'Probar la medición',
+              icon: const Icon(Icons.speed_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => PantallaCalidad(base: widget.base!),
+                ),
+              ),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
         children: [

@@ -214,6 +214,44 @@ en Firebase Authentication y cambiar `esElTelefono()` en `firestore.rules`.
 Hoy el teléfono entra como él, así que la credencial que vive en el teléfono
 es la suya. Es una función de una línea.
 
+## Probar la medición
+
+**Desde `sitd-27`, y entró porque el proyecto no sabía a qué frecuencia estaba
+midiendo.** El `CLAUDE.md` decía 72,3 Hz y los 1060 vectores guardados dicen
+49,85. Con eso el techo del espectro queda en 24,93 Hz, y de ahí sale el
+hallazgo que cambia la hoja de ruta: **el motor no se ve.** El encendido de un
+4 cilindros de 4 tiempos es `RPM/30` — 26,7 Hz a ralentí, ya por encima del
+techo.
+
+Se abre desde **Sensores → el icono del velocímetro**, y contesta cinco
+preguntas:
+
+| Qué mide | Por qué |
+|---|---|
+| Frecuencia **real** | el período que se pide no es el que se recibe |
+| **Regularidad** | una FFT supone muestras parejas; a los tirones el espectro se embarra |
+| Muestras que faltaron | el sistema entregando tarde y no entregando son cosas distintas |
+| **Saturación** | una señal recortada inventa armónicos que no existen |
+| **Nitidez del pico** | cuánto sobresale lo que se quiere ver por encima del ruido |
+
+La última es la que compara dos soportes, y la única que no se puede adivinar.
+
+**Las pruebas se guardan con el soporte y la situación.** Comparar el tablero
+contra la palanca de cambios no se puede de memoria: uno mira, se baja, ata el
+teléfono en otro lado y ya no se acuerda del primero. Y sólo se comparan las
+que midieron lo mismo — un soporte que parece mejor puede ser el que se probó
+con el motor en marcha.
+
+**Lo que NO hace es recomendar dónde poner el teléfono.** No hay un mejor
+soporte: hay uno mejor para cada cosa. La palanca está atornillada a la caja y
+muestra el motor mucho mejor que el tablero; también es un voladizo con
+resonancia propia y se mueve al cambiar de marcha.
+
+**El experimento que falta:** pedir «lo más rápido» y ver qué entrega. Si
+fueran 200 Hz, el techo sube a 100 y **el tacómetro sale del acelerómetro
+solo**, sin micrófono. La pantalla lo dice en la unidad que se lee en un
+tablero: «motor visible hasta N RPM».
+
 ## Cómo se actualiza
 
 Es siempre lo mismo y conviene tenerlo claro, porque va a pasar en cada tanda:
@@ -436,6 +474,12 @@ lib/
 │   │   │                    comprueba sobre los BYTES del archivo.
 │   │   └── importar.dart    Volver a meterlo: sumando, reemplazando, o
 │   │                        bajando un viaje de la nube.
+│   ├── vibracion/
+│   │   ├── sacudon.dart     La lectura del acelerómetro, SIN el complemento.
+│   │   ├── calidad.dart     Mide la medición: frecuencia real, regularidad,
+│   │   │                    saturación y nitidez. Corre con `dart` a secas.
+│   │   └── registro_pruebas.dart  Las pruebas guardadas, para comparar
+│   │                        soportes sin acordarse de los números.
 │   ├── nube/
 │   │   ├── credencial.dart  Los cuatro datos que Mauro pega a mano. NO
 │   │   │                    están en el repositorio ni en el APK.
@@ -487,8 +531,8 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-26` | `lib/core/version.dart` |
-| Esquema de la base | `5` | `lib/core/db/esquema.dart` |
+| Aplicación | `sitd-27` | `lib/core/version.dart` |
+| Esquema de la base | `6` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
 **manda el archivo**: esta tabla se copia a mano y se desactualiza en silencio.

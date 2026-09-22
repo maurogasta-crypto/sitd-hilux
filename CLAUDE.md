@@ -47,11 +47,19 @@ no deducido de una ficha técnica:
 
 | Sensor | Redmi 15 |
 |---|---|
-| Acelerómetro | **72,3 Hz medidos** — bastante más de los 50 que se asumían |
+| Acelerómetro | **72,3 Hz en el panel de sensores, 49,85 Hz midiendo un viaje** — ver abajo |
 | Magnetómetro | 5 Hz, módulo 29,1 µT (dentro del campo terrestre) |
 | Giróscopo | **no contesta** |
 | Acelerómetro sin gravedad | **no contesta** |
 | Barómetro | **no contesta** |
+
+**Y los dos números del acelerómetro no son un error de tipeo.** El panel de
+sensores midió 72,3 Hz; los 1060 vectores de vibración guardados en viajes
+reales dicen 49,85. Son dos mediciones distintas de cosas distintas —el panel
+mira el stream a secas, el viaje lo consume mientras hace otras cosas— y la
+que manda para el espectro es la segunda, porque es la que se usó para
+calcular lo guardado. Desde `sitd-27` esto se puede medir a mano, con
+«Probar la medición».
 
 Un Redmi de gama de entrada sin giróscopo es normal, y **sin giróscopo Android
 tampoco ofrece la aceleración lineal** —la calcula con él—, así que las dos
@@ -838,6 +846,75 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   mientras cada actualización borrara la base. `sitd-23` lo devolvió
   reemplazando y `sitd-25` sumando; el detalle está en el punto de arriba.
   **Si este archivo vuelve a decir que no se puede, está desactualizado.**
+
+- **Se puede medir la MEDICIÓN, y eso descubrió que el motor no se ve**
+  (`sitd-27`, 2026-09-22). Lo pidió Mauro dudando de lo que ya había: «no
+  estoy muy seguro de lo confiable de los modos de medición… quizás fijando el
+  teléfono a un punto más fijo, atado a la palanca de cambios». Las dos
+  mitades de esa duda —el modo y el soporte— no se discuten: se miden, desde
+  la camioneta, con «Probar la medición» en la pantalla de sensores.
+
+  **Y lo primero que dijo el instrumento es que este archivo estaba
+  equivocado.** Decía 72,3 Hz de acelerómetro, que es lo que midió el panel de
+  sensores; los 1060 vectores guardados dicen **49,85 Hz**. Con eso Nyquist
+  queda en 24,93 Hz, y de ahí sale lo que sigue:
+
+  | Qué | ¿Se ve a 49,85 Hz? |
+  |---|---|
+  | Desbalanceo de rueda (1× = 2,9 a 14,5 Hz) | sí, siempre |
+  | Ovalización (2×) | hasta ~90 km/h |
+  | Cardán (≈3,6× la rueda) | **sólo abajo de 60 km/h** |
+  | Rodamientos (3 a 12× la rueda) | **no, ni cerca** |
+  | Motor (encendido = RPM/30) | **no: 26,7 Hz ya a ralentí** |
+
+  **El motor no sólo no se ve: se cuela.** Lo que pasa Nyquist no desaparece,
+  se pliega. A 1600 RPM el encendido son 53,3 Hz y aparece en 3,5 Hz; a 2000,
+  en 16,8 Hz; a 2500, en 16,4. O sea que las bandas 1, 6 y 7 llevan adentro un
+  pedazo del motor, y cuánto depende de en qué vuelta iba — que es justo lo
+  que no se está midiendo. **Sin tacómetro no hay forma de descontarlo.**
+
+  Por eso la pantalla mide cinco cosas y no una: la frecuencia REAL, la
+  **regularidad** —una FFT supone muestras parejas, y con el sistema
+  entregando a los tirones el resultado son números con forma de dato—, las
+  muestras que faltaron, la **saturación** y la **nitidez del pico**. Esa
+  última es la que compara dos soportes, y es la única que no se puede
+  adivinar sin medirla.
+
+  **Y las pruebas se GUARDAN, que es la mitad de la herramienta.** Comparar
+  dos soportes no se puede de memoria: uno mira, se baja, ata el teléfono en
+  otro lado, vuelve a mirar, y ya no se acuerda del primero. Cada medición se
+  guarda con el soporte y **la situación**, y sólo se comparan las que midieron
+  lo mismo — la misma regla que las cubetas de velocidad, y por el mismo
+  motivo: un soporte que parece mejor puede ser el que se probó con el motor
+  en marcha.
+
+  **Lo que NO hace, a propósito: recomendar dónde poner el teléfono.** No hay
+  un mejor soporte, hay uno mejor para cada cosa. La palanca de cambios está
+  atornillada a la caja y va a mostrar el motor mucho mejor que el tablero, y
+  al mismo tiempo es un voladizo con resonancia propia y **se mueve cuando uno
+  cambia de marcha**. Para la rueda probablemente sea peor que un punto rígido
+  del piso.
+
+  **El experimento que falta y que vale más que todo lo demás:** medir qué
+  entrega `fastest`. Pidiendo 50 Hz este teléfono entrega 49,85; si pidiendo
+  todo entregara 200, Nyquist sube a 100 y **el tacómetro sale del
+  acelerómetro solo, sin micrófono y sin la etapa E**. La pantalla lo dice en
+  RPM: «motor visible hasta N RPM».
+
+- **El tipo del dato no conoce al complemento que lo produce** (`sitd-27`).
+  `Sacudon` vivía adentro de `fuente_vibracion.dart`, que importa
+  `sensors_plus`, así que cualquier código puro que necesitara un `Sacudon`
+  arrastraba el complemento y dejaba de poder correrse con `dart` a secas. Es
+  el reparto que el GPS ya tenía —`muestra.dart` sola, `fuente_gps.dart` con
+  el complemento— y que acá faltaba. Se reexporta, así que las once cosas que
+  ya lo importaban de donde estaba siguen andando.
+
+- **`Sacudon` lleva el instante en MICROSEGUNDOS, y no es un lujo**
+  (`sitd-27`). A 400 Hz el intervalo son 2,5 ms: un sello redondeado al
+  milisegundo lo convierte en 2 o en 3, y ese redondeo **solo** se vería como
+  un 50 % de irregularidad que no existe. El instrumento estaría midiendo su
+  propia regla en vez del sensor. Hay una prueba que compara la misma tanda
+  perfecta medida de las dos formas.
 
 - **Los tres modos del GPS se prueban SOLOS, en cascada, y no a mano.** Hasta
   `sitd-10` los tres existían pero había que elegirlos en la pantalla de

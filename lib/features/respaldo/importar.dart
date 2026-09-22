@@ -83,7 +83,7 @@ const List<String> tablasAtadasAlViaje = ['puntos', 'vibraciones', 'subidas'];
 /// Las que viven por su cuenta: una carga de combustible y un evento del
 /// sistema no pertenecen a ningún viaje. Se reconocen de a una, por su llave
 /// natural.
-const List<String> tablasSueltas = ['cargas', 'eventos'];
+const List<String> tablasSueltas = ['cargas', 'eventos', 'pruebas_sensor'];
 
 /// Qué tablas viajan, y por qué `ajustes` no.
 ///
@@ -125,6 +125,11 @@ const Map<String, List<String>> llaveNatural = {
   // Acá sí hacen falta los tres: la bitácora escribe varias líneas en el mismo
   // milisegundo al arrancar, y se distinguen por lo que dicen.
   'eventos': ['t', 'origen', 'texto'],
+  /* El instante y el soporte. El instante solo alcanzaría —nadie hace dos
+     pruebas en el mismo milisegundo—, pero el soporte al lado hace que una
+     fila repetida se vea repetida con los ojos en la consola, que es la mitad
+     del valor de tener una llave natural. */
+  'pruebas_sensor': ['t', 'soporte'],
 };
 
 /// Cuánto hay de cada cosa. Es lo que se le muestra a Mauro de los dos lados

@@ -13,7 +13,7 @@
 library;
 
 /// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
-const int versionEsquema = 5;
+const int versionEsquema = 6;
 
 /// Cada elemento son las sentencias que llevan el esquema de la versión
 /// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
@@ -183,6 +183,49 @@ const List<List<String>> migraciones = [
     )
     ''',
     'CREATE INDEX idx_subidas_pendientes ON subidas (subido, encolado)',
+  ],
+
+  // ── 5 → 6 ──────────────────────────────────────────────────────────────
+  // Las pruebas del propio sensor (22-sep-2026).
+  //
+  // **Guardarlas es la mitad de la herramienta, no un extra.** Lo que Mauro
+  // quiere saber es si conviene el tablero o la palanca de cambios, y eso no
+  // es un número sino una COMPARACIÓN. Una pantalla en vivo sola no alcanza:
+  // uno mira la primera, se baja, ata el teléfono en otro lado, mira la
+  // segunda, y para entonces ya no se acuerda de la primera. Con esto queda
+  // la lista, y la comparación se hace mirando.
+  //
+  // No lleva la señal cruda: lo que se guarda son los números que salen de
+  // `medirCalidad`, que es lo que se compara. Es el mismo criterio que las
+  // ventanas de vibración — el vector se guarda, el audio no.
+  [
+    '''
+    CREATE TABLE pruebas_sensor (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      t             INTEGER NOT NULL,
+      -- Dónde estaba el teléfono. Es texto libre a propósito: los soportes
+      -- que se le ocurran a Mauro no los puede enumerar este archivo.
+      soporte       TEXT    NOT NULL,
+      -- El período que se PIDIÓ, en milisegundos. Cero es «lo más rápido que
+      -- puedas». Se guarda porque la frecuencia que se midió no lo dice: el
+      -- sistema entrega lo que quiere.
+      periodo_ms    INTEGER NOT NULL,
+      muestras      INTEGER NOT NULL,
+      hz            REAL    NOT NULL,
+      irregularidad REAL    NOT NULL,
+      huecos        INTEGER NOT NULL,
+      saturadas     INTEGER NOT NULL,
+      rms           REAL    NOT NULL,
+      piso          REAL    NOT NULL,
+      pico_hz       REAL    NOT NULL,
+      nitidez       REAL    NOT NULL,
+      -- Qué estaba pasando: motor apagado, ralentí, andando a 80. Sin esto
+      -- dos pruebas no se pueden comparar, porque no midieron lo mismo.
+      situacion     TEXT,
+      notas         TEXT
+    )
+    ''',
+    'CREATE INDEX idx_pruebas_sensor_t ON pruebas_sensor (t DESC)',
   ],
 ];
 
