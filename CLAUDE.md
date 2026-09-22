@@ -920,21 +920,39 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   acelerómetro solo, sin micrófono y sin la etapa E**. La pantalla lo dice en
   RPM: «motor visible hasta N RPM».
 
-- **Las reglas del repositorio NO son las publicadas, desde `sitd-26`**, y eso
-  lo encontró la revisión de coherencia del 2026-09-22 comparando el `acceso`
-  del panel contra el archivo. Lo publicado son 97 líneas del 2026-09-20; el
-  archivo tiene 170. **Falta el bloque de `recorridos/`, así que la subida del
-  recorrido rebota con 403** y la función está muerta hasta que Mauro publique.
-  Es `hilux:R3` en el panel.
+- **LO QUE EL PANEL DICE DE LAS REGLAS ES UN REGISTRO, NO UNA MEDICIÓN — y a
+  la base se le puede preguntar** (2026-09-22). Vale como regla general porque
+  me costó un pendiente de prioridad alta que era falso.
 
-  **Y el panel decía «publicada».** No es que mienta: el estado se deriva de
-  comparar la huella del repositorio contra la de lo publicado, y la del
-  repositorio la refresca el panel cuando Mauro lo abre y baja el archivo de
-  GitHub. Entre que una sesión cambia el archivo y que él abre el panel, el
-  campo está viejo. **La lección para la próxima vez que una tanda toque
-  `firestore.rules`: dejar el pendiente escrito en la misma tanda**, porque el
-  panel no se entera solo y una función que no puede escribir no falla
-  ruidosamente — falla cuando alguien la usa, en la camioneta.
+  La revisión de coherencia comparó `acceso.publicado` del panel —«97 líneas,
+  4810 bytes, 2026-09-20»— contra `firestore.rules`, que tiene 170, y concluyó
+  que faltaba publicar el bloque de `recorridos/`. Escribí `hilux:R3` diciendo
+  que la subida del recorrido iba a rebotar con 403. **Era falso: Mauro ya las
+  había publicado.** Ese campo guarda lo que quedó anotado la última vez que
+  alguien tocó «Ya las publiqué», y él no había tocado el botón.
+
+  **Y se podía verificar sin el teléfono, en tres comandos.** Si el bloque está
+  publicado, el agente puede LEER `recorridos/`; si no está, le aplica el
+  cierre por defecto y la base contesta que no:
+
+  ```
+  hilux leer recorridos                     -> []            permitido, vacío
+  hilux leer coleccion-inventada            -> «dijeron que no»
+  hilux leer reportes                       -> 6 documentos  la credencial anda
+  ```
+
+  **El control del medio es lo que hace válida la prueba**: sin él, un `[]` no
+  se distingue de un rechazo silencioso. Es la misma exigencia que este
+  proyecto ya se puso en otros lados —un contador sin la razón al lado no
+  diagnostica nada— aplicada a una comprobación.
+
+  La regla, entonces: **antes de escribir un pendiente que dice que algo está
+  roto, preguntarle a la cosa.** El panel es la memoria de lo que se hizo, no
+  el estado del mundo; y las dos cosas se separan justo cuando importa.
+
+  Lo que sigue siendo cierto y no bloquea nada: el tablero va a mostrar el
+  estado viejo hasta que Mauro toque «Ya las publiqué» en Sitios → SITD-Hilux.
+  Es cosmético, y es de él porque el panel es el único escritor de ese campo.
 
 - **La geometría de la rueda vive en UN archivo, y cuatro comentarios decían
   cosas distintas** (`sitd-29`, 2026-09-22). La auditoría encontró que
