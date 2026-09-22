@@ -255,6 +255,10 @@ soporte: hay uno mejor para cada cosa. La palanca está atornillada a la caja y
 muestra el motor mucho mejor que el tablero; también es un voladizo con
 resonancia propia y se mueve al cambiar de marcha.
 
+**La derivación de cada número está en `MEDICION.md`**: de dónde sale la
+cuenta, qué componente se puede distinguir y hasta qué velocidad, y —explícito—
+qué NO se puede concluir con esto.
+
 **El experimento que falta:** pedir «lo más rápido» y ver qué entrega. Si
 fueran 200 Hz, el techo sube a 100 y **el tacómetro sale del acelerómetro
 solo**, sin micrófono. La pantalla lo dice en la unidad que se lee en un
@@ -416,10 +420,17 @@ de sensores, con dónde se da.
 ### Lo que el panel de sensores encontró en el Redmi 15
 
 Medido el 2026-09-16, no deducido de una ficha técnica: el acelerómetro entrega
-**72,3 Hz** —más de los 50 que se asumían— y el magnetómetro 5 Hz, pero el
+**72,3 Hz** y el magnetómetro 5 Hz, pero el
 **giróscopo, la aceleración lineal y el barómetro no contestan**. Un teléfono de
 gama de entrada sin giróscopo es normal, y sin giróscopo Android tampoco ofrece
 la aceleración lineal: las dos ausencias son la misma.
+
+**Ojo con los 72,3, que no son los que manda.** Ese número sale de mirar el
+stream a secas desde esta pantalla. Los 1060 vectores guardados en viajes
+reales dicen **49,85 Hz**: midiendo, con la aplicación haciendo otras cosas, el
+acelerómetro entrega bastante menos. La que vale para el espectro es la
+segunda, porque es la que se usó para calcular todo lo guardado — y es la que
+deja el techo en 24,93 Hz y al motor afuera. Ver `MEDICION.md`.
 
 No rompe nada —ninguna etapa depende del giróscopo y el acelerómetro crudo es el
 titular— pero queda dicho: lo que dependa del giróscopo no se puede desarrollar
@@ -541,7 +552,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-29` | `lib/core/version.dart` |
+| Aplicación | `sitd-30` | `lib/core/version.dart` |
 | Esquema de la base | `6` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
@@ -645,7 +656,8 @@ dar una posición con 40 m de error junto con una velocidad excelente.
 
 **La vibración se compara sólo contra la misma velocidad.** Una falla mecánica
 tiene frecuencia proporcional a las vueltas de la rueda: un desbalanceo a
-60 km/h está cerca de 8 Hz y a 110 cerca de 15. Comparar el espectro de un
+60 km/h está en 6,98 Hz y a 110 en 12,80 —con la rueda medida de esta
+camioneta, 76 cm bajo carga—. Comparar el espectro de un
 tramo de ruta con el de uno de ciudad haría que todo pareciera una anomalía. Por
 eso la historia se guarda en **cubetas de 10 km/h**, y una ventana cuya
 velocidad cambió de cubeta en el medio se descarta entera.

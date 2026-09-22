@@ -45,9 +45,13 @@ class Anotacion {
 /// [capacidad] y las viejas se caen solas.
 ///
 /// **Y NO entra una coordenada, nunca.** Esta bitácora viaja en el reporte
-/// para desarrollo, que es el que se puede mandar por un chat. Dónde estuvo la
-/// camioneta no sale del teléfono por acá ni por ningún otro lado: el banco
-/// tiene una prueba que busca latitudes y longitudes en el texto entero.
+/// para desarrollo, que es el que se puede mandar por un chat. El banco tiene
+/// una prueba que busca latitudes y longitudes en el texto entero.
+///
+/// **Por acá no sale el recorrido, y eso no cambió**; lo que sí cambió el
+/// 2026-09-21 es que el recorrido sale por OTRO lado —`recorridos/`, a mano y
+/// con su propia regla, ver `recorrido.dart`—. Hasta esa fecha este comentario
+/// decía «ni por ningún otro lado», y esa mitad dejó de ser cierta.
 class Bitacora {
   final int capacidad;
 

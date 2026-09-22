@@ -32,17 +32,25 @@ class Tanda {
 
 /// Junta la cola, la credencial y la subida.
 ///
-/// ## La única regla que no se negocia
+/// ## La regla de `reportes/`, que sigue intacta
 ///
-/// **Sube el reporte PARA DESARROLLO y nada más.** Ése es el que no lleva una
-/// sola coordenada; el respaldo completo lleva dónde estuvo la camioneta
-/// minuto a minuto y **no sale del teléfono por ningún canal**, ni por un
-/// chat ni por una nube.
+/// **A `reportes/` sube el reporte PARA DESARROLLO y nada más**, que es el que
+/// no lleva una sola coordenada. El alcance no es un parámetro de esta clase:
+/// está clavado abajo, en `alcanceQueSeSube`, y el banco lo comprueba buscando
+/// latitudes y longitudes en el texto que efectivamente se manda.
 ///
-/// No es una convención: es el motivo por el que se pudo aceptar que exista
-/// una nube. Por eso el alcance no es un parámetro de esta clase — está
-/// clavado abajo, y el banco lo comprueba buscando coordenadas en el texto
-/// que efectivamente se manda.
+/// ## Y lo que cambió el 2026-09-21, que hay que leer junto
+///
+/// Hasta esa fecha este comentario decía que el recorrido **no sale del
+/// teléfono por ningún canal, ni por un chat ni por una nube**, y que ésa era
+/// la razón por la que se pudo aceptar que existiera una nube. Mauro la dio
+/// vuelta a propósito —«por más que haya puntos o coordenadas»— para poder
+/// cruzar todos los datos desde el chat en esta etapa.
+///
+/// El recorrido sube por [subirRecorridos], **a `recorridos/` y no acá**, y
+/// **sólo cuando alguien toca el botón**. Que sean dos colecciones es la
+/// contención: así la propiedad de `reportes/` —y la prueba que la cuida—
+/// sigue siendo cierta, y si algo sale mal sale mal en un solo lugar.
 class ServicioNube {
   final ColaDeSubida cola;
   final GuardaDeCredencial guarda;

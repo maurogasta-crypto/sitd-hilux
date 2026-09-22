@@ -3,12 +3,29 @@
 Qué significa cada número de **Sensores → Probar la medición**, de dónde sale
 la cuenta, y qué se puede y qué no se puede concluir con él.
 
-Está escrito porque **el 2026-09-22 la auditoría encontró cuatro números mal en
-los comentarios del código**, todos del mismo tipo: se escribieron con una
-cubierta genérica, antes de que Mauro midiera la suya, y cuando el `CLAUDE.md`
-se corrigió con el número medido nadie volvió a esos archivos. Un número
-repetido en cuatro lugares diverge — es el mismo error que este ecosistema ya
-pagó con los sellos de versión y con el texto de las reglas.
+Está escrito porque **el 2026-09-22 la auditoría encontró seis números mal**,
+todos del mismo tipo: se escribieron con una cubierta genérica, antes de que
+Mauro midiera la suya, y cuando el número medido entró al proyecto nadie volvió
+a los lugares donde ya estaba copiado.
+
+| Dónde | Decía | Es |
+|---|---|---|
+| `espectro.dart` | 8 Hz a 60 km/h | 6,98 |
+| `espectro.dart` | 15 Hz a 110 km/h | 12,80 |
+| `ventana.dart` | 8 Hz a 60 km/h | 6,98 |
+| `ventana.dart` | 15 Hz a 110 km/h | 12,80 |
+| `calidad.dart` | 14,5 Hz a 120 km/h | 13,96 |
+| `README.md` y `CLAUDE.md` | «cerca de 8 y cerca de 15» | 6,98 y 12,80 |
+
+**La primera pasada encontró cuatro y la segunda —revisando coherencia, el
+mismo día— encontró los otros dos**, que estaban en la documentación. Eso es el
+argumento entero: un número repetido diverge, y ni siquiera se termina de
+corregir de una sola vez. Es el mismo error que este ecosistema ya pagó con los
+sellos de versión y con el texto de las reglas.
+
+**Y el número correcto ya existía en el proyecto**: `test/cobertura_test.dart`
+usaba 7,56 y 12,8 desde antes. O sea que la verdad y la mentira convivían en el
+mismo repositorio, cada una en su archivo.
 
 Lo que sigue tiene su banco de pruebas en `test/rueda_test.dart`, y **lo que
 ahí se comprueba no es que el código haga lo que el código hace**: son valores

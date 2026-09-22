@@ -7,8 +7,12 @@ Sistema Integral de Telemetría, Odometría y Diagnóstico Mecánico para una
 distancia real por GPS, lleva el registro de combustible y detecta anomalías
 mecánicas por vibración y sonido. **Mide siempre sin conexión**, y desde
 `sitd-17` sube el reporte de cada viaje a una base remota cuando hay señal —
-ver «La nube», más abajo: lo que sube es el reporte SIN coordenadas, y el
-recorrido no sale del teléfono por ningún canal.
+ver «La nube», más abajo. Lo que sube solo es el reporte SIN coordenadas; el
+**recorrido sube aparte y a mano desde `sitd-26`**, a una colección con su
+propia regla, por pedido explícito de Mauro. Hasta el 2026-09-21 este párrafo
+decía que el recorrido no salía del teléfono por ningún canal, y era la regla
+de fondo del proyecto: el detalle de qué cambió y qué lo contiene está en «Las
+decisiones de fondo».
 
 Dos etapas de hardware:
 
@@ -96,7 +100,7 @@ por una sesión con la cadena de compilación puesta.
 |---|---|
 | `README.md` | mapa de archivos, sellos, cómo se instala el APK |
 | `PUESTA-A-PUNTO.md` | dejar de desinstalar en cada tanda: la clave de firma en Termux, el orden de los pasos y la última desinstalación |
-| `MEDICION.md` | **la ciencia de lo que muestra el panel**: la derivación de cada indicador, qué componente se puede distinguir y hasta qué velocidad, y los cuatro números que la auditoría del 2026-09-22 encontró mal |
+| `MEDICION.md` | **la ciencia de lo que muestra el panel**: la derivación de cada indicador, qué componente se puede distinguir y hasta qué velocidad, y los SEIS números que la auditoría del 2026-09-22 encontró mal |
 | `CLAUDE.md` (este archivo) | las reglas |
 
 ## Secretos
@@ -540,7 +544,8 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
 
 - **Los espectros se comparan por cubeta de velocidad, nunca en crudo.** Una
   falla mecánica tiene frecuencia proporcional a las revoluciones: un
-  desbalanceo a 60 km/h está en ~8 Hz y a 110 en ~15 Hz. Comparar espectros de
+  desbalanceo a 60 km/h está en 6,98 Hz y a 110 en 12,80 (con la rueda medida
+  de esta camioneta; ver `rueda.dart`). Comparar espectros de
   velocidades distintas hace que todo sea anomalía.
 
 - **Nunca se alerta por una muestra.** Histéresis obligatoria: tres viajes
@@ -901,6 +906,22 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   todo entregara 200, Nyquist sube a 100 y **el tacómetro sale del
   acelerómetro solo, sin micrófono y sin la etapa E**. La pantalla lo dice en
   RPM: «motor visible hasta N RPM».
+
+- **Las reglas del repositorio NO son las publicadas, desde `sitd-26`**, y eso
+  lo encontró la revisión de coherencia del 2026-09-22 comparando el `acceso`
+  del panel contra el archivo. Lo publicado son 97 líneas del 2026-09-20; el
+  archivo tiene 170. **Falta el bloque de `recorridos/`, así que la subida del
+  recorrido rebota con 403** y la función está muerta hasta que Mauro publique.
+  Es `hilux:R3` en el panel.
+
+  **Y el panel decía «publicada».** No es que mienta: el estado se deriva de
+  comparar la huella del repositorio contra la de lo publicado, y la del
+  repositorio la refresca el panel cuando Mauro lo abre y baja el archivo de
+  GitHub. Entre que una sesión cambia el archivo y que él abre el panel, el
+  campo está viejo. **La lección para la próxima vez que una tanda toque
+  `firestore.rules`: dejar el pendiente escrito en la misma tanda**, porque el
+  panel no se entera solo y una función que no puede escribir no falla
+  ruidosamente — falla cuando alguien la usa, en la camioneta.
 
 - **La geometría de la rueda vive en UN archivo, y cuatro comentarios decían
   cosas distintas** (`sitd-29`, 2026-09-22). La auditoría encontró que
