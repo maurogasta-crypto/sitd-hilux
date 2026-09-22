@@ -25,12 +25,15 @@ import 'formato.dart';
 
 /// Sacar los datos del teléfono: para arreglar algo, o para no perderlos.
 ///
-/// **Son dos cosas distintas y la pantalla no las mezcla nunca.** El reporte
+/// **Son TRES cosas distintas y la pantalla no las mezcla nunca.** El reporte
 /// para desarrollo se puede mandar por un chat porque no lleva una sola
 /// coordenada; el respaldo completo lleva dónde estuvo la camioneta minuto a
-/// minuto y por eso no va a ningún chat. La diferencia está explicada en cada
-/// botón, no escondida en un archivo de reglas — el que va a tocarlo está
-/// parado al lado de la camioneta, no leyendo documentación.
+/// minuto y por eso no va a ningún chat; y desde `sitd-26` el recorrido sube a
+/// `recorridos/`, que es una nube con su propia regla y tampoco es un chat.
+///
+/// La diferencia está explicada en cada botón, no escondida en un archivo de
+/// reglas — el que va a tocarlo está parado al lado de la camioneta, no
+/// leyendo documentación.
 class PantallaRespaldo extends StatefulWidget {
   final Base base;
   final RegistroDeViajes viajes;

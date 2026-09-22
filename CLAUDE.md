@@ -272,9 +272,22 @@ una credencial ni la carga por API; su entregable es el nombre exacto de la
 variable y dónde pegarla. Y esta tabla se completa en la misma tanda.
 
 **Y hay un dato sensible que no es una credencial: el recorrido.** La base
-guarda dónde estuvo la camioneta, minuto a minuto. No se sube a ningún lado, no
-se sincroniza y **no se pega en un chat**. Si alguna vez hace falta depurar con
-datos reales, se anonimiza antes o se usan datos sintéticos.
+guarda dónde estuvo la camioneta, minuto a minuto.
+
+**Hasta el 2026-09-21 este párrafo decía «no se sube a ningún lado, no se
+sincroniza».** Dejó de ser cierto con `sitd-26`: el recorrido sube a
+`recorridos/` cuando Mauro toca el botón, por pedido explícito suyo. Lo que
+sigue valiendo, y no cambia: **no se pega en un chat**, no viaja en el reporte
+para desarrollo —que no lleva una sola coordenada, y hay una prueba que lo
+comprueba sobre el texto entero— y si hace falta depurar con datos reales se
+anonimiza antes o se usan datos sintéticos.
+
+**Esta línea es la séptima que hubo que corregir por lo mismo**, y las seis
+anteriores se arreglaron el mismo día en `sitd-30`. Una revisión de coherencia
+buscó «no sale del teléfono» y encontró tres; ésta decía lo mismo con otras
+palabras y sobrevivió. Es el argumento de siempre de este proyecto llevado a su
+conclusión: **una afirmación repetida no se termina de corregir de una sola
+vez, ni de dos.**
 
 **El micrófono no graba a nadie.** Se procesa en memoria y **sólo se guarda el
 vector espectral**, nunca el audio. Además la captura está condicionada (ver
