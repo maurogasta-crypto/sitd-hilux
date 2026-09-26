@@ -22,12 +22,64 @@ const double umbralDeDesvio = 6;
 /// en un viaje entero. Lo que no hacen es repetirse idéntico tres veces.
 const int viajesSeguidosParaAvisar = 3;
 
+/// Cuántos Hz abarca cada banda. **No son parejas**: van de 1,5 a 8 Hz.
+final List<double> anchosDeBanda = List.unmodifiable([
+  for (var i = 0; i < cantidadDeBandas; i++) bordesHz[i + 1] - bordesHz[i],
+]);
+
+/// La FORMA del espectro de una ventana: cómo se reparte la vibración entre
+/// las bandas, sin importar cuánta hay. Suma 1. Devuelve `null` si la ventana
+/// no tiene energía, porque de cero no sale ninguna forma.
+///
+/// ## Por qué el detector compara esto y no la energía (`sitd-33`)
+///
+/// **El camino sube todas las bandas parejo; una falla mecánica sube una.** Un
+/// tramo de ripio, un bache largo o una carga pesada multiplican la vibración
+/// entera, y comparando energía eso se parece a una falla en ocho bandas a la
+/// vez. Mirando cómo se REPARTE, el camino áspero se descuenta solo.
+///
+/// Medido el 2026-09-26 sobre las 1299 ventanas reales de once viajes, con la
+/// misma prueba para las dos formas —la mediana de cada viaje por cubeta, y
+/// cuánto varían esas medianas de un viaje a otro—, el cambio más chico que el
+/// detector alcanza a ver con el umbral de seis desvíos:
+///
+/// ```
+///   cubeta       con la ENERGÍA    con la FORMA
+///   20-30 km/h        95 %             46 %
+///   30-40 km/h       154 %             46 %
+///   40-50 km/h       186 %             40 %
+/// ```
+///
+/// Con la energía, una banda tenía que duplicarse o triplicarse para que se
+/// notara. Con la forma alcanza un 40 %: de dos a cuatro veces más sensible,
+/// con los mismos datos y sin sensor nuevo. Y como las ventanas se guardan
+/// enteras, la línea base vieja se recalcula sola — los derivados no se guardan.
+///
+/// **Se divide por el ancho antes de normalizar** porque lo que se guarda es
+/// la SUMA de cada banda: la de 17 a 25 Hz junta cuatro veces más bins que las
+/// del medio sólo por ser más ancha, y sin dividir pesaría de más en el total.
+///
+/// **Lo que esto NO hace es decir qué pieza es.** La misma medición no
+/// encontró nada que siga a la rueda al cambiar de velocidad, y sí un exceso
+/// fijo entre 4 y 6 Hz que no se corre: una resonancia, probablemente del
+/// soporte. Está en `MEDICION.md`.
+List<double>? formaDelEspectro(List<double> bandas) {
+  if (bandas.length != cantidadDeBandas) return null;
+  final densidad = [
+    for (var i = 0; i < cantidadDeBandas; i++) bandas[i] / anchosDeBanda[i],
+  ];
+  final total = densidad.fold<double>(0, (a, b) => a + b);
+  if (!(total > 0) || !total.isFinite) return null;
+  return [for (final d in densidad) d / total];
+}
+
 /// Lo normal de una cubeta de velocidad, aprendido de la historia.
 class LineaBase {
   final int cubeta;
   final int ventanas;
 
-  /// Mediana por banda. **Mediana y no promedio**, por lo mismo que el factor
+  /// Mediana por banda de la FORMA del espectro (ver [formaDelEspectro]):
+  /// qué parte de la vibración se lleva cada banda. **Mediana y no promedio**, por lo mismo que el factor
   /// de neumáticos: un solo pozo grande le movería el promedio a toda la
   /// cubeta, y un pozo es exactamente lo que va a pasar.
   final List<double> mediana;
@@ -56,8 +108,9 @@ class Desvio {
   /// limpió sola.
   final double z;
 
-  /// Cuánto vale ahora y cuánto valía, para poder mostrarlo sin hablar de
-  /// desviaciones típicas con alguien que está por subirse a manejar.
+  /// Qué parte de la vibración se lleva esa banda ahora y cuánta se llevaba
+  /// —entre 0 y 1—, para poder mostrarlo sin hablar de desviaciones típicas
+  /// con alguien que está por subirse a manejar.
   final double ahora;
   final double normal;
 
@@ -110,12 +163,13 @@ Map<int, LineaBase> lineaBase(
   Map<int, List<VentanaVibracion>> porViaje, {
   Set<int> excepto = const {},
 }) {
-  final porCubeta = <int, List<VentanaVibracion>>{};
+  final porCubeta = <int, List<List<double>>>{};
   porViaje.forEach((viaje, ventanas) {
     if (excepto.contains(viaje)) return;
     for (final v in ventanas) {
-      if (!v.completa) continue;
-      (porCubeta[v.cubeta] ??= []).add(v);
+      final forma = formaDelEspectro(v.bandas);
+      if (forma == null) continue;
+      (porCubeta[v.cubeta] ??= []).add(forma);
     }
   });
 
@@ -124,7 +178,7 @@ Map<int, LineaBase> lineaBase(
     final mediana = List<double>.filled(cantidadDeBandas, 0);
     final mad = List<double>.filled(cantidadDeBandas, 0);
     for (var b = 0; b < cantidadDeBandas; b++) {
-      final valores = [for (final v in ventanas) v.bandas[b]]..sort();
+      final valores = [for (final f in ventanas) f[b]]..sort();
       final m = _mediana(valores);
       mediana[b] = m;
       final desvios = [for (final x in valores) (x - m).abs()]..sort();
@@ -147,9 +201,10 @@ List<Desvio> compararViaje(
   double umbral = umbralDeDesvio,
   int minimoDeVentanas = 5,
 }) {
-  final porCubeta = <int, List<VentanaVibracion>>{};
+  final porCubeta = <int, List<List<double>>>{};
   for (final v in delViaje) {
-    if (v.completa) (porCubeta[v.cubeta] ??= []).add(v);
+    final forma = formaDelEspectro(v.bandas);
+    if (forma != null) (porCubeta[v.cubeta] ??= []).add(forma);
   }
 
   final desvios = <Desvio>[];
@@ -161,7 +216,7 @@ List<Desvio> compararViaje(
     if (b == null || !b.suficiente) return;
 
     for (var banda = 0; banda < cantidadDeBandas; banda++) {
-      final valores = [for (final v in ventanas) v.bandas[banda]]..sort();
+      final valores = [for (final f in ventanas) f[banda]]..sort();
       final ahora = _mediana(valores);
       final z = _zRobusto(ahora, b.mediana[banda], b.mad[banda]);
       if (z >= umbral) {

@@ -16,6 +16,24 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
 
+    <!-- `sitd-33`. El servicio en primer plano se pide con
+         `enableWakeLock: true`, y el complemento hace entonces
+         `wakeLock.acquire()`, que EXIGE este permiso. El complemento no lo
+         declara —su manifiesto trae sólo el servicio— y hasta esta tanda la
+         aplicación tampoco.
+
+         Es la causa más probable de que el modo «Normal» no entregara NUNCA en
+         el Redmi 15: tres intentos, uno con 16 satélites en uso y 43 dB-Hz, y
+         cero posiciones en noventa segundos, sin un error. Sin el permiso,
+         `acquire()` tira SecurityException adentro del `onListen` del canal;
+         Flutter la ataja, anula el sumidero —así que las posiciones que igual
+         lleguen se tiran— y la reporta por `FlutterError.reportError`, que no
+         pasa por el stream. Por eso la cascada no anotó «el modo falló»: el
+         error nunca le llegó.
+
+         Es un permiso NORMAL: se concede solo al instalar, sin diálogo. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
     <!-- Desde Android 13 la notificación del servicio en primer plano necesita
          este permiso para VERSE. El servicio arranca igual sin él, pero queda
          sin cartel — y un servicio en primer plano invisible es justo lo que un
@@ -26,9 +44,10 @@
 
     <!-- Desde `sitd-17` la aplicación sube el reporte de cada viaje a una base
          remota. Es el ÚNICO motivo por el que pide red, y lo que sube es el
-         reporte para desarrollo: el que no lleva una sola coordenada. El
-         respaldo completo —con dónde estuvo la camioneta minuto a minuto— no
-         sale del teléfono por ningún canal.
+         reporte para desarrollo: el que no lleva una sola coordenada. Desde
+         `sitd-26` el recorrido también puede subir, a una colección aparte
+         (`recorridos/`) y SÓLO cuando se toca el botón: nunca solo. El
+         respaldo completo sigue sin salir por ningún canal automático.
 
          Medir sigue siendo offline: sin señal la aplicación mide exactamente
          igual y el viaje queda encolado hasta que haya red. -->

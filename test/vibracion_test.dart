@@ -41,6 +41,40 @@ List<VentanaVibracion> viaje(
 ];
 
 void main() {
+  group('la forma del espectro', () {
+    test('suma uno, sea cual sea la intensidad', () {
+      for (final x in [0.001, 0.1, 5.0]) {
+        final f = formaDelEspectro(normal(x))!;
+        expect(f.reduce((a, b) => a + b), closeTo(1, 1e-12));
+      }
+    });
+
+    test('la misma forma a otra intensidad da exactamente lo mismo', () {
+      final a = formaDelEspectro(normal(0.1))!;
+      final b = formaDelEspectro(normal(7.3))!;
+      for (var i = 0; i < cantidadDeBandas; i++) {
+        expect(a[i], closeTo(b[i], 1e-12));
+      }
+    });
+
+    test('divide por el ancho: una energia pareja NO es una forma pareja', () {
+      // Lo guardado es la SUMA de cada banda. La de 17 a 25 Hz tiene 8 Hz de
+      // ancho y la de 2 a 4 tiene 2: con la misma suma, la ancha tiene cuatro
+      // veces menos por Hz. Sin dividir, pesaría de más en el total.
+      expect(anchosDeBanda, [1.5, 2, 2, 2, 2, 3, 4, 8]);
+      final f = formaDelEspectro(normal())!;
+      expect(f[7], closeTo(f[1] / 4, 1e-12));
+      expect(f[0], greaterThan(f[1]));
+    });
+
+    test('sin energia, o con un dato roto, no hay forma', () {
+      expect(formaDelEspectro(List.filled(8, 0.0)), isNull);
+      expect(formaDelEspectro([1, 2, 3]), isNull);
+      expect(formaDelEspectro(List.filled(8, double.nan)), isNull);
+      expect(formaDelEspectro(List.filled(8, double.infinity)), isNull);
+    });
+  });
+
   group('las cubetas de velocidad', () {
     test('abajo del minimo no se analiza nada', () {
       expect(cubetaDe(0), isNull);
@@ -142,11 +176,12 @@ void main() {
       expect(base[4]!.suficiente, isFalse);
     });
 
-    test('con suficiente historia da la mediana de cada banda', () {
+    test('con suficiente historia da la mediana de la FORMA de cada banda', () {
       final base = lineaBase({1: viaje(20), 2: viaje(20, semilla: 99)});
+      final esperada = formaDelEspectro(normal())!;
       expect(base[4]!.suficiente, isTrue);
       for (var b = 0; b < cantidadDeBandas; b++) {
-        expect(base[4]!.mediana[b], closeTo(0.10, 0.005));
+        expect(base[4]!.mediana[b], closeTo(esperada[b], 0.005));
         expect(base[4]!.mad[b], greaterThan(0));
       }
     });
@@ -155,28 +190,33 @@ void main() {
     // normal» hasta dejar de verse. Es el modo de fallar más silencioso que
     // tiene un detector de anomalías.
     test('los viajes que se estan evaluando se dejan afuera', () {
+      // El raro tiene que ser raro de FORMA: con todas las bandas al nueve
+      // veces —lo que esta prueba usaba hasta `sitd-33`— ahora es el mismo
+      // viaje, porque eso es un camino peor y no una camioneta distinta.
       final historia = {
         1: viaje(20),
         2: viaje(20, semilla: 99),
-        3: viaje(20, bandas: normal(0.9), semilla: 5),
+        3: viaje(20, bandas: normal()..[5] = 0.9, semilla: 5),
       };
       expect(lineaBase(historia)[4]!.ventanas, 60);
       expect(lineaBase(historia, excepto: {3})[4]!.ventanas, 40);
       // Y la mediana no se movió con el viaje raro adentro de la excepción.
       expect(
-        lineaBase(historia, excepto: {3})[4]!.mediana[0],
-        closeTo(0.10, 0.005),
+        lineaBase(historia, excepto: {3})[4]!.mediana[5],
+        closeTo(formaDelEspectro(normal())![5], 0.005),
       );
     });
 
     test('cada cubeta arma la suya y no se mezclan', () {
+      // Formas distintas, no intensidades distintas: dos intensidades de la
+      // misma forma son hoy la misma línea base.
       final base = lineaBase({
-        1: viaje(20, cubeta: 2, bandas: normal(0.05)),
-        2: viaje(20, cubeta: 7, bandas: normal(0.40)),
+        1: viaje(20, cubeta: 2, bandas: normal()..[0] = 0.5),
+        2: viaje(20, cubeta: 7, bandas: normal()..[7] = 0.5),
       });
       expect(base.keys.toSet(), {2, 7});
-      expect(base[2]!.mediana[0], closeTo(0.05, 0.005));
-      expect(base[7]!.mediana[0], closeTo(0.40, 0.005));
+      expect(base[2]!.mediana[0], greaterThan(base[7]!.mediana[0] * 2));
+      expect(base[7]!.mediana[7], greaterThan(base[2]!.mediana[7] * 2));
     });
   });
 
@@ -205,8 +245,58 @@ void main() {
     // otra carga, o una rueda que se limpió sola.
     test('una banda que BAJA no es una anomalia', () {
       final base = lineaBase(historia);
-      final suave = normal(0.01);
+      final suave = normal()..[5] = 0.001;
       expect(compararViaje(viaje(15, bandas: suave), base), isEmpty);
+    });
+
+    // LA PROPIEDAD POR LA QUE SE CAMBIÓ EL DETECTOR (`sitd-33`). Como las
+    // proporciones suman uno, que una banda caiga hace subir un poco la parte
+    // de las otras siete. Eso no puede disparar un aviso en ninguna.
+    test('y que una caiga no hace «subir» a las demás hasta avisar', () {
+      final base = lineaBase(historia);
+      for (var b = 0; b < cantidadDeBandas; b++) {
+        final unaMenos = normal()..[b] = 0.0;
+        expect(
+          compararViaje(viaje(15, bandas: unaMenos), base),
+          isEmpty,
+          reason: 'apagar la banda $b no puede parecer una falla en otra',
+        );
+      }
+    });
+
+    test('EL CAMINO ASPERO NO ES UNA ANOMALIA: todo al triple no avisa', () {
+      // Es lo que hace un tramo de ripio, un bache largo o una carga pesada:
+      // multiplica la vibración entera. Con la energía, esto eran ocho bandas
+      // «anómalas» a la vez.
+      final base = lineaBase(historia);
+      for (final factor in [0.3, 2.0, 3.0, 10.0]) {
+        expect(
+          compararViaje(
+            viaje(15, bandas: [for (final x in normal()) x * factor]),
+            base,
+          ),
+          isEmpty,
+          reason: 'todo multiplicado por $factor es un camino, no una falla',
+        );
+      }
+    });
+
+    test('pero la misma banda subiendo SE VE aunque el camino empeore', () {
+      final base = lineaBase(historia);
+      final maloYAspero = [
+        for (var b = 0; b < cantidadDeBandas; b++) (b == 5 ? 0.35 : 0.10) * 3,
+      ];
+      final desvios = compararViaje(viaje(15, bandas: maloYAspero), base);
+      expect(desvios, isNotEmpty);
+      expect(desvios.first.banda, 5);
+      expect(desvios.map((d) => d.banda).toSet(), {5});
+    });
+
+    test('una ventana sin energia no rompe, no cuenta, y no inventa nada', () {
+      final base = lineaBase(historia);
+      final vacio = viaje(15, bandas: List.filled(8, 0.0), ruido: 0);
+      expect(compararViaje(vacio, base), isEmpty);
+      expect(lineaBase({1: vacio}), isEmpty);
     });
 
     test('un tramo corto en esa cubeta no alcanza para decir nada', () {

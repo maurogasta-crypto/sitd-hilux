@@ -534,6 +534,35 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   no promedio y desvío estándar, por lo mismo que el factor de neumáticos — un
   pozo no puede mover la referencia.
 
+- **El detector compara la FORMA del espectro, no la energía** (`sitd-33`,
+  2026-09-26). Mauro lo preguntó así: «yo ya sé que el camino aporta
+  vibraciones más fuertes… ¿los datos permiten filtrar y obtener información,
+  o no es posible detectar comportamientos fiables con este sensor?». Se
+  contestó con las 1299 ventanas reales de once viajes.
+
+  **El camino sube todas las bandas parejo; una falla mecánica sube una.**
+  Mirando cómo se REPARTE la vibración entre las bandas —cada una dividida por
+  su ancho y por el total—, el camino áspero se descuenta solo. Con la misma
+  prueba para las dos formas, el cambio más chico que se alcanza a ver de un
+  viaje a otro:
+
+  | cubeta | con la energía | con la forma |
+  |---|---|---|
+  | 20–30 km/h | 95 % | 46 % |
+  | 30–40 km/h | 154 % | 46 % |
+  | 40–50 km/h | 186 % | 40 % |
+
+  De dos a cuatro veces más sensible, con los mismos datos. Y como las
+  ventanas se guardan enteras, la línea base vieja se recalcula sola.
+
+  **Lo que NO contesta, y conviene no olvidarlo: qué pieza es.** La misma
+  medición no encontró nada que siga a la rueda al cambiar de velocidad —la
+  banda de la rueda sobresalió en 2 de 10 cubetas— y sí un exceso FIJO entre 4
+  y 6 Hz que no se corre: una resonancia, probablemente del soporte, que cae
+  justo donde está la rueda a 30–50 km/h. O las ruedas están bien o la
+  resonancia las tapa, y hoy no hay cómo separarlo sin un caso conocido. El
+  detalle está en `MEDICION.md`, y lo que queda por hacer, en `hilux:D2`.
+
 - **Sólo se avisa hacia arriba.** Que una banda vibre MENOS que antes no es una
   falla mecánica: es un camino mejor, otra carga, o una rueda que se limpió
   sola.
@@ -596,6 +625,40 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   causa parezca estar afuera, hay que probar la traducción con un dato
   fabricado antes de seguir buscando afuera. Eso son cinco minutos; buscar
   afuera costó tres días.
+
+- **El modo «Normal» del GPS NO ENTREGÓ NUNCA en el Redmi 15, y por eso la
+  app no medía en segundo plano** (`sitd-33`, 2026-09-26). Lo encontró Mauro
+  así: «con la aplicación en segundo plano no registra». Tres viajes del 25-sep
+  dieron horas con casi cero kilómetros —0,1 km en 5 h, 48 muestras—.
+
+  La bitácora de los once viajes subidos lo explicó entero: **los once
+  corrieron en «Sin notificación»**, que no tiene servicio en primer plano y
+  por eso se queda sin ubicación apenas la app deja de estar adelante — con la
+  pantalla apagada o con otra app abierta encima, que es usar el mismo
+  teléfono como navegador. «Normal» se intentó tres veces; en una el receptor
+  tenía **16 satélites en uso y 43 dB-Hz**, y aun así noventa segundos sin una
+  posición y sin un error. En el mismo segundo en que se pidió sin servicio en
+  primer plano, llegó.
+
+  **La causa más probable, leída en el código de `geolocator_android` 5.0.3:**
+  con `enableWakeLock: true` el complemento hace `wakeLock.acquire()`, que
+  exige el permiso `WAKE_LOCK`, y ni el complemento ni la aplicación lo
+  declaraban. La excepción se ataja adentro del canal y Flutter la reporta con
+  `FlutterError.reportError`, que **no pasa por el stream**: por eso la
+  cascada, que sí anota los errores del stream, no anotó nada. **No está
+  verificado en el teléfono**; se comprueba con un viaje, y la bitácora tiene
+  que decir «PRIMERA entrega del receptor, en modo Normal».
+
+  Tres cambios, y los tres hacían falta: el permiso en el manifiesto; que los
+  errores del sistema lleguen a la bitácora (`escucharErroresDelSistema` en
+  `main.dart`), para que la próxima falla silenciosa deje de serlo; y que el
+  modo recordado valga para una sola versión, porque si no el recuerdo
+  escondía el arreglo.
+
+  **La lección, que es la de `hasSpeed` otra vez:** una biblioteca puede
+  fallar en silencio, y un sensor mudo se ve igual que uno roto. Y que la
+  cascada «funcione» —baja de escalón y mide— no quiere decir que lo que quedó
+  midiendo sea lo que se buscaba.
 
 - **Una posición SIN velocidad no es silencio del receptor, y confundir las dos
   cosas costó tres días.** El 2026-09-16 un viaje real de dos minutos y medio
@@ -1091,6 +1154,14 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   teléfono donde `normal` funcione lo sigue prefiriendo. Lo único que cambia es
   por cuál empieza.
 
+  **Y desde `sitd-33` lo recordado vale para UNA versión**: se guarda como
+  `modo@sello` y con otro sello se ignora. Sin eso **el recuerdo escondía el
+  arreglo** — la tanda que agrega el permiso que le faltaba a `normal` iba a
+  seguir arrancando por `sinNotificacion` para siempre, sin volver a probar el
+  único modo que mide con la pantalla apagada. El costo, aceptado: el primer
+  viaje después de cada actualización paga otra vez los noventa segundos si
+  `normal` sigue sin andar. Una vez por versión, no una por viaje.
+
 - **Un cartel rojo es para lo que IMPIDE medir, no para lo que se perdió.** El
   2026-09-19 el viaje medía perfecto y la pantalla mostraba un cartel de error
   sobre el modo del GPS. Estaba diciendo algo cierto —bajó de escalón— pero en
@@ -1243,8 +1314,11 @@ registra como entregado nada que no se haya entregado.
   (`id_token`). Es el mismo Firebase y son dos APIs distintas.
 
 - **Sellos de versión.** `selloApp` en `lib/core/version.dart` sube en cada
-  tanda. Se ve en la barra de la aplicación: es la única forma de saber qué APK
-  quedó instalado en un teléfono atornillado a una cabina.
+  tanda. Se ve en **⋮ → Estado** («Sello sitd-NN · etapa N»): es la única forma
+  de saber qué APK quedó instalado en un teléfono atornillado a una cabina.
+  **Hasta `sitd-33` este punto decía «en la barra de la aplicación», y no es
+  cierto**: la barra dice «SITD Hilux» a secas. Se descubrió el 2026-09-26
+  pidiéndole a Mauro que mirara el sello ahí — no estaba.
 - **Una migración publicada NO se edita nunca.** Se agrega otra abajo y sube
   `versionEsquema`. Una base que vive en un teléfono no se puede volver a
   crear.

@@ -282,6 +282,55 @@ Comparar espectros de velocidades distintas haría que todo fuera anomalía.
 
 ---
 
+## Lo que se puede sacar de la vibración, medido (2026-09-26)
+
+Mauro lo preguntó sin rodeos: «el camino aporta vibraciones más fuertes que el
+motor y la transmisión — ¿los datos permiten filtrar y obtener información, o
+no es posible detectar comportamientos fiables con este sensor?». Se contestó
+con las **1299 ventanas reales** de once viajes. Lo que se guarda por ventana
+son ocho bandas de energía, no la señal, así que la pregunta concreta fue si
+esos ocho números separan el camino de la mecánica.
+
+**1 · El camino se puede filtrar.** Un camino áspero sube todas las bandas
+parejo. Si en vez de cuánta energía hay se mira **cómo se reparte** —cada banda
+dividida por su ancho, y todo dividido por el total, para que sume uno—, la
+aspereza se descuenta sola. La dispersión dentro de una cubeta baja de 53–73 %
+a 28 % en ciudad, y de 32–43 % a 26–32 % en ruta.
+
+**2 · Esa forma se repite de un viaje a otro**, que es lo que de verdad mide un
+detector. Tomando la mediana de cada viaje por cubeta, varía un 7–8 % entre
+viajes a 20–50 km/h. Con el umbral de seis desvíos, eso deja ver un cambio de
+**40–46 %** en cualquier banda. Con la energía, la misma prueba daba 95 %, 154 %
+y 186 %: una banda tenía que duplicarse o triplicarse. **Desde `sitd-33` el
+detector compara la forma** (`formaDelEspectro` en `analisis.dart`).
+
+**3 · No aparece nada que siga a la rueda.** Un desbalanceo cambia de banda al
+acelerar, porque su frecuencia es la vuelta de rueda; el camino no. La banda
+donde tendría que caer la rueda fue la de mayor exceso en **2 de 10** cubetas.
+Lo que sí aparece es un exceso **fijo entre 4 y 6 Hz**, de 1,3 a 1,7 veces lo
+habitual entre 20 y 80 km/h, que no se corre con la velocidad: una
+**resonancia**, muy probablemente del soporte del teléfono o de la cabina. Por
+encima de 80 km/h el exceso pasa a 0,5–4 Hz, que es el cabeceo de la
+carrocería en las ondulaciones de la ruta.
+
+**Lo que eso quiere decir.** El sensor sirve para saber que **algo cambió** en
+la camioneta comparada consigo misma, que es para lo que se diseñó. No sirve,
+con lo que hay, para decir **qué pieza**. Y que no aparezca la rueda tiene dos
+lecturas que hoy no se pueden separar: o las ruedas están bien, o la resonancia
+de 4–6 Hz tapa lo que haya, justo donde cae la rueda a 30–50 km/h.
+
+**Lo que no se pudo medir.** Por encima de 60 km/h no hay cuatro viajes con
+suficientes ventanas en una misma cubeta —sólo los dos de ruta—, así que la
+repetibilidad en ruta queda sin comprobar. La cubeta de 50–60 tiene tres
+viajes y su número no es confiable.
+
+**Cómo se separan las dos lecturas:** con un caso conocido. El más seguro es
+natural — la próxima vez que se balanceen las ruedas, un viaje igual antes y
+otro después. Y la resonancia se ataca con «Probar la medición»: si un soporte
+más rígido la corre de lugar, la rueda queda a la vista.
+
+---
+
 ## Lo que este panel NO contesta
 
 **Dónde conviene poner el teléfono.** No hay un mejor soporte: hay uno mejor

@@ -66,6 +66,12 @@ Map<String, dynamic> _analisis(
       'umbralDeDesvio': umbralDeDesvio,
       'viajesSeguidosParaAvisar': viajesSeguidosParaAvisar,
       'diametroDeRuedaM': diametroDeRuedaM,
+      // Qué se compara. Desde `sitd-33` la línea base y las anomalías son la
+      // FORMA del espectro —la parte de la vibración que se lleva cada banda,
+      // sumando 1—, no la energía. Va escrito en el reporte porque un reporte
+      // viejo tiene que poder leerse: sus `mediana` son energías, los nuevos
+      // son proporciones, y sin esta línea no habría cómo distinguirlos.
+      'comparaLa': 'forma',
     },
     // Cuánto sabe de cada velocidad. Incluye las cubetas vacías: una cubeta
     // que falta dice a qué velocidad hay que salir a andar.

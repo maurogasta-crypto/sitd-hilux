@@ -1,5 +1,6 @@
 import '../../core/bitacora.dart';
 import '../../core/db/base.dart';
+import '../../core/version.dart';
 import 'fuente_gps.dart';
 
 // `escalonesEmpezandoPor` vive en `cascada.dart` —acá sería un import
@@ -25,19 +26,42 @@ export 'cascada.dart' show escalonesEmpezandoPor;
 /// **La cascada no se saca**: si el modo recordado deja de andar, baja igual —
 /// y el orden de los escalones sigue siendo el mismo, así que un teléfono
 /// donde `normal` funcione lo sigue usando.
+///
+/// ## Y lo recordado vale para UNA versión (`sitd-33`)
+///
+/// Se guarda como `modo@sello`, y con otro sello se ignora. **Sin eso, el
+/// recuerdo escondía el arreglo:** `sitd-33` agrega el permiso que
+/// probablemente le faltaba al modo `normal`, y la aplicación iba a seguir
+/// arrancando por `sinNotificacion` para siempre, sin volver a probar nunca el
+/// único modo que mide con la pantalla apagada. Lo que se aprendió con una
+/// versión no vale para la siguiente, porque la siguiente puede haber
+/// arreglado justo lo que fallaba.
+///
+/// La contra está aceptada y es chica: el primer viaje después de cada
+/// actualización vuelve a pagar los noventa segundos si `normal` sigue sin
+/// andar — una vez por versión, no una por viaje.
 class ModoRecordado {
   final Base base;
 
   static const String _clave = 'modo_gps_que_anduvo';
 
-  ModoRecordado(this.base);
+  /// El sello contra el que se compara. Es un parámetro y no se lee de
+  /// [selloApp] adentro para que el banco pueda simular una actualización.
+  final String sello;
 
-  /// El modo con el que conviene arrancar, o `null` si todavía no se sabe.
+  ModoRecordado(this.base, {this.sello = selloApp});
+
+  /// El modo con el que conviene arrancar, o `null` si todavía no se sabe
+  /// —o si lo que se sabe se aprendió con otra versión—.
   ModoGps? get modo {
     final guardado = base.leerAjuste(_clave);
-    if (guardado == null) return null;
+    if (guardado == null || guardado.isEmpty) return null;
+    // Un valor sin «@» es de antes de `sitd-33`: de otra versión, por
+    // definición. Se ignora igual que uno con otro sello.
+    final partes = guardado.split('@');
+    if (partes.length != 2 || partes[1] != sello) return null;
     for (final m in ModoGps.values) {
-      if (m.name == guardado) return m;
+      if (m.name == partes[0]) return m;
     }
     // Un nombre que ya no existe —renombrado entre tandas— se ignora en vez
     // de romper: arrancar por el primer escalón siempre es seguro.
@@ -48,7 +72,7 @@ class ModoRecordado {
   /// viaje para guardar lo mismo no aporta nada.
   void recordar(ModoGps m) {
     if (modo == m) return;
-    base.escribirAjuste(_clave, m.name);
+    base.escribirAjuste(_clave, '${m.name}@$sello');
     bitacora.anotar(
       Origen.gps,
       'El modo ${nombreDeModo(m)} entregó. El próximo viaje arranca por ahí '

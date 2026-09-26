@@ -166,12 +166,17 @@ String textoDeAnomalia(Anomalia a) {
   final veces = a.ultimo.normal <= 0
       ? null
       : (a.ultimo.ahora / a.ultimo.normal);
-  return 'Entre ${a.ultimo.rango}, la vibración viene '
-      '${veces == null ? "más alta" : "${veces.toStringAsFixed(1).replaceAll('.', ',')} veces más alta"} '
-      'que lo habitual a esa velocidad, y se repitió en los ${a.viajes} '
-      'últimos viajes. No dice qué es: dice dónde mirar. En esa zona de '
-      'frecuencias suelen estar las ruedas y lo que gira con ellas — '
-      'balanceo, un neumático deformado, un semieje.';
+  // Desde `sitd-33` lo que se compara es la FORMA del espectro, no la
+  // energía: `ahora` y `normal` son la parte de la vibración que se lleva esa
+  // banda. Por eso la frase dice «se lleva más parte» y no «vibra más fuerte»
+  // — un camino peor hace vibrar todo más fuerte, y eso a propósito no avisa.
+  return 'Entre ${a.ultimo.rango}, esa zona de frecuencias se lleva '
+      '${veces == null ? "más parte" : "${veces.toStringAsFixed(1).replaceAll('.', ',')} veces más parte"} '
+      'de la vibración que lo habitual a esa velocidad, y se repitió en los '
+      '${a.viajes} últimos viajes. Un camino peor no hace esto: sube todo '
+      'parejo. No dice qué es: dice dónde mirar. En esa zona de frecuencias '
+      'suelen estar las ruedas y lo que gira con ellas — balanceo, un '
+      'neumático deformado, un semieje.';
 }
 
 class _Cubeta extends StatelessWidget {

@@ -41,6 +41,49 @@ void main() {
     expect(recordado.modo, isNull);
   });
 
+  // `sitd-33`. Sin esto el recuerdo escondía el arreglo: la versión que agrega
+  // el permiso que le faltaba a «Normal» iba a seguir arrancando por «Sin
+  // notificación» para siempre, sin volver a probarlo nunca.
+  group('lo recordado vale para UNA versión', () {
+    test('lo que se aprendió con otra versión se ignora', () {
+      ModoRecordado(base, sello: 'sitd-32').recordar(ModoGps.sinNotificacion);
+      expect(
+        ModoRecordado(base, sello: 'sitd-32').modo,
+        ModoGps.sinNotificacion,
+      );
+      expect(ModoRecordado(base, sello: 'sitd-33').modo, isNull);
+    });
+
+    test('lo que está guardado HOY en el teléfono se vuelve a probar', () {
+      // Es el valor exacto que tiene el Redmi 15: escrito antes de `sitd-33`,
+      // sin sello. Tiene que leerse como «no sé», no como «Sin notificación».
+      base.escribirAjuste('modo_gps_que_anduvo', 'sinNotificacion');
+      expect(recordado.modo, isNull);
+      expect(
+        escalonesEmpezandoPor(recordado.modo, escalonesPorDefecto).first.modo,
+        ModoGps.normal,
+        reason: 'el primer viaje después de actualizar vuelve a probar Normal',
+      );
+    });
+
+    test(
+      'y si con la versión nueva vuelve a entregar otro, se aprende de nuevo',
+      () {
+        base.escribirAjuste('modo_gps_que_anduvo', 'sinNotificacion');
+        recordado.recordar(ModoGps.sinNotificacion);
+        expect(recordado.modo, ModoGps.sinNotificacion);
+        expect(base.leerAjuste('modo_gps_que_anduvo'), contains('@'));
+      },
+    );
+
+    test('un valor roto no rompe: vacío, con dos arrobas, o sin modo', () {
+      for (final roto in ['', '@', 'normal@', 'a@b@c', '@${recordado.sello}']) {
+        base.escribirAjuste('modo_gps_que_anduvo', roto);
+        expect(recordado.modo, isNull, reason: 'guardado: «$roto»');
+      }
+    });
+  });
+
   group('el reordenamiento de los escalones', () {
     test('sin nada recordado, el orden es el de siempre', () {
       final e = escalonesEmpezandoPor(null, escalonesPorDefecto);
