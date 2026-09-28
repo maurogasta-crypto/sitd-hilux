@@ -1,4 +1,5 @@
 import '../../core/db/base.dart';
+import 'analisis.dart';
 import 'ventana.dart';
 
 /// Los vectores de vibración en la base.
@@ -41,15 +42,32 @@ class RegistroDeVibracion {
 
   /// Cuántas ventanas hay por cubeta, para poder decir cuánto falta antes de
   /// que la línea base signifique algo.
+  ///
+  /// **Sólo las que se pueden comparar** (`sitd-35`): una ventana medida a
+  /// 12,6 Hz no le enseña nada a la línea base, y contarla haría que una
+  /// cubeta pareciera lista sin estarlo. Las otras las cuenta
+  /// [ventanasABajaFrecuencia].
   Map<int, int> ventanasPorCubeta() {
     final salida = <int, int>{};
     for (final f in base.db.select(
-      'SELECT cubeta, COUNT(*) AS n FROM vibraciones GROUP BY cubeta',
+      'SELECT cubeta, COUNT(*) AS n FROM vibraciones WHERE hz >= ? '
+      'GROUP BY cubeta',
+      [hzMinimoParaComparar],
     )) {
       salida[f['cubeta'] as int] = f['n'] as int;
     }
     return salida;
   }
+
+  /// Las ventanas guardadas que NO se comparan porque el sistema entregó el
+  /// acelerómetro por debajo de [hzMinimoParaComparar]. Se muestran aparte: si
+  /// crecen, el teléfono está recortando el sensor —pantalla apagada, ahorro
+  /// de batería— y eso hay que saberlo, no descubrirlo.
+  int ventanasABajaFrecuencia() =>
+      base.db.select('SELECT COUNT(*) AS n FROM vibraciones WHERE hz < ?', [
+            hzMinimoParaComparar,
+          ]).first['n']
+          as int;
 
   /// Los viajes que tienen vibración, del más nuevo al más viejo. Es el orden
   /// que pide la histéresis: los tres últimos, no tres cualesquiera.

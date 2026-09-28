@@ -40,13 +40,16 @@ class PantallaVibracion extends StatelessWidget {
           else
             for (final a in avisos) _Aviso(anomalia: a),
           const SizedBox(height: 16),
-          _Cobertura(cobertura: cobertura(registro.ventanasPorCubeta())),
+          _Cobertura(
+            cobertura: cobertura(registro.ventanasPorCubeta()),
+            aBajaFrecuencia: registro.ventanasABajaFrecuencia(),
+          ),
           const SizedBox(height: 16),
           Text('Lo que fue aprendiendo', style: t.textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(
             'Cada velocidad se compara sólo contra sí misma. Un desbalanceo a '
-            '60 km/h está cerca de 8 Hz y a 110 cerca de 15: mezclarlas haría '
+            '60 km/h está cerca de 7 Hz y a 110 cerca de 13: mezclarlas haría '
             'que todo pareciera una anomalía.',
             style: t.textTheme.bodySmall?.copyWith(
               color: t.colorScheme.outline,
@@ -274,7 +277,11 @@ class _Cubeta extends StatelessWidget {
 class _Cobertura extends StatelessWidget {
   final List<CoberturaDeCubeta> cobertura;
 
-  const _Cobertura({required this.cobertura});
+  /// Ventanas guardadas que no se comparan: el sistema entregó el
+  /// acelerómetro más lento que `hzMinimoParaComparar`.
+  final int aBajaFrecuencia;
+
+  const _Cobertura({required this.cobertura, this.aBajaFrecuencia = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -305,6 +312,21 @@ class _Cobertura extends StatelessWidget {
                     : t.colorScheme.outline,
               ),
             ),
+            if (aBajaFrecuencia > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                '$aBajaFrecuencia '
+                '${aBajaFrecuencia == 1 ? 'ventana se midió' : 'ventanas se midieron'} '
+                'con el acelerómetro a menos de '
+                '${hzMinimoParaComparar.toStringAsFixed(1).replaceAll('.', ',')} Hz '
+                'y no cuentan: a esa frecuencia no se ve la vibración de arriba '
+                'de la mitad. Suele pasar con la pantalla apagada o con el '
+                'ahorro de batería.',
+                style: t.textTheme.bodySmall?.copyWith(
+                  color: t.colorScheme.tertiary,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             for (final c in cobertura)
               Padding(

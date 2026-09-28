@@ -605,6 +605,25 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   resonancia las tapa, y hoy no hay cómo separarlo sin un caso conocido. El
   detalle está en `MEDICION.md`, y lo que queda por hacer, en `hilux:D2`.
 
+- **Una ventana medida a menos de 49,2 Hz se guarda, pero no se compara**
+  (`sitd-35`, `hilux:D3`). El primer viaje del Note 9 bajó el acelerómetro de
+  50,3 a 12,58 Hz a mitad de camino —la cuarta parte exacta: el sistema
+  recortando—, y a esa frecuencia las bandas de 6 a 25 Hz salen en cero
+  porque no se ven, no porque no vibre. Con la forma del espectro eso es
+  veneno: cuando esas ventanas son mayoría en una cubeta, un viaje normal
+  parece anómalo arriba. **El umbral no es 50 a propósito**: el Redmi 15
+  entrega 49,82–49,9 Hz y quedaría afuera entero. Sale de pedir que el techo
+  cubra el 95 % de la última banda, y el banco lo ata a `bordesHz`.
+
+  Y una cosa que se probó y NO pasa, para que nadie la vuelva a suponer: con
+  la historia mitad y mitad, una falla verdadera no queda escondida.
+
+- **Una línea base es de UN teléfono**, y hoy un viaje no guarda en cuál se
+  midió. Los dos Redmi, en el mismo soporte, reparten la vibración parecido
+  pero no igual: el Note 9 ve sistemáticamente más entre 17 y 25 Hz y menos
+  entre 10 y 13 (`MEDICION.md`, 28-sep). Sumar respaldos de dos teléfonos
+  mezcla sus líneas base.
+
 - **Sólo se avisa hacia arriba.** Que una banda vibre MENOS que antes no es una
   falla mecánica: es un camino mejor, otra carga, o una rueda que se limpió
   sola.

@@ -73,6 +73,45 @@ List<double>? formaDelEspectro(List<double> bandas) {
   return [for (final d in densidad) d / total];
 }
 
+/// Desde qué frecuencia de muestreo una ventana se puede COMPARAR
+/// (`sitd-35`, `hilux:D3`): 49,2 Hz.
+///
+/// **Lo encontró el primer viaje del Note 9, el 2026-09-27.** A los dos
+/// minutos y medio el acelerómetro bajó de golpe de 50,3 a 12,58 Hz —la
+/// cuarta parte exacta, que es el sistema recortando, no el sensor fallando—
+/// y así quedaron 14 de 45 ventanas. A 12,58 Hz el techo del espectro es
+/// 6,3 Hz: las bandas de 6 a 25 Hz no salen en cero porque no vibre, salen en
+/// cero porque no se pueden ver. Y como desde `sitd-33` se compara la FORMA
+/// —cuánto se lleva cada banda del total—, una ventana así carga toda la
+/// vibración en las bandas bajas. Cuando esas ventanas son mayoría en una
+/// cubeta, «lo normal» de las bandas altas se va a casi cero y un viaje bueno
+/// parece vibrar de más arriba: una alarma falsa. Hay una prueba que lo
+/// reproduce y falla sin este filtro.
+///
+/// **Por qué 49,2 y no 50.** El Redmi 15 entrega 49,82 a 49,9 Hz y su techo
+/// queda en 24,9, apenas abajo de los 25 de la última banda: exigir 50 lo
+/// dejaba afuera entero. El número sale de pedir que el techo cubra el 95 % de
+/// la banda más alta —17 + 0,95 × 8 = 24,6 Hz, por dos—; así la banda que
+/// queda corta pierde a lo sumo un 5 %, que es ruido al lado de lo que se
+/// busca. Medido contra los datos reales: pasan las 1060 ventanas del
+/// Redmi 15 y las 31 buenas del Note 9, y quedan afuera exactamente las 14 de
+/// 12,58 Hz.
+///
+/// **La ventana no se borra**: se guarda igual —la muestra no se tira nunca—,
+/// no entra a la línea base ni se compara, y la pantalla la cuenta aparte.
+final double hzMinimoParaComparar =
+    2 * (bordesHz[cantidadDeBandas - 1] + 0.95 * anchosDeBanda.last);
+
+/// Si [v] se midió con frecuencia suficiente para compararla.
+bool seCompara(VentanaVibracion v) =>
+    v.hz.isFinite && v.hz >= hzMinimoParaComparar;
+
+/// La forma de [v], o `null` si no se puede comparar: por la frecuencia, o
+/// porque no tiene energía. Es la ÚNICA puerta por la que una ventana entra a
+/// la línea base o a una comparación.
+List<double>? formaComparable(VentanaVibracion v) =>
+    seCompara(v) ? formaDelEspectro(v.bandas) : null;
+
 /// Lo normal de una cubeta de velocidad, aprendido de la historia.
 class LineaBase {
   final int cubeta;
@@ -167,7 +206,7 @@ Map<int, LineaBase> lineaBase(
   porViaje.forEach((viaje, ventanas) {
     if (excepto.contains(viaje)) return;
     for (final v in ventanas) {
-      final forma = formaDelEspectro(v.bandas);
+      final forma = formaComparable(v);
       if (forma == null) continue;
       (porCubeta[v.cubeta] ??= []).add(forma);
     }
@@ -203,7 +242,7 @@ List<Desvio> compararViaje(
 }) {
   final porCubeta = <int, List<List<double>>>{};
   for (final v in delViaje) {
-    final forma = formaDelEspectro(v.bandas);
+    final forma = formaComparable(v);
     if (forma != null) (porCubeta[v.cubeta] ??= []).add(forma);
   }
 

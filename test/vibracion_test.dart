@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sitd_hilux/core/db/base.dart';
 import 'package:sitd_hilux/features/vibracion/analisis.dart';
+import 'package:sitd_hilux/features/vibracion/registro_vibracion.dart';
 import 'package:sitd_hilux/features/vibracion/espectro.dart';
 import 'package:sitd_hilux/features/vibracion/ventana.dart';
 
@@ -12,12 +14,13 @@ VentanaVibracion v(
   List<double> bandas, {
   double ruido = 0,
   int semilla = 1,
+  double hz = 50,
 }) {
   final r = math.Random(semilla);
   return VentanaVibracion(
     t: t,
     cubeta: cubeta,
-    hz: 50,
+    hz: hz,
     muestras: 250,
     rms: 0.2,
     pico: 0.9,
@@ -35,10 +38,25 @@ List<VentanaVibracion> viaje(
   List<double>? bandas,
   double ruido = 0.004,
   int semilla = 7,
+  double hz = 50,
 }) => [
   for (var i = 0; i < cuantas; i++)
-    v(i * 5000, cubeta, bandas ?? normal(), ruido: ruido, semilla: semilla + i),
+    v(
+      i * 5000,
+      cubeta,
+      bandas ?? normal(),
+      ruido: ruido,
+      semilla: semilla + i,
+      hz: hz,
+    ),
 ];
+
+/// Lo que entrega el acelerómetro cuando el sistema lo recorta a la cuarta
+/// parte: 12,58 Hz, como el Note 9 el 2026-09-27. El techo del espectro queda
+/// en 6,3 Hz, así que las bandas de 6 a 25 Hz salen en cero — no porque no
+/// vibre, sino porque no se ven.
+const double hzRecortado = 12.58;
+List<double> vistoA12Hz([double x = 0.10]) => [x, x, x, 0, 0, 0, 0, 0];
 
 void main() {
   group('la forma del espectro', () {
@@ -365,6 +383,107 @@ void main() {
       ];
       final a = anomalias(h, ultimos).first;
       expect(a.z, closeTo(zs.reduce(math.min), 1e-9));
+    });
+  });
+
+  // `hilux:D3`, sitd-35. Lo encontró el primer viaje del Note 9: 14 de 45
+  // ventanas medidas a 12,58 Hz entraban al detector como si las bandas altas
+  // estuvieran en cero.
+  group('ventanas medidas a baja frecuencia', () {
+    test('el mínimo sale de las bandas: el 95 % de la última, por dos', () {
+      // A mano: 2 × (17 + 0,95 × 8) = 49,2. Si alguien cambia los bordes,
+      // esto se mueve con ellos — y la prueba de abajo dice si el Redmi 15
+      // sigue entrando.
+      expect(hzMinimoParaComparar, closeTo(49.2, 1e-9));
+    });
+
+    test(
+      'pasan las frecuencias REALES de los dos teléfonos, y no la recortada',
+      () {
+        // Medidas en las 1105 ventanas guardadas del 20, 21 y 27 de septiembre.
+        for (final hz in [49.82, 49.86, 49.9, 50.33, 69.92]) {
+          expect(
+            seCompara(v(0, 4, normal(), hz: hz)),
+            isTrue,
+            reason: '$hz Hz',
+          );
+        }
+        for (final hz in [hzRecortado, 25.0, 49.0, double.nan, 0.0]) {
+          expect(
+            seCompara(v(0, 4, normal(), hz: hz)),
+            isFalse,
+            reason: '$hz Hz',
+          );
+        }
+      },
+    );
+
+    test('no entran a la línea base', () {
+      final base = lineaBase({
+        1: viaje(20),
+        2: viaje(30, bandas: vistoA12Hz(), hz: hzRecortado, semilla: 3),
+      });
+      expect(base[4]!.ventanas, 20);
+    });
+
+    // El daño concreto, y ésta falla si se saca el filtro — comprobado a mano.
+    // Se probó también el otro que parecía probable —que con la historia
+    // mitad y mitad una falla VERDADERA quedara escondida— y no pasa: la
+    // dispersión se infla pero la falla sigue saliendo. No se deja una prueba
+    // de algo que no ocurre.
+    test('mayoría recortada: un viaje NORMAL no puede parecer anómalo', () {
+      // Con la historia dominada por ventanas que no ven arriba de 6,3 Hz,
+      // «lo normal» de las bandas altas se iba a casi cero, y cualquier viaje
+      // bueno parecía vibrar de más arriba.
+      final historia = {
+        1: viaje(15, semilla: 31),
+        2: viaje(15, semilla: 62),
+        for (var i = 3; i <= 7; i++)
+          i: viaje(15, bandas: vistoA12Hz(), hz: hzRecortado, semilla: i * 31),
+      };
+      expect(
+        compararViaje(viaje(15, semilla: 555), lineaBase(historia)),
+        isEmpty,
+      );
+    });
+
+    test('un viaje medido entero a baja frecuencia no se compara', () {
+      final base = lineaBase({
+        for (var i = 1; i <= 4; i++) i: viaje(15, semilla: i * 31),
+      });
+      expect(
+        compararViaje(
+          viaje(15, bandas: vistoA12Hz(0.4), hz: hzRecortado, semilla: 9),
+          base,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('el registro no las cuenta como cobertura, y las cuenta aparte', () {
+      final base = Base.abrir(':memory:');
+      addTearDown(base.cerrar);
+      base.db.execute(
+        'INSERT INTO viajes (inicio, fin, metros, metros_haversine) '
+        'VALUES (1, 2, 0, 0)',
+      );
+      final id = base.db.lastInsertRowId;
+      final r = RegistroDeVibracion(base);
+      for (final w in viaje(3, cubeta: 1)) {
+        r.guardar(id, w);
+      }
+      for (final w in viaje(
+        2,
+        cubeta: 1,
+        bandas: vistoA12Hz(),
+        hz: hzRecortado,
+      )) {
+        r.guardar(id, w);
+      }
+      expect(r.ventanasPorCubeta(), {1: 3});
+      expect(r.ventanasABajaFrecuencia(), 2);
+      // Y siguen guardadas: la muestra no se tira nunca.
+      expect(r.deViaje(id), hasLength(5));
     });
   });
 }

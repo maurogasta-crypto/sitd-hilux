@@ -331,6 +331,49 @@ más rígido la corre de lugar, la rueda queda a la vista.
 
 ---
 
+## Dos teléfonos en el mismo soporte (2026-09-28)
+
+El 27-sep entraron los dos primeros viajes del **Redmi Note 9**, en el mismo
+soporte que el Redmi 15. Es la primera vez que se puede separar lo que es del
+camino de lo que es del teléfono.
+
+**El acelerómetro se recorta solo.** En el segundo viaje, a los 2 min 40 s,
+bajó de golpe de 50,3 a **12,58 Hz** —la cuarta parte exacta— y quedó así
+hasta el final, mientras el GPS seguía entregando uno por segundo. La cuarta
+parte exacta es el sistema recortando, no el sensor fallando: lo más probable
+es la pantalla apagada o el ahorro de batería de MIUI. A 12,58 Hz el techo es
+6,3 Hz y las bandas de 6 a 25 Hz salen en cero. Desde `sitd-35` esas ventanas
+se guardan pero **no se comparan** (`hzMinimoParaComparar`, 49,2 Hz), y la
+pantalla las cuenta aparte.
+
+**La forma del espectro coincide bastante.** Comparando sólo ventanas a
+50 Hz, en las tres cubetas que tienen los dos (0 a 30 km/h):
+
+| banda (Hz) | 0,5–2 | 2–4 | 4–6 | 6–8 | 8–10 | 10–13 | 13–17 | 17–25 |
+|---|---|---|---|---|---|---|---|---|
+| Note 9 ÷ Redmi 15, 0–10 km/h | 0,99 | 0,89 | 1,08 | 0,95 | 1,15 | **0,74** | 1,03 | **1,70** |
+| ídem 10–20 km/h | 1,12 | 1,27 | 1,18 | 0,99 | 0,97 | **0,81** | 0,94 | **1,16** |
+| ídem 20–30 km/h | 0,87 | 1,12 | 1,13 | 1,20 | 1,02 | **0,81** | 1,09 | **1,16** |
+
+La mayoría de las bandas quedan dentro de ±20 % con caminos distintos, y el
+pico de 10–13 Hz aparece en los dos. **Lo que se repite en las tres cubetas
+es del teléfono, no del camino**: el Note 9 ve menos entre 10 y 13 Hz y más
+entre 17 y 25. Con 6 a 14 ventanas por cubeta del lado del Note 9 es una
+pista, no una medición.
+
+**La consecuencia práctica:** una línea base es de UN teléfono. Si se suman en
+una misma base viajes de los dos —que es lo que hace «Sumar» un respaldo—, la
+banda de 17–25 Hz del Note 9 va a parecer alta contra lo aprendido en el
+Redmi 15. Hoy un viaje no guarda en qué teléfono se midió.
+
+**Y el nivel es más alto en el Note 9**: 1,0–1,6 m/s² de RMS contra 0,7–0,9
+en las mismas velocidades y el mismo soporte. Puede ser el teléfono (su masa,
+su funda, su sensor) o las calles; con viajes distintos no se separa. **El
+experimento que lo separa es uno solo:** los dos teléfonos en el MISMO viaje,
+uno en el soporte y el otro al lado, y en la vuelta cambiarlos de lugar.
+
+---
+
 ## Lo que este panel NO contesta
 
 **Dónde conviene poner el teléfono.** No hay un mejor soporte: hay uno mejor

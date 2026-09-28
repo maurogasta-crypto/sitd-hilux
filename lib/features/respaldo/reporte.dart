@@ -44,8 +44,15 @@ Map<String, dynamic> _analisis(
 ) {
   final base = lineaBase(porViaje);
   final ventanasPorCubeta = <int, int>{};
+  var aBajaFrecuencia = 0;
   for (final ventanas in porViaje.values) {
     for (final v in ventanas) {
+      // Las que no se comparan no cuentan como cobertura: ver
+      // `hzMinimoParaComparar`. Se cuentan aparte, abajo.
+      if (!seCompara(v)) {
+        aBajaFrecuencia++;
+        continue;
+      }
       ventanasPorCubeta[v.cubeta] = (ventanasPorCubeta[v.cubeta] ?? 0) + 1;
     }
   }
@@ -72,7 +79,12 @@ Map<String, dynamic> _analisis(
       // viejo tiene que poder leerse: sus `mediana` son energías, los nuevos
       // son proporciones, y sin esta línea no habría cómo distinguirlos.
       'comparaLa': 'forma',
+      // Desde `sitd-35`: una ventana medida más lento que esto no se compara.
+      'hzMinimoParaComparar': hzMinimoParaComparar,
     },
+    // Las ventanas guardadas que NO entraron a nada por haberse medido a baja
+    // frecuencia. Si crece, el teléfono está recortando el acelerómetro.
+    'ventanasABajaFrecuencia': aBajaFrecuencia,
     // Cuánto sabe de cada velocidad. Incluye las cubetas vacías: una cubeta
     // que falta dice a qué velocidad hay que salir a andar.
     'cobertura': [
