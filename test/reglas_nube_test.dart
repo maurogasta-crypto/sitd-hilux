@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sitd_hilux/features/nube/respaldo_nube.dart';
 
 /// El banco de las reglas de Firestore.
 ///
@@ -60,8 +61,8 @@ void main() {
     }
   });
 
-  test('el teléfono escribe en las dos colecciones suyas', () {
-    for (final c in ['reportes', 'recorridos']) {
+  test('el teléfono escribe en las colecciones suyas', () {
+    for (final c in ['reportes', 'recorridos', 'respaldos', 'partes']) {
       expect(
         bloques[c],
         contains('allow create: if esElTelefono()'),
@@ -101,16 +102,21 @@ void main() {
        medido ni recorrido; si se filtrara, lo que se lleva es una opinión mía
        sobre unos umbrales.
 
+       **`respaldos` y sus `partes` entraron con `sitd-34`**, por pedido de
+       Mauro: levantar la base entera en otro teléfono. Es lo mismo que
+       `recorridos` pero de todos los viajes a la vez, y el costo está escrito
+       al lado del bloque.
+
        La que no está es la que importa: `reportes`. */
     final lee = [
       for (final e in bloques.entries)
         if (leenDe(e.value).contains('esElTelefono')) e.key,
     ]..sort();
-    expect(lee, ['analisis', 'recorridos']);
+    expect(lee, ['analisis', 'partes', 'recorridos', 'respaldos']);
   });
 
-  test('el agente lee los reportes Y los recorridos, y no los puede pisar', () {
-    for (final c in ['reportes', 'recorridos']) {
+  test('el agente lee reportes, recorridos y respaldos, y no los pisa', () {
+    for (final c in ['reportes', 'recorridos', 'respaldos', 'partes']) {
       expect(
         leenDe(bloques[c]!),
         contains('esElAgente'),
@@ -157,6 +163,72 @@ void main() {
     );
     expect(reglas, contains('json.size() < 900000'));
   });
+
+  group('respaldos: las reglas y el código dicen lo mismo', () {
+    // Cada una de éstas es un 403 que aparecería recién en el teléfono, con
+    // la subida a mitad de camino. Acá aparece antes de publicar.
+    test('el manifiesto tiene exactamente los campos que manda el código', () {
+      expect(camposDeHasOnly(bloques['respaldos']!), camposDelManifiesto);
+    });
+
+    test('una parte tiene exactamente los campos que manda el código', () {
+      expect(camposDeHasOnly(bloques['partes']!), camposDeUnaParte);
+    });
+
+    test('el techo de una parte es el del código, y la parte entra', () {
+      final techo = RegExp(r'datos\.size\(\) <= (\d+)')
+          .firstMatch(bloques['partes']!);
+      expect(techo, isNotNull);
+      expect(int.parse(techo!.group(1)!), techoDeUnaParteEnLasReglas);
+      expect(bytesPorParte, lessThan(techoDeUnaParteEnLasReglas));
+      // Y el techo deja lugar al resto del documento adentro del MiB.
+      expect(techoDeUnaParteEnLasReglas, lessThan(1024 * 1024 - 1024));
+    });
+
+    test('el máximo de partes es el del código', () {
+      expect(
+        bloques['respaldos'],
+        contains('request.resource.data.partes <= $maximoDePartes'),
+      );
+      expect(
+        bloques['respaldos'],
+        contains('request.resource.data.partes >= 1'),
+      );
+    });
+
+    test('las partes cuelgan del manifiesto, no andan sueltas', () {
+      // Si `partes` quedara al nivel de arriba, la regla valdría para una
+      // colección `partes/` de la raíz y la ruta real —la subcolección— caería
+      // en el cierre por defecto: 403 en la primera parte.
+      expect(bloques['respaldos'], contains('match /partes/{parte}'));
+    });
+
+    test('a un respaldo terminado no se le agregan partes', () {
+      expect(
+        bloques['partes'],
+        contains('!exists(/databases/\$(database)/documents/respaldos/\$(id))'),
+      );
+    });
+
+    test('el nombre de una parte es el que arma el código', () {
+      final patron = RegExp(r"parte\.matches\('([^']+)'\)")
+          .firstMatch(bloques['partes']!);
+      expect(patron, isNotNull);
+      final re = RegExp('^${patron!.group(1)}\$');
+      for (final i in [0, 1, 9, 10, maximoDePartes - 1]) {
+        expect(re.hasMatch(nombreDeParte(i)), isTrue, reason: nombreDeParte(i));
+      }
+    });
+  });
+}
+
+/// Los campos del primer `hasOnly([...])` de un bloque, en orden.
+List<String> camposDeHasOnly(String bloque) {
+  final m = RegExp(r'hasOnly\(\s*\[([^\]]*)\]').firstMatch(bloque);
+  if (m == null) return const [];
+  return [
+    for (final c in RegExp(r"'([^']+)'").allMatches(m.group(1)!)) c.group(1)!,
+  ];
 }
 
 /// El texto de cada `match /coleccion/{…} { … }`, por nombre de colección.

@@ -207,7 +207,7 @@ teclea en el teléfono, por el motivo de arriba.
 | `FIRMA_STORE_PASS` / `FIRMA_KEY_PASS` / `FIRMA_ALIAS` | Abren ese keystore | **secreto de infraestructura** | Mismo lugar | `.github/workflows/apk.yml` |
 | Clave de firma de depuración | Firma el release **mientras no estén cargados los secretos de arriba** | se genera NUEVA en cada corrida | La genera Gradle en el runner, que arranca limpio. Nadie la guarda y nadie la vuelve a ver | certificado del APK leído el 2026-09-16: `notBefore` = el minuto de la compilación |
 | `GITHUB_TOKEN` | Publica el release `ultimo` | efímero | Lo emite GitHub para cada corrida. No se carga, no se guarda, no se rota | `.github/workflows/apk.yml`, 2026-09-15 |
-| Configuración de la nube (`proyecto`, `apiKey`, `mail`, `clave`) | Deja que el teléfono cree documentos en `reportes/` | **dato en runtime, tecleado** | La pega Mauro en el teléfono, pantalla Respaldo → Configurar. Vive en `ajustes` del SQLite de la aplicación. **No está en el repositorio, ni en el APK, ni en un chat** | `lib/features/nube/credencial.dart` | decidido por Mauro, 2026-09-19 |
+| Configuración de la nube (`proyecto`, `apiKey`, `mail`, `clave`) | Deja que el teléfono cree documentos en `reportes/`, `recorridos/` y `respaldos/`, y lea los dos últimos | **dato en runtime, tecleado** | La pega Mauro en el teléfono, pantalla Respaldo → Configurar. Vive en `ajustes` del SQLite de la aplicación. **No está en el repositorio, ni en el APK, ni en un chat** | `lib/features/nube/credencial.dart` | decidido por Mauro, 2026-09-19 |
 | Usuario del agente en esa base | Deja que un chat LEA los reportes subidos | dato en runtime | Firebase Authentication de esa base. La contraseña, en las variables de entorno de Claude Code que carga Mauro | `datos/herramientas/firestore.mjs` | pendiente de alta |
 
 **Y eso tiene una consecuencia que se paga en cada tanda**: dos APK firmados
@@ -456,6 +456,48 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   crudas. Es la regla de siempre —los derivados no se guardan— y acá además
   cierra un agujero: un recorrido subido con una versión del filtro y bajado
   con otra diría lo que el código de hoy no diría.
+
+- **La base ENTERA sube a la nube, y baja por el mismo cartel de siempre**
+  (`sitd-34`, 2026-09-28). Lo pidió Mauro: «restaurar una sesión en otro
+  dispositivo con toda la información posible». `recorridos/` devolvía un
+  viaje por vez y dejaba afuera las cargas, las vibraciones —que tardan meses
+  en juntarse— y la bitácora.
+
+  **Tres decisiones que no se deshacen de buena fe:**
+
+  **Sale por `hacerCopiaSaneada` y por ningún otro lado.** Es el camino que
+  ya costó una contraseña rotada; hasta esta tanda vivía adentro de la
+  pantalla y la subida lo iba a tener que copiar. Ahora es uno y lo usan los
+  dos botones, y el banco busca la contraseña y el token en lo que LLEGÓ a la
+  nube, no en la copia local.
+
+  **El manifiesto se escribe al final.** Un corte a mitad de camino deja
+  partes huérfanas y ningún respaldo roto a la vista; y la regla no deja
+  agregar partes a un respaldo que ya tiene manifiesto.
+
+  **Bajar no mete nada.** Deja un archivo y lo pasa por `_importar`, el mismo
+  cartel con los números de los dos lados y Sumar o Reemplazar. Un segundo
+  camino para meter un respaldo sería un segundo lugar donde equivocarse.
+
+  **Lo que cuesta, a la vista:** es la colección que más lleva —el recorrido
+  de TODOS los viajes a la vez—, cada respaldo es una copia entera y no una
+  diferencia, y los viejos se borran a mano desde la consola. Lo contiene lo
+  mismo que a `recorridos/`: no sube solo, no se reescribe, y la lee sólo esta
+  cuenta y el agente. Y **necesita que Mauro publique las reglas nuevas**;
+  hasta entonces la pantalla dice que la base no deja leer `respaldos`, en vez
+  de mostrar una lista vacía.
+
+  **`respaldos` NO está en `colecciones` de `datos/herramientas/firestore.mjs`,
+  y no es un olvido.** Esa lista es lo que baja `bajar` antes de escribir, y
+  un respaldo es una copia de lo que el agente ya lee en `reportes/` y
+  `recorridos/`: bajarlo sería bajar todo dos veces. No está sellada — las
+  reglas le dejan leerla al agente —, simplemente no se baja sola.
+
+  **El techo se hizo con la cuenta, no a ojo**: gzip deja los respaldos
+  reales en el 42–47 %, unos 50 KiB por mil puntos, así que 80 partes de
+  700 KiB son unas 300 horas de manejo. Empezó en 40 y se dobló antes de
+  publicar. Cuando se acerque, lo que sigue no es subir el techo sino dejar de
+  subir la historia entera cada vez.
 
 - **El documento de un viaje se llama por el INSTANTE en que arrancó, no por
   su número local** (`sitd-26`). **Era un error que metí yo con `sitd-25`:**

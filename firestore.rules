@@ -22,11 +22,13 @@ rules_version = '2';
 //
 // Hay exactamente tres actores y cada uno puede poco:
 //
-//   el TELÉFONO  crea reportes y recorridos, y LEE recorridos —sólo eso—.
-//                No lee reportes, no modifica, no borra.
+//   el TELÉFONO  crea reportes, recorridos y respaldos, y LEE recorridos y
+//                respaldos —sólo eso—. No lee reportes, no modifica, no
+//                borra.
 //                Y acá el teléfono entra como MAURO (maurogasta@gmail.com),
 //                porque él decidió no crear un usuario aparte. Ver abajo.
-//   el AGENTE    lee reportes y recorridos, y lee y escribe en `analisis/`.
+//   el AGENTE    lee reportes, recorridos y respaldos, y lee y escribe en
+//                `analisis/`.
 //   Mauro        todo.
 //
 // **Por qué el teléfono no puede leer REPORTES, y no es exceso de celo.** El
@@ -144,6 +146,67 @@ service cloud.firestore {
       // la nube una vez que entró.
       allow update: if false;
       allow delete: if soyYo();
+    }
+
+    // El respaldo COMPLETO: la base entera del teléfono, saneada, comprimida
+    // y partida (`sitd-34`, 2026-09-28). Lo pidió Mauro para «restaurar una
+    // sesión en otro dispositivo con toda la información posible».
+    //
+    // **Es la colección que más lleva de todas**: el recorrido de TODOS los
+    // viajes a la vez, más cargas, vibraciones y bitácora. Lo que la contiene
+    // es lo mismo que contiene a `recorridos/` —la lee sólo esta cuenta y el
+    // agente, no sube sola, no se reescribe— y lo que NO lleva, que se
+    // comprueba en el teléfono sobre los bytes antes de subir: la contraseña
+    // de la nube y la sesión.
+    //
+    // El documento `respaldos/{id}` es el MANIFIESTO y las partes cuelgan de
+    // él. **La aplicación escribe las partes primero y el manifiesto al
+    // final**, así que un respaldo a medio subir no aparece en ninguna lista:
+    // quedan partes huérfanas, que no hacen daño y se borran desde la consola.
+    match /respaldos/{id} {
+      allow create: if esElTelefono()
+                    && request.resource.data.keys().hasOnly(
+                         ['creado', 'sello', 'esquema', 'bytesOriginal',
+                          'bytesComprimido', 'partes', 'resumen'])
+                    && request.resource.data.creado is int
+                    && request.resource.data.sello is string
+                    && request.resource.data.esquema is int
+                    && request.resource.data.bytesOriginal is int
+                    && request.resource.data.bytesComprimido is int
+                    && request.resource.data.resumen is string
+                    && request.resource.data.partes is int
+                    // El mismo techo que `maximoDePartes` en
+                    // `respaldo_nube.dart`: 80 partes son 56 MB comprimidos,
+                    // unas 300 horas de manejo. La cuenta está allá.
+                    && request.resource.data.partes >= 1
+                    && request.resource.data.partes <= 80;
+
+      allow read: if soyYo() || esElAgente() || esElTelefono();
+
+      // Un respaldo es una foto de un momento: no se retoca. Borrar es sólo
+      // de Mauro.
+      allow update: if false;
+      allow delete: if soyYo();
+
+      match /partes/{parte} {
+        // **Una parte sólo entra mientras el respaldo NO tiene manifiesto.**
+        // Es lo que hace que uno terminado no se pueda ensuciar después: el
+        // manifiesto dice cuántas partes y cuánto miden, y una parte de más
+        // agregada más tarde no la vería nadie hasta que el archivo no abra.
+        allow create: if esElTelefono()
+                      && !exists(/databases/$(database)/documents/respaldos/$(id))
+                      && parte.matches('p[0-9]{3}')
+                      && request.resource.data.keys().hasOnly(['i', 'datos'])
+                      && request.resource.data.i is int
+                      && request.resource.data.datos is bytes
+                      // 700 KiB por parte, con margen hasta el 1 MiB de un
+                      // documento. Ver `bytesPorParte`.
+                      && request.resource.data.datos.size() <= 750000;
+
+        allow read: if soyYo() || esElAgente() || esElTelefono();
+        allow update: if false;
+        allow delete: if soyYo();
+      }
     }
 
     // Lo que el agente CONCLUYE de esos reportes: umbrales que habría que

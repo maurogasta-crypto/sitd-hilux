@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
 import '../../core/bitacora.dart';
 import 'credencial.dart';
+import 'respaldo_nube.dart';
 import 'sesion.dart';
 
 /// Cómo salió un intento de subir.
@@ -23,7 +25,8 @@ class Resultado {
   const Resultado.mal(this.falla, {this.esCulpaNuestra = false}) : ok = false;
 }
 
-/// Habla con Firestore: sube reportes, sube recorridos y **baja** recorridos.
+/// Habla con Firestore: sube reportes, sube y baja recorridos, y sube y baja
+/// el respaldo completo (desde `sitd-34`).
 ///
 /// Se llama `Subida` por historia —nació sólo subiendo— y se quedó con el
 /// nombre a propósito: renombrarla tocaría cinco archivos para no cambiar
@@ -317,7 +320,213 @@ class Subida {
     return s is String ? (int.tryParse(s) ?? 0) : 0;
   }
 
-  /// El POST con todo lo que las dos subidas comparten, para que no haya dos
+  /// Cuánto se le espera a UNA parte del respaldo completo.
+  ///
+  /// Mucho más que [espera], a propósito: son 700 KiB, y con una antena de
+  /// ruta eso puede tardar un minuto largo. Con los veinte segundos de un
+  /// reporte, la parte se daría por perdida mientras todavía está subiendo.
+  static const Duration esperaDeUnaParte = Duration(seconds: 150);
+
+  /// Un `idToken` de Firebase dura una hora; se renueva bastante antes.
+  static const Duration renovarTokenCada = Duration(minutes: 40);
+
+  /// Sube el respaldo completo: primero las [partes], después el
+  /// [manifiesto].
+  ///
+  /// **El orden es la garantía**, ver `respaldo_nube.dart`: mientras no esté
+  /// el manifiesto, el respaldo no existe para nadie que lo liste, así que un
+  /// corte a mitad de camino no deja algo roto a la vista.
+  ///
+  /// El token NO se pide una vez por parte: pueden ser decenas de pedidos, y
+  /// renovarlo en cada uno serían otras tantas idas y vueltas con la misma
+  /// antena mala. Se pide al empezar y **se renueva a los 40 minutos**,
+  /// porque dura una hora y un respaldo grande con mala señal la pasa: sin
+  /// eso, la parte que cayera después rebotaría con un 401 que se lee como
+  /// «las reglas no dejan», que no es lo que pasó.
+  ///
+  /// Cada parte se intenta dos veces si la falla es de red. Una falla de las
+  /// reglas o de la credencial no se reintenta: insistir no la arregla.
+  Future<Resultado> subirRespaldo({
+    required Credencial credencial,
+    required RespaldoEnLaNube manifiesto,
+    required List<Uint8List> partes,
+    GuardaDeSesion? sesion,
+    void Function(int hechas, int total)? alAvanzar,
+  }) async {
+    var token = await _tokenPara(credencial, sesion);
+    if (token.falla != null) {
+      return Resultado.mal(token.falla, esCulpaNuestra: token.suya);
+    }
+    final reloj = Stopwatch()..start();
+    final total = partes.length;
+    for (var i = 0; i < total; i++) {
+      if (reloj.elapsed > renovarTokenCada) {
+        token = await _tokenPara(credencial, sesion);
+        if (token.falla != null) {
+          return Resultado.mal(token.falla, esCulpaNuestra: token.suya);
+        }
+        reloj.reset();
+      }
+      Resultado r = const Resultado.mal('sin intentar');
+      for (var intento = 0; intento < 2; intento++) {
+        r = await _post(
+          credencial: credencial,
+          token: token.valor!,
+          coleccion: 'respaldos/${manifiesto.id}/partes',
+          id: nombreDeParte(i),
+          campos: camposDeParte(i, partes[i]),
+          que: 'La parte ${i + 1} de $total del respaldo',
+          espera: esperaDeUnaParte,
+          anotar: false,
+        );
+        if (r.ok || r.esCulpaNuestra) break;
+      }
+      if (!r.ok) {
+        return Resultado.mal(
+          'La parte ${i + 1} de $total no subió: ${r.falla}',
+          esCulpaNuestra: r.esCulpaNuestra,
+        );
+      }
+      alAvanzar?.call(i + 1, total);
+    }
+    return _post(
+      credencial: credencial,
+      token: token.valor!,
+      coleccion: 'respaldos',
+      id: manifiesto.id,
+      campos: manifiesto.campos,
+      que: 'El respaldo completo ${manifiesto.id} ($total partes)',
+    );
+  }
+
+  /// Qué respaldos completos hay en la nube, del más nuevo al más viejo.
+  ///
+  /// **A diferencia de [listarRecorridos], acá una negativa se DICE**, y no
+  /// es un capricho: este bloque de las reglas es nuevo, y hasta que Mauro lo
+  /// publique la base va a contestar 403. Una lista vacía sin explicación se
+  /// leería como «no hay respaldos», que es justo lo que no es.
+  Future<({List<RespaldoEnLaNube> lista, String? falla})> listarRespaldos({
+    required Credencial credencial,
+    GuardaDeSesion? sesion,
+    int tope = 50,
+  }) async {
+    final token = await _tokenPara(credencial, sesion);
+    if (token.falla != null) {
+      return (lista: const <RespaldoEnLaNube>[], falla: token.falla);
+    }
+    try {
+      final r = await cliente
+          .get(
+            Uri.parse(
+              '${_documentos(credencial)}respaldos?pageSize=$tope&'
+              '${camposDelManifiesto.map((c) => 'mask.fieldPaths=$c').join('&')}',
+            ),
+            headers: {'Authorization': 'Bearer ${token.valor}'},
+          )
+          .timeout(espera);
+      if (r.statusCode == 403 || r.statusCode == 401) {
+        return (
+          lista: const <RespaldoEnLaNube>[],
+          falla: _noDejaLeer('respaldos', r.statusCode),
+        );
+      }
+      if (r.statusCode != 200) {
+        return (
+          lista: const <RespaldoEnLaNube>[],
+          falla: 'La base contestó ${r.statusCode}.',
+        );
+      }
+      final m = jsonDecode(r.body);
+      final docs = m is Map ? m['documents'] : null;
+      final salida = <RespaldoEnLaNube>[];
+      if (docs is List) {
+        for (final d in docs) {
+          if (d is! Map || d['name'] is! String) continue;
+          final uno = RespaldoEnLaNube.desdeFirestore(
+            (d['name'] as String).split('/').last,
+            d['fields'],
+          );
+          if (uno != null) salida.add(uno);
+        }
+      }
+      salida.sort((a, b) => b.creado.compareTo(a.creado));
+      return (lista: salida, falla: null);
+    } catch (e) {
+      return (
+        lista: const <RespaldoEnLaNube>[],
+        falla: 'No se pudo llegar a la base: $e',
+      );
+    }
+  }
+
+  /// Baja las partes de [respaldo] y devuelve la base ya armada.
+  ///
+  /// **Devuelve los bytes, no escribe el archivo**: dónde se guarda y qué se
+  /// hace con él es de quien llama. Y no lanza — cualquier forma de fallar
+  /// vuelve como una frase.
+  Future<({Uint8List? base, String? falla})> bajarRespaldo({
+    required Credencial credencial,
+    required RespaldoEnLaNube respaldo,
+    GuardaDeSesion? sesion,
+    void Function(int hechas, int total)? alAvanzar,
+  }) async {
+    final token = await _tokenPara(credencial, sesion);
+    if (token.falla != null) return (base: null, falla: token.falla);
+    final partes = <Uint8List?>[];
+    try {
+      for (var i = 0; i < respaldo.partes; i++) {
+        final r = await cliente
+            .get(
+              Uri.parse(
+                '${_documentos(credencial)}respaldos/${respaldo.id}/'
+                'partes/${nombreDeParte(i)}',
+              ),
+              headers: {'Authorization': 'Bearer ${token.valor}'},
+            )
+            .timeout(esperaDeUnaParte);
+        if (r.statusCode == 403 || r.statusCode == 401) {
+          return (base: null, falla: _noDejaLeer('respaldos', r.statusCode));
+        }
+        if (r.statusCode == 404) {
+          partes.add(null);
+        } else if (r.statusCode != 200) {
+          return (
+            base: null,
+            falla: 'La parte ${i + 1} contestó ${r.statusCode}.',
+          );
+        } else {
+          final m = jsonDecode(r.body);
+          partes.add(datosDeParte(m is Map ? m['fields'] : null));
+        }
+        alAvanzar?.call(i + 1, respaldo.partes);
+      }
+    } catch (e) {
+      return (base: null, falla: 'No se pudo llegar a la base: $e');
+    }
+    try {
+      return (
+        base: desempacar(
+          partes,
+          bytesOriginal: respaldo.bytesOriginal,
+          bytesComprimido: respaldo.bytesComprimido,
+        ),
+        falla: null,
+      );
+    } on FormatException catch (e) {
+      return (base: null, falla: e.message);
+    }
+  }
+
+  String _documentos(Credencial c) =>
+      'https://firestore.googleapis.com/v1/projects/'
+      '${c.proyecto}/databases/(default)/documents/';
+
+  static String _noDejaLeer(String coleccion, int codigo) =>
+      'La base no deja leer «$coleccion» ($codigo). Revisá que las reglas '
+      'publicadas sean las de `firestore.rules`: el bloque de «$coleccion» '
+      'entró con `sitd-34`.';
+
+  /// El POST con todo lo que las subidas comparten, para que no haya dos
   /// copias del manejo de errores ni del login.
   Future<Resultado> _escribir({
     required Credencial credencial,
@@ -331,29 +540,49 @@ class Subida {
     if (token.falla != null) {
       return Resultado.mal(token.falla, esCulpaNuestra: token.suya);
     }
+    return _post(
+      credencial: credencial,
+      token: token.valor!,
+      coleccion: coleccion,
+      id: id,
+      campos: campos,
+      que: que,
+    );
+  }
+
+  /// El POST solo, con un token que ya se tiene.
+  ///
+  /// [anotar] en `false` para las partes del respaldo: decenas de renglones
+  /// de «la parte N subió» se comerían la bitácora, que es un anillo de 300.
+  Future<Resultado> _post({
+    required Credencial credencial,
+    required String token,
+    required String coleccion,
+    required String id,
+    required Map<String, dynamic> campos,
+    required String que,
+    Duration? espera,
+    bool anotar = true,
+  }) async {
     try {
       final r = await cliente
           .post(
-            Uri.parse(
-              'https://firestore.googleapis.com/v1/projects/'
-              '${credencial.proyecto}/databases/(default)/documents/'
-              '$coleccion?documentId=$id',
-            ),
+            Uri.parse('${_documentos(credencial)}$coleccion?documentId=$id'),
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${token.valor}',
+              'Authorization': 'Bearer $token',
             },
             body: jsonEncode({'fields': campos}),
           )
-          .timeout(espera);
+          .timeout(espera ?? this.espera);
 
       if (r.statusCode == 200) {
-        bitacora.anotar(Origen.sistema, '$que subió.');
+        if (anotar) bitacora.anotar(Origen.sistema, '$que subió.');
         return const Resultado.bien();
       }
       // 409 es que ya estaba: no es una falla, es que no hacía falta.
       if (r.statusCode == 409) {
-        bitacora.anotar(Origen.sistema, '$que ya estaba.');
+        if (anotar) bitacora.anotar(Origen.sistema, '$que ya estaba.');
         return const Resultado.bien();
       }
       if (r.statusCode == 403 || r.statusCode == 401) {

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -20,6 +21,14 @@ class NubeFalsa extends http.BaseClient {
   bool loginOk = true;
   bool dejaLeer = true;
 
+  /// Colecciones de la raíz que contestan 403, como una regla sin publicar.
+  final Set<String> negadas = {};
+
+  /// Después de tantas escrituras buenas, la red se corta: cada POST
+  /// siguiente tira una excepción, como una antena que se pierde.
+  int? cortarDespuesDe;
+  int _escrituras = 0;
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest pedido) async {
     urls.add(pedido.url);
@@ -29,37 +38,45 @@ class NubeFalsa extends http.BaseClient {
       return _r(loginOk ? 200 : 400, '{"idToken":"token","refreshToken":"r"}');
     }
 
+    // Lo que viene después de `documents/`: `recorridos`, `recorridos/ID`,
+    // `respaldos/ID/partes/p000`… Par es un documento; impar, una colección.
     final ruta = u.pathSegments;
-    final coleccion = ruta.contains('recorridos') ? 'recorridos' : 'reportes';
+    final tras = ruta.sublist(ruta.indexOf('documents') + 1).join('/');
+    final raiz = tras.split('/').first;
 
     if (pedido.method == 'POST') {
+      if (cortarDespuesDe != null && _escrituras >= cortarDespuesDe!) {
+        throw const SocketException('sin señal');
+      }
+      _escrituras++;
       if (codigoDeEscritura != 200) return _r(codigoDeEscritura, '{}');
+      if (negadas.contains(raiz)) return _r(403, '{}');
       final id = u.queryParameters['documentId']!;
-      final clave = '$coleccion/$id';
+      final clave = '$tras/$id';
       if (documentos.containsKey(clave)) return _r(409, '{}');
       final cuerpo = jsonDecode((pedido as http.Request).body) as Map;
       documentos[clave] = (cuerpo['fields'] as Map).cast<String, dynamic>();
       return _r(200, '{}');
     }
 
-    if (!dejaLeer) return _r(403, '{}');
+    if (!dejaLeer || negadas.contains(raiz)) return _r(403, '{}');
 
     // Traer uno.
-    final ultimo = ruta.last;
-    if (ultimo != 'recorridos') {
-      final d = documentos['recorridos/$ultimo'];
+    if (tras.split('/').length.isEven) {
+      final d = documentos[tras];
       if (d == null) return _r(404, '{}');
-      return _r(200, jsonEncode({'name': 'x/$ultimo', 'fields': d}));
+      return _r(200, jsonEncode({'name': 'x/$tras', 'fields': d}));
     }
 
-    // Listar.
+    // Listar: sólo los hijos directos, como Firestore — las partes de un
+    // respaldo no aparecen al listar `respaldos`.
     return _r(
       200,
       jsonEncode({
         'documents': [
           for (final e in documentos.entries)
-            if (e.key.startsWith('recorridos/'))
-              {'name': 'x/${e.key.split('/').last}', 'fields': e.value},
+            if (e.key.substring(0, e.key.lastIndexOf('/')) == tras)
+              {'name': 'x/${e.key}', 'fields': e.value},
         ],
       }),
     );

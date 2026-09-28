@@ -214,6 +214,65 @@ en Firebase Authentication y cambiar `esElTelefono()` en `firestore.rules`.
 Hoy el teléfono entra como él, así que la credencial que vive en el teléfono
 es la suya. Es una función de una línea.
 
+## El respaldo completo en la nube
+
+**Desde `sitd-34`.** Lo pidió Mauro el 2026-09-28: poder «restaurar una sesión
+en otro dispositivo con toda la información posible». `recorridos/` devolvía
+un viaje por vez; esto sube **la base entera** —viajes, puntos, cargas,
+vibraciones, bitácora y pruebas de soporte— y del otro lado entra por el
+mismo cartel de siempre: los números de los dos lados, y Sumar o Reemplazar.
+
+| | `recorridos/` | `respaldos/` |
+|---|---|---|
+| Qué lleva | un viaje: sus puntos y su ficha | **todo**, incluido el recorrido de todos los viajes |
+| Cuándo sube | cuando tocás «Subir» | cuando tocás «Subir todo» |
+| Cómo baja | un viaje, que se suma solo | un archivo, que pasa por Sumar o Reemplazar |
+
+**Cómo se levanta en otro teléfono:** instalar el APK, Sacar los datos →
+Configurar la nube (pegar la configuración), y en «El respaldo completo en la
+nube» tocar **Ver qué hay** y elegir uno.
+
+**No sube la contraseña de la nube ni la sesión.** Sale por el mismo camino
+que «Guardar una copia» —`hacerCopiaSaneada`, que borra, hace `VACUUM` y
+comprueba los BYTES— y si algo se escapara no sube nada. El banco lo busca en
+lo que efectivamente llegó a la nube, rearmado desde los documentos, no en la
+copia local.
+
+**Cómo va guardado.** Un documento de Firestore no pasa de 1 MiB, así que la
+copia se comprime con gzip y se corta en partes de 700 KiB:
+`respaldos/{id}` es el **manifiesto** —cuántas partes, cuánto mide cada cosa,
+de qué versión es y qué trae— y las partes van en `respaldos/{id}/partes/p000`,
+`p001`… Medido con los dos respaldos reales del 20 y el 21 de septiembre:
+
+```
+respaldo del 20-sep ....  832 KiB -> 392 KiB  (47 %)   7195 puntos
+respaldo del 21-sep ....  632 KiB -> 268 KiB  (42 %)   5535 puntos
+                          unos 50 KiB comprimidos por cada mil puntos
+```
+
+El techo son 80 partes, unas 300 horas de manejo. Cuando se acerque, la
+aplicación lo dice **antes** de subir nada.
+
+**El manifiesto se escribe al final**, y es lo que hace seguro un corte: si la
+señal se pierde en la parte 3, quedan partes sueltas pero ningún manifiesto,
+así que la lista no muestra un respaldo roto. Las huérfanas no molestan y se
+borran desde la consola. Al revés, **a un respaldo terminado no se le pueden
+agregar partes**: la regla lo niega si el manifiesto ya existe.
+
+**Y al bajar, cada forma de romperse tiene su frase**: que falte una parte,
+que una llegue cortada, que llegue cambiada —el CRC de gzip lo agarra aunque
+tenga el largo justo— o que lo que salió no sea una base. Una base rota nunca
+llega al cartel de Sumar.
+
+**Lo que cuesta, dicho:** cada respaldo es una copia **entera** —no sube la
+diferencia con el anterior— y lleva el recorrido de todos los viajes. Los
+viejos se borran a mano desde la consola; la aplicación no borra nada de la
+nube.
+
+**Y necesita reglas nuevas publicadas.** Hasta que estén, «Ver qué hay» dice
+que la base no deja leer `respaldos` —no muestra una lista vacía, que se
+confundiría con «no hay ninguno»—.
+
 ## Probar la medición
 
 **Desde `sitd-27`, y entró porque el proyecto no sabía a qué frecuencia estaba
@@ -307,13 +366,14 @@ Una pantalla, tres botones y ningún menú:
 | **Terminar** | cierra el viaje y deja el total escrito |
 | **Pantalla encendida** | interruptor: mientras el viaje mide, la pantalla no se apaga sola |
 
-El menú de los tres puntos lleva también a **Sacar los datos**, que son dos
-cosas distintas y conviene no confundirlas:
+El menú de los tres puntos lleva también a **Sacar los datos**, que son cosas
+distintas y conviene no confundirlas:
 
 | | Qué lleva | A dónde va |
 |---|---|---|
 | **Reporte para desarrollo** | kilómetros, contadores, por qué se descartó cada muestra, resumen de velocidades y precisiones, vectores de vibración y cargas. **Ni una coordenada** | por donde sea: chat, mail, lo que haya |
-| **Respaldo completo** | una copia de la base tal cual está | Drive, una computadora, una tarjeta. **A un chat no**: lleva el recorrido |
+| **Respaldo completo** | una copia de la base, sin la contraseña de la nube | Drive, una computadora, una tarjeta. **A un chat no**: lleva el recorrido |
+| **Respaldo completo en la nube** | la misma copia, comprimida y partida | `respaldos/` de la base del proyecto, para levantarla en otro teléfono |
 
 El reporte es lo que hay que mandar cuando algo no anda: trae todo lo que hace
 falta para entender qué pasó sin traer dónde estuvo la camioneta. Hay una
@@ -509,6 +569,8 @@ lib/
 │   │   │                    documento: columnas paralelas y deltas.
 │   │   ├── recorte.dart     Que el documento entre en el límite de 1 MB,
 │   │   │                    sacando primero lo que se puede reconstruir.
+│   │   ├── respaldo_nube.dart  La base entera, comprimida y partida en
+│   │   │                    documentos; y al volver, cada falla con su frase.
 │   │   ├── subida.dart      Firestore por REST. Sin SDK: el SDK pediría un
 │   │   │                    google-services.json en un repo público.
 │   │   └── servicio_nube.dart  Junta las tres, y clava el alcance.
@@ -552,7 +614,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-33` | `lib/core/version.dart` |
+| Aplicación | `sitd-34` | `lib/core/version.dart` |
 | Esquema de la base | `6` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

@@ -11,6 +11,7 @@ import '../core/db/base.dart';
 import '../core/registro_eventos.dart';
 import '../features/nube/cola.dart';
 import '../features/nube/credencial.dart';
+import '../features/nube/respaldo_nube.dart';
 import '../features/nube/servicio_nube.dart';
 import '../features/nube/subida.dart';
 import '../core/version.dart';
@@ -262,12 +263,16 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
   /// El cartel dice los números de los DOS lados y cuántos viajes del archivo
   /// faltan acá, que es lo único con lo que alguien puede decidir. «¿Estás
   /// seguro?» no es una pregunta: no dice qué pasa si uno contesta que sí.
-  Future<void> _importar(String ruta) async {
+  ///
+  /// Devuelve lo que dejó escrito, o `null` si se canceló: la tarjeta del
+  /// respaldo en la nube lo repite, porque está arriba de todo y este
+  /// resultado se escribe abajo.
+  Future<String?> _importar(String ruta) async {
     final revision = revisarRespaldo(viva: widget.base, ruta: ruta);
-    if (!mounted) return;
+    if (!mounted) return null;
     if (!revision.sePuede) {
       setState(() => _resultado = revision.problema);
-      return;
+      return revision.problema;
     }
     final trae = revision.candidato!;
     final forma = await showDialog<_FormaDeMeter>(
@@ -328,7 +333,7 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
         );
       },
     );
-    if (forma == null) return;
+    if (forma == null) return null;
 
     try {
       final dir = await getTemporaryDirectory();
@@ -357,8 +362,11 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
                 'principal para verlos.';
       }
       if (mounted) setState(() => _resultado = texto);
+      return texto;
     } catch (e) {
-      if (mounted) setState(() => _resultado = 'No se pudo importar: $e');
+      final texto = 'No se pudo importar: $e';
+      if (mounted) setState(() => _resultado = texto);
+      return texto;
     }
   }
 
@@ -374,29 +382,25 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
       _resultado = null;
     });
     try {
-      widget.base.db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
       final dir = await getTemporaryDirectory();
       final nombre = 'sitd-${_fechaDeArchivo(DateTime.now())}.db';
 
-      // Qué buscar después, leído de la base VIVA y antes de tocar la copia.
-      final secretos = valoresQueNoSalen(widget.base);
-
-      final copia = await File(widget.ruta).copy(p.join(dir.path, nombre));
-
       // SANEAR, que es sacarlo, y COMPROBAR, que es otra cosa. Ver
       // `saneado.dart`: un `DELETE` de SQLite deja el texto en el archivo, así
-      // que lo que vale es lo que digan los bytes.
+      // que lo que vale es lo que digan los bytes. Es el mismo camino que usa
+      // la subida del respaldo a la nube, a propósito.
       //
-      // Las dos son sincrónicas y bloquean la pantalla mientras corren, igual
-      // que el `wal_checkpoint` de arriba. Sobre una base de unos megabytes se
-      // mide en milisegundos; si algún día el respaldo pesa de verdad, esto es
-      // lo primero que hay que mandar a un isolate.
-      final sacadas = sanearCopia(copia.path);
-      final quedo = loQueSeEscapa(copia.path, secretos);
-      if (quedo != null) {
-        // No se comparte nada. Es el único final posible: compartir igual y
-        // avisar sería avisar de algo que ya salió del teléfono.
-        await copia.delete();
+      // Es sincrónico y bloquea la pantalla mientras corre. Sobre una base de
+      // unos megabytes se mide en milisegundos; si algún día el respaldo pesa
+      // de verdad, esto es lo primero que hay que mandar a un isolate.
+      final CopiaSaneada hecha;
+      try {
+        hecha = hacerCopiaSaneada(
+          base: widget.base,
+          ruta: widget.ruta,
+          destino: p.join(dir.path, nombre),
+        );
+      } on SecretoEnLaCopia {
         if (mounted) {
           setState(
             () => _resultado =
@@ -407,6 +411,8 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
         }
         return;
       }
+      final copia = File(hecha.ruta);
+      final sacadas = hecha.sacadas;
 
       final tamano = await copia.length();
 
@@ -464,6 +470,15 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
                 nube: widget.nube!,
                 guarda: widget.guarda!,
                 base: widget.base,
+              ),
+            if (widget.nube != null) const SizedBox(height: 12),
+            if (widget.nube != null)
+              _RespaldoArriba(
+                nube: widget.nube!,
+                guarda: widget.guarda!,
+                base: widget.base,
+                ruta: widget.ruta,
+                meter: _importar,
               ),
             if (widget.nube != null) const SizedBox(height: 12),
           ],
@@ -1034,6 +1049,238 @@ class _RecorridosState extends State<_Recorridos> {
                   subtitle: Text(
                     '${r.puntos} ${r.puntos == 1 ? 'punto' : 'puntos'}',
                   ),
+                  trailing: const Icon(Icons.download_outlined),
+                  onTap: _trabajando ? null : () => _bajar(r),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// El respaldo COMPLETO en la nube (`sitd-34`): la base entera, saneada.
+///
+/// Es la tercera tarjeta de la nube y no se mezcla con las otras dos, por lo
+/// mismo de siempre en esta pantalla: el que la mira tiene que ver de un
+/// vistazo qué sube cada botón. El reporte no lleva coordenadas; el recorrido
+/// lleva las de UN viaje; esto lleva **todo**.
+///
+/// **Bajar no mete nada.** Deja el archivo y lo pasa por [meter], que es el
+/// mismo `_importar` de un respaldo traído de Descargas: el cartel con los
+/// números de los dos lados y la elección entre Sumar y Reemplazar. Un
+/// segundo camino para meter un respaldo sería un segundo lugar donde
+/// equivocarse.
+class _RespaldoArriba extends StatefulWidget {
+  final ServicioNube nube;
+  final GuardaDeCredencial guarda;
+  final Base base;
+  final String ruta;
+  final Future<String?> Function(String ruta) meter;
+
+  const _RespaldoArriba({
+    required this.nube,
+    required this.guarda,
+    required this.base,
+    required this.ruta,
+    required this.meter,
+  });
+
+  @override
+  State<_RespaldoArriba> createState() => _RespaldoArribaState();
+}
+
+class _RespaldoArribaState extends State<_RespaldoArriba> {
+  bool _trabajando = false;
+  String? _resultado;
+
+  /// «Parte 3 de 5», mientras sube o baja. Sin esto, un minuto con la
+  /// ruedita girando parece colgado.
+  String? _avance;
+  List<RespaldoEnLaNube>? _arriba;
+
+  void _avanzar(String verbo, int hechas, int total) {
+    if (mounted) setState(() => _avance = '$verbo: parte $hechas de $total');
+  }
+
+  Future<void> _subir() async {
+    setState(() {
+      _trabajando = true;
+      _resultado = null;
+      _avance = 'Preparando la copia…';
+    });
+    final dir = await getTemporaryDirectory();
+    final r = await widget.nube.subirRespaldoCompleto(
+      base: widget.base,
+      ruta: widget.ruta,
+      carpeta: dir.path,
+      alAvanzar: (h, t) => _avanzar('Subiendo', h, t),
+    );
+    if (!mounted) return;
+    final m = r.manifiesto;
+    setState(() {
+      _trabajando = false;
+      _avance = null;
+      _resultado = m != null
+          ? 'Subió: ${m.resumen} · ${_megas(m.bytesComprimido)} en '
+                '${m.partes} ${m.partes == 1 ? 'parte' : 'partes'}.'
+          : r.resultado.falla;
+    });
+    if (m != null) await _mirar(callado: true);
+  }
+
+  Future<void> _mirar({bool callado = false}) async {
+    final c = widget.guarda.credencial;
+    if (c == null) return;
+    if (!callado) {
+      setState(() {
+        _trabajando = true;
+        _resultado = null;
+      });
+    }
+    final r = await widget.nube.subida.listarRespaldos(
+      credencial: c,
+      sesion: widget.nube.sesion,
+    );
+    if (!mounted) return;
+    setState(() {
+      _arriba = r.lista;
+      _trabajando = false;
+      if (!callado) {
+        _resultado =
+            r.falla ??
+            (r.lista.isEmpty
+                ? 'No hay ningún respaldo completo en la nube todavía.'
+                : null);
+      }
+    });
+  }
+
+  Future<void> _bajar(RespaldoEnLaNube r) async {
+    setState(() {
+      _trabajando = true;
+      _resultado = null;
+      _avance = 'Bajando…';
+    });
+    final dir = await getTemporaryDirectory();
+    final b = await widget.nube.bajarRespaldoCompleto(
+      respaldo: r,
+      carpeta: dir.path,
+      alAvanzar: (h, t) => _avanzar('Bajando', h, t),
+    );
+    if (!mounted) return;
+    setState(() {
+      _trabajando = false;
+      _avance = null;
+      _resultado = b.falla;
+    });
+    if (b.ruta != null) {
+      try {
+        final dicho = await widget.meter(b.ruta!);
+        if (mounted && dicho != null) setState(() => _resultado = dicho);
+      } finally {
+        final f = File(b.ruta!);
+        if (f.existsSync()) f.deleteSync();
+      }
+    }
+  }
+
+  static String _megas(int bytes) =>
+      '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final c = widget.guarda.credencial;
+    final lista = _arriba;
+    final gris = t.textTheme.bodySmall?.copyWith(color: t.colorScheme.outline);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.cloud_sync_outlined, color: t.colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'El respaldo completo en la nube',
+                    style: t.textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Sube la base ENTERA: todos los viajes con su recorrido, las '
+              'cargas, las vibraciones, la bitácora y las pruebas de soporte. '
+              'Es lo que deja levantar todo en otro teléfono: configurás la '
+              'nube allá, tocás «Ver qué hay» y elegís uno.\n\n'
+              'NO sube la contraseña de la nube ni la sesión: se sacan de la '
+              'copia antes, igual que al compartir. No sube solo, y sacarlo '
+              'de la nube se hace desde la consola de Firebase.',
+              style: t.textTheme.bodySmall,
+            ),
+            if (_avance != null) ...[
+              const SizedBox(height: 10),
+              Text(_avance!, style: t.textTheme.bodyMedium),
+            ],
+            if (_resultado != null) ...[
+              const SizedBox(height: 10),
+              Text(_resultado!, style: t.textTheme.bodyMedium),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _trabajando || c == null ? null : () => _mirar(),
+                    icon: const Icon(Icons.cloud_outlined),
+                    label: const Text('Ver qué hay'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _trabajando || c == null ? null : _subir,
+                    icon: _trabajando
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cloud_upload_outlined),
+                    label: const Text('Subir todo'),
+                  ),
+                ),
+              ],
+            ),
+            if (c == null) ...[
+              const SizedBox(height: 8),
+              Text('Falta configurar la nube, acá arriba.', style: gris),
+            ],
+            if (lista != null && lista.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Text(
+                'En la nube — tocá uno para traerlo. Antes de meter nada te '
+                'muestra qué hay de cada lado y te deja elegir entre Sumar y '
+                'Reemplazar:',
+                style: gris,
+              ),
+              for (final r in lista)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(formatearFechaYHora(r.creado)),
+                  subtitle: Text(
+                    '${r.resumen.isEmpty ? 'sin inventario' : r.resumen}\n'
+                    '${_megas(r.bytesComprimido)} · ${r.sello}',
+                  ),
+                  isThreeLine: true,
                   trailing: const Icon(Icons.download_outlined),
                   onTap: _trabajando ? null : () => _bajar(r),
                 ),

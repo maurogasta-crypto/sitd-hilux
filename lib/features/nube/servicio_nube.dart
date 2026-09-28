@@ -1,11 +1,18 @@
+import 'dart:io';
+
 import '../../core/bitacora.dart';
+import '../../core/db/base.dart';
+import '../../core/db/esquema.dart';
 import '../../core/version.dart';
 import '../odometro/registro.dart';
+import '../respaldo/importar.dart';
 import '../respaldo/reporte.dart';
+import '../respaldo/saneado.dart';
 import 'cola.dart';
 import 'credencial.dart';
 import 'recorrido.dart';
 import 'recorte.dart';
+import 'respaldo_nube.dart';
 import 'sesion.dart';
 import 'subida.dart';
 
@@ -254,6 +261,117 @@ class ServicioNube {
       fallaron: fallaron,
       falla: primera,
     );
+  }
+
+  /// Sube la base ENTERA, saneada, a `respaldos/` (`sitd-34`).
+  ///
+  /// Es lo que deja levantar todo en otro teléfono: viajes, puntos, cargas,
+  /// vibraciones, bitácora y pruebas de soporte. Sale por el mismo
+  /// [hacerCopiaSaneada] que el botón de compartir, así que la credencial de
+  /// la nube **no sube**: se saca de la copia y se comprueban los bytes antes
+  /// de mandar nada.
+  ///
+  /// **Tampoco va en la cola automática**, por el mismo motivo que el
+  /// recorrido y con más razón: esto lleva el recorrido de todos los viajes a
+  /// la vez. Sube cuando alguien toca el botón.
+  ///
+  /// [ruta] es el archivo de la base viva y [carpeta] una carpeta de trabajo;
+  /// la copia se borra al terminar, salga como salga. [porParte] existe para
+  /// que el banco pueda probar varias partes con una base chica.
+  Future<({Resultado resultado, RespaldoEnLaNube? manifiesto})>
+  subirRespaldoCompleto({
+    required Base base,
+    required String ruta,
+    required String carpeta,
+    void Function(int hechas, int total)? alAvanzar,
+    int? ahora,
+    int porParte = bytesPorParte,
+  }) async {
+    final c = guarda.credencial;
+    final puede =
+        c != null &&
+        (c.completa || (c.identificaProyecto && (sesion?.hay ?? false)));
+    if (!puede) {
+      return (
+        resultado: const Resultado.mal(
+          'La nube no está configurada.',
+          esCulpaNuestra: true,
+        ),
+        manifiesto: null,
+      );
+    }
+    final creado = ahora ?? DateTime.now().millisecondsSinceEpoch;
+    final destino = '$carpeta/nube-$creado.db';
+    try {
+      final copia = hacerCopiaSaneada(base: base, ruta: ruta, destino: destino);
+      final empaque = empacar(
+        File(copia.ruta).readAsBytesSync(),
+        porParte: porParte,
+      );
+      final manifiesto = RespaldoEnLaNube(
+        id: idDeRespaldo(_quien(c), creado),
+        creado: creado,
+        sello: selloApp,
+        esquema: versionEsquema,
+        bytesOriginal: empaque.bytesOriginal,
+        bytesComprimido: empaque.bytesComprimido,
+        partes: empaque.partes.length,
+        resumen:
+            revisarRespaldo(viva: base, ruta: copia.ruta).candidato?.resumen ??
+            '',
+      );
+      final r = await subida.subirRespaldo(
+        credencial: c,
+        manifiesto: manifiesto,
+        partes: empaque.partes,
+        sesion: sesion,
+        alAvanzar: alAvanzar,
+      );
+      if (!r.ok) {
+        bitacora.anotar(
+          Origen.sistema,
+          'El respaldo completo no subió: ${r.falla}',
+        );
+      }
+      return (resultado: r, manifiesto: r.ok ? manifiesto : null);
+    } on SecretoEnLaCopia catch (e) {
+      return (
+        resultado: Resultado.mal('$e', esCulpaNuestra: true),
+        manifiesto: null,
+      );
+    } on FormatException catch (e) {
+      return (
+        resultado: Resultado.mal(e.message, esCulpaNuestra: true),
+        manifiesto: null,
+      );
+    } finally {
+      final f = File(destino);
+      if (f.existsSync()) f.deleteSync();
+    }
+  }
+
+  /// Baja [respaldo] y lo deja como archivo en [carpeta], listo para entrar
+  /// por el camino de siempre: `revisarRespaldo` y el cartel de Sumar o
+  /// Reemplazar. **Este método no toca la base viva**, a propósito: meter un
+  /// respaldo es una decisión que se toma mirando los números de los dos
+  /// lados, y eso es de la pantalla.
+  Future<({String? ruta, String? falla})> bajarRespaldoCompleto({
+    required RespaldoEnLaNube respaldo,
+    required String carpeta,
+    void Function(int hechas, int total)? alAvanzar,
+  }) async {
+    final c = guarda.credencial;
+    if (c == null) return (ruta: null, falla: 'La nube no está configurada.');
+    final b = await subida.bajarRespaldo(
+      credencial: c,
+      respaldo: respaldo,
+      sesion: sesion,
+      alAvanzar: alAvanzar,
+    );
+    if (b.base == null) return (ruta: null, falla: b.falla);
+    final ruta = '$carpeta/${respaldo.id}.db';
+    File(ruta).writeAsBytesSync(b.base!, flush: true);
+    return (ruta: ruta, falla: null);
   }
 
   /// La ficha de un viaje, que viaja al lado de su recorrido.

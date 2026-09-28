@@ -134,3 +134,52 @@ bool _contiene(Uint8List heno, List<int> aguja) {
   }
   return false;
 }
+
+/// Una copia de la base ya saneada y comprobada.
+class CopiaSaneada {
+  final String ruta;
+
+  /// Las claves que se sacaron, para poder decirlo en pantalla.
+  final List<String> sacadas;
+
+  const CopiaSaneada(this.ruta, this.sacadas);
+}
+
+/// El saneado no pudo sacar un secreto de la copia. La copia ya se borró.
+class SecretoEnLaCopia implements Exception {
+  const SecretoEnLaCopia();
+
+  @override
+  String toString() =>
+      'El saneado no pudo sacar una credencial de la copia. Es una falla del '
+      'programa: no se compartió ni se subió nada.';
+}
+
+/// Cierra el WAL de [base], copia el archivo [ruta] a [destino], la sanea y
+/// **comprueba los bytes**.
+///
+/// Es el camino ÚNICO para que la base salga del teléfono, desde `sitd-34`:
+/// lo usan el botón de compartir y la subida del respaldo completo a la nube.
+/// Hasta esa tanda vivía adentro de la pantalla, y la subida iba a tener que
+/// copiarlo — dos copias del paso que ya costó una contraseña rotada es
+/// exactamente cómo una de las dos se queda sin el `VACUUM` algún día.
+///
+/// Si algo se escapa, borra la copia y lanza [SecretoEnLaCopia]: no hay otro
+/// final posible. Avisar y seguir sería avisar de algo que ya salió.
+CopiaSaneada hacerCopiaSaneada({
+  required Base base,
+  required String ruta,
+  required String destino,
+}) {
+  // Sin esto, lo último escrito vive en `-wal` y la copia sale sin lo de hoy.
+  base.db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
+  // Qué buscar después, leído de la base VIVA y antes de tocar la copia.
+  final secretos = valoresQueNoSalen(base);
+  File(ruta).copySync(destino);
+  final sacadas = sanearCopia(destino);
+  if (loQueSeEscapa(destino, secretos) != null) {
+    File(destino).deleteSync();
+    throw const SecretoEnLaCopia();
+  }
+  return CopiaSaneada(destino, sacadas);
+}
