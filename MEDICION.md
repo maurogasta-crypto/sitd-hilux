@@ -379,7 +379,8 @@ uno en el soporte y el otro al lado, y en la vuelta cambiarlos de lugar.
 
 Un viaje de 6 km con **tres teléfonos a la vez**, los tres apoyados sobre la
 luneta delantera, sin soporte y en las mismas condiciones: el Redmi Note 9, el
-Redmi 15 (49,88 Hz, su firma de siempre) y un tercero que entrega **63,1 Hz**.
+Redmi 15 (49,88 Hz, su firma de siempre) y un **Redmi 13C**, que entrega
+**63,1 Hz**.
 Las ventanas se compararon de a pares, emparejando cada una con la del otro
 teléfono más cercana en el tiempo (a menos de 3 s).
 
@@ -403,7 +404,7 @@ vez el Note 9 no se recortó: 50,32–50,34 Hz de punta a punta.
 de estos dos teléfonos sirve para el otro, y sumar respaldos de los dos no la
 ensucia. Sigue valiendo para las ventanas recortadas, que no se comparan.
 
-**El de 63 Hz es otra cosa.** Su forma correlaciona 0,85–0,86 con los otros
+**El Redmi 13C, a 63 Hz, es otra cosa.** Su forma correlaciona 0,85–0,86 con los otros
 dos y sus bandas salen un 20–30 % más bajas con el mismo RMS: con un techo de
 31,5 Hz, parte de la vibración cae entre 25 y 31,5 Hz, fuera de las bandas.
 **Su línea base no se mezcla con la de los otros dos.** Lo que tiene a favor
@@ -412,15 +413,15 @@ adentro, y es el único de los tres que lo podría ver.
 
 **El GPS, en el mismo viaje:**
 
-| | Note 9 | Redmi 15 | el de 63 Hz |
+| | Note 9 | Redmi 15 | Redmi 13C |
 |---|---|---|---|
 | Puntos usados / descartados | 944 / 9 | 949 / 0 | 896 / 38 |
 | Huecos de más de 3 s | 2 (máx. 8 s) | ninguno | 6 (máx. 12 s) |
-| Error típico de la velocidad | 0,8 m/s | 0,09 m/s | — |
+| Error típico de la velocidad | 0,8 m/s | 0,09 m/s | 0,9 m/s |
 | Distancia Doppler / haversine | 6,00 / 6,11 km | 6,09 / 6,13 km | 5,91 / 5,98 km |
 
 Los tres fijaron a los 2 s **en modo Normal**. El Redmi 15 es el único sin
-pérdidas y el de las dos distancias más parecidas (0,7 %); el de 63 Hz
+pérdidas y el de las dos distancias más parecidas (0,7 %); el 13C
 descartó por precisión de velocidad mala y tuvo los huecos más largos. El
 tablero marca kilómetros enteros y no sirve para decidir entre 5,9 y 6,1.
 

@@ -625,7 +625,7 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   ±18 %, forma correlacionada 0,98—: aquello era del camino o del soporte
   (`MEDICION.md`, «Tres teléfonos en el mismo viaje»). Sumar respaldos de los
   dos no ensucia la línea base. **Un teléfono que muestree a otra frecuencia
-  sí**: el de 63 Hz de esa prueba reparte distinto, y no se mezcla.
+  sí**: el Redmi 13C de esa prueba, a 63 Hz, reparte distinto y no se mezcla.
 
 - **Sólo se avisa hacia arriba.** Que una banda vibre MENOS que antes no es una
   falla mecánica: es un camino mejor, otra carga, o una rueda que se limpió
@@ -711,7 +711,7 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   `FlutterError.reportError`, que **no pasa por el stream**: por eso la
   cascada, que sí anota los errores del stream, no anotó nada. **Verificado el
   2026-10-10**, en tres teléfonos a la vez —el Note 9, el Redmi 15 y un
-  tercero—: la bitácora de los tres dice «PRIMERA entrega del receptor, en
+  Redmi 13C—: la bitácora de los tres dice «PRIMERA entrega del receptor, en
   modo Normal», a los 2 s de empezar.
 
   Tres cambios, y los tres hacían falta: el permiso en el manifiesto; que los
