@@ -372,6 +372,62 @@ su funda, su sensor) o las calles; con viajes distintos no se separa. **El
 experimento que lo separa es uno solo:** los dos teléfonos en el MISMO viaje,
 uno en el soporte y el otro al lado, y en la vuelta cambiarlos de lugar.
 
+**Ese experimento se hizo el 10-oct, y dio vuelta la conclusión de arriba**
+(ver la sección siguiente).
+
+## Tres teléfonos en el mismo viaje (2026-10-10)
+
+Un viaje de 6 km con **tres teléfonos a la vez**, los tres apoyados sobre la
+luneta delantera, sin soporte y en las mismas condiciones: el Redmi Note 9, el
+Redmi 15 (49,88 Hz, su firma de siempre) y un tercero que entrega **63,1 Hz**.
+Las ventanas se compararon de a pares, emparejando cada una con la del otro
+teléfono más cercana en el tiempo (a menos de 3 s).
+
+**El Note 9 y el Redmi 15 miden lo mismo.** 48 pares de ventanas:
+
+| banda (Hz) | 0,5–2 | 2–4 | 4–6 | 6–8 | 8–10 | 10–13 | 13–17 | 17–25 | RMS |
+|---|---|---|---|---|---|---|---|---|---|
+| Note 9 ÷ Redmi 15, 0–10 km/h | 1,06 | 0,95 | 0,99 | 1,18 | 1,12 | 1,04 | 1,07 | 1,00 | 1,00 |
+| ídem 10–20 km/h | 1,02 | 1,03 | 1,00 | 1,01 | 1,08 | 1,12 | 0,97 | 0,97 | 1,01 |
+| ídem 20–30 km/h | 1,05 | 0,98 | 1,09 | 1,00 | 1,17 | 1,10 | 1,01 | 1,03 | 1,04 |
+| ídem 30–40 km/h | 0,98 | 0,96 | 1,00 | 0,95 | 1,13 | 0,93 | 0,99 | 0,95 | 1,00 |
+
+Todo dentro de ±18 %, sin una sola banda que se repita alta o baja en todas
+las cubetas, y la forma del espectro ventana a ventana correlaciona **0,98**
+(el nivel, 0,95). **Lo del 28-sep no era del teléfono**: el ×1,70 de 17–25 Hz,
+el ×0,74 de 10–13 Hz y el RMS más alto del Note 9 eran del camino o de cómo
+estaba puesto cada uno, que con viajes distintos no se podía separar. Y esta
+vez el Note 9 no se recortó: 50,32–50,34 Hz de punta a punta.
+
+**La consecuencia práctica cambia:** a 50 Hz, una línea base aprendida en uno
+de estos dos teléfonos sirve para el otro, y sumar respaldos de los dos no la
+ensucia. Sigue valiendo para las ventanas recortadas, que no se comparan.
+
+**El de 63 Hz es otra cosa.** Su forma correlaciona 0,85–0,86 con los otros
+dos y sus bandas salen un 20–30 % más bajas con el mismo RMS: con un techo de
+31,5 Hz, parte de la vibración cae entre 25 y 31,5 Hz, fuera de las bandas.
+**Su línea base no se mezcla con la de los otros dos.** Lo que tiene a favor
+es justamente ese techo: el encendido del motor a ralentí (26,7 Hz) le queda
+adentro, y es el único de los tres que lo podría ver.
+
+**El GPS, en el mismo viaje:**
+
+| | Note 9 | Redmi 15 | el de 63 Hz |
+|---|---|---|---|
+| Puntos usados / descartados | 944 / 9 | 949 / 0 | 896 / 38 |
+| Huecos de más de 3 s | 2 (máx. 8 s) | ninguno | 6 (máx. 12 s) |
+| Error típico de la velocidad | 0,8 m/s | 0,09 m/s | — |
+| Distancia Doppler / haversine | 6,00 / 6,11 km | 6,09 / 6,13 km | 5,91 / 5,98 km |
+
+Los tres fijaron a los 2 s **en modo Normal**. El Redmi 15 es el único sin
+pérdidas y el de las dos distancias más parecidas (0,7 %); el de 63 Hz
+descartó por precisión de velocidad mala y tuvo los huecos más largos. El
+tablero marca kilómetros enteros y no sirve para decidir entre 5,9 y 6,1.
+
+**Lo que no anduvo en ninguno:** el contador de satélites quedó en «sin
+arrancar», cero a la vista, en los tres. La posición llegó igual — es el
+diagnóstico, no la medición —, pero hay que mirar por qué.
+
 ---
 
 ## Lo que este panel NO contesta

@@ -618,11 +618,14 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   Y una cosa que se probó y NO pasa, para que nadie la vuelva a suponer: con
   la historia mitad y mitad, una falla verdadera no queda escondida.
 
-- **Una línea base es de UN teléfono**, y hoy un viaje no guarda en cuál se
-  midió. Los dos Redmi, en el mismo soporte, reparten la vibración parecido
-  pero no igual: el Note 9 ve sistemáticamente más entre 17 y 25 Hz y menos
-  entre 10 y 13 (`MEDICION.md`, 28-sep). Sumar respaldos de dos teléfonos
-  mezcla sus líneas base.
+- **Una línea base es de UN teléfono… salvo entre los dos Redmi**, y hoy un
+  viaje no guarda en cuál se midió. El 28-sep parecía que el Note 9 veía más
+  entre 17 y 25 Hz y menos entre 10 y 13; **el 10-oct los dos midieron el
+  MISMO viaje, uno al lado del otro, y dieron lo mismo** —cada banda dentro de
+  ±18 %, forma correlacionada 0,98—: aquello era del camino o del soporte
+  (`MEDICION.md`, «Tres teléfonos en el mismo viaje»). Sumar respaldos de los
+  dos no ensucia la línea base. **Un teléfono que muestree a otra frecuencia
+  sí**: el de 63 Hz de esa prueba reparte distinto, y no se mezcla.
 
 - **Sólo se avisa hacia arriba.** Que una banda vibre MENOS que antes no es una
   falla mecánica: es un camino mejor, otra carga, o una rueda que se limpió
@@ -706,9 +709,10 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   exige el permiso `WAKE_LOCK`, y ni el complemento ni la aplicación lo
   declaraban. La excepción se ataja adentro del canal y Flutter la reporta con
   `FlutterError.reportError`, que **no pasa por el stream**: por eso la
-  cascada, que sí anota los errores del stream, no anotó nada. **No está
-  verificado en el teléfono**; se comprueba con un viaje, y la bitácora tiene
-  que decir «PRIMERA entrega del receptor, en modo Normal».
+  cascada, que sí anota los errores del stream, no anotó nada. **Verificado el
+  2026-10-10**, en tres teléfonos a la vez —el Note 9, el Redmi 15 y un
+  tercero—: la bitácora de los tres dice «PRIMERA entrega del receptor, en
+  modo Normal», a los 2 s de empezar.
 
   Tres cambios, y los tres hacían falta: el permiso en el manifiesto; que los
   errores del sistema lleguen a la bitácora (`escucharErroresDelSistema` en
