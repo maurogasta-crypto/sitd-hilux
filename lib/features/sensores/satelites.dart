@@ -160,7 +160,59 @@ class Satelites {
     return arrancar();
   }
 
-  Future<EstadoSatelites> leer() async {
+  /// Lo último que se leyó, para quien no puede esperar una lectura nueva —
+  /// el reporte que arma la cola de subida es sincrónico—.
+  ///
+  /// **Es la mitad del arreglo de `sitd-36`.** Hasta ahí el reporte que sube
+  /// solo no recibía la cuenta de satélites, y decía «sin arrancar» en todos
+  /// los teléfonos: el viaje de tres teléfonos del 2026-10-10 lo dejó a la
+  /// vista en los tres a la vez.
+  EstadoSatelites get ultimo => _ultimo;
+  EstadoSatelites _ultimo = const EstadoSatelites();
+
+  String? _faseAnotada;
+  int _resumenEn = 0;
+
+  /// Cada cuánto se deja un resumen en la bitácora aunque la fase no cambie.
+  /// Un viaje de cinco horas son treinta líneas, no las trescientas del
+  /// anillo entero.
+  static const resumenCada = Duration(minutes: 10);
+
+  /// La lectura de fondo, la que corre durante un viaje sin que nadie mire
+  /// la pantalla. **Es la otra mitad del arreglo de `sitd-36`:** hasta ahí
+  /// sólo leía la pantalla de sensores, así que manejando —que es cuando
+  /// importa— la bitácora no tenía un solo número del cielo.
+  ///
+  /// No usa `anotarSiCambio` con el número entero, porque cuántos satélites
+  /// se ven cambia todo el tiempo y llenaría la bitácora. Anota cuando
+  /// cambia la FASE —no engancha, no ve ninguno, ve y no usa, fija— y un
+  /// resumen cada [resumenCada].
+  Future<EstadoSatelites> sondear({int? ahora}) async {
+    final e = await leer(anotar: false);
+    final t = ahora ?? DateTime.now().millisecondsSinceEpoch;
+    final fase = faseDe(e);
+    if (fase != _faseAnotada || t - _resumenEn >= resumenCada.inMilliseconds) {
+      _faseAnotada = fase;
+      _resumenEn = t;
+      bitacora.anotar(
+        Origen.satelites,
+        '$fase · ve ${e.vistos}, usa ${e.usados}, mejor señal '
+        '${e.mejorCn0.toStringAsFixed(0)} dB-Hz · ${e.evento}',
+      );
+    }
+    return e;
+  }
+
+  /// La fase, en palabras: lo que separa un estado de otro para la bitácora.
+  static String faseDe(EstadoSatelites e) {
+    if (!e.disponible) return 'Sin cuenta de satélites';
+    if (!e.enganchado) return 'Sin enganchar';
+    if (e.vistos == 0) return 'No ve satélites';
+    if (e.usados == 0) return 'Ve satélites y no usa ninguno';
+    return 'Fijando';
+  }
+
+  Future<EstadoSatelites> leer({bool anotar = true}) async {
     if (!_arrancado) return const EstadoSatelites();
     try {
       final m = await canal.invokeMapMethod<String, dynamic>('leer');
@@ -176,13 +228,16 @@ class Satelites {
         msDelUltimo: m['msDelUltimo'] as int? ?? -1,
         huboPrimerFijado: m['huboPrimerFijado'] as bool? ?? false,
       );
+      _ultimo = e;
       // Sin `anotarSiCambio` la bitácora se llena: el motor cuenta satélites
       // varias veces por segundo y casi siempre dice lo mismo.
-      bitacora.anotarSiCambio(
-        Origen.satelites,
-        'Ve ${e.vistos}, usa ${e.usados}, mejor señal '
-        '${e.mejorCn0.toStringAsFixed(0)} dB-Hz · ${e.evento}',
-      );
+      if (anotar) {
+        bitacora.anotarSiCambio(
+          Origen.satelites,
+          'Ve ${e.vistos}, usa ${e.usados}, mejor señal '
+          '${e.mejorCn0.toStringAsFixed(0)} dB-Hz · ${e.evento}',
+        );
+      }
       return e;
     } on MissingPluginException {
       return const EstadoSatelites(falla: 'el canal no está en esta versión');

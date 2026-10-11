@@ -427,7 +427,9 @@ tablero marca kilómetros enteros y no sirve para decidir entre 5,9 y 6,1.
 
 **Lo que no anduvo en ninguno:** el contador de satélites quedó en «sin
 arrancar», cero a la vista, en los tres. La posición llegó igual — es el
-diagnóstico, no la medición —, pero hay que mirar por qué.
+diagnóstico, no la medición —. **No era el receptor**: el reporte que sube
+solo no recibía la cuenta, y durante el viaje nadie la leía. Arreglado en
+`sitd-36`; ver `CLAUDE.md`, «La escucha del motor GNSS es UNA».
 
 ---
 

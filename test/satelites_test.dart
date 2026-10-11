@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sitd_hilux/core/bitacora.dart';
 import 'package:sitd_hilux/features/sensores/satelites.dart';
 
 void main() {
@@ -166,5 +167,85 @@ void main() {
     const e = EstadoSatelites(disponible: true, vistos: 3, falla: 'texto feo');
     expect(e.aMapa().containsKey('falla'), isFalse);
     expect(e.aMapa()['vistos'], 3);
+  });
+
+  group('la lectura de fondo (sitd-36): manejando nadie abre la pantalla', () {
+    List<String> lineas() => [
+      for (final m in bitacora.aMapa())
+        if (m['origen'] == 'satélites') m['texto'] as String,
+    ];
+
+    test(
+      'el reporte que sube solo recibe la última lectura, no «sin arrancar»',
+      () async {
+        responder(
+          (c) => c.method == 'arrancar'
+              ? true
+              : respuesta(vistos: 24, usados: 14, mejor: 41),
+        );
+        final s = Satelites(canal: canal);
+        expect(s.ultimo.evento, 'sin arrancar');
+        await s.arrancar();
+        await s.sondear(ahora: 0);
+        expect(s.ultimo.disponible, isTrue);
+        expect(s.ultimo.vistos, 24);
+        expect(s.ultimo.aMapa()['evento'], isNot('sin arrancar'));
+      },
+    );
+
+    test('anota la FASE cuando cambia, y no cada número', () async {
+      bitacora.limpiar();
+      var vistos = 0, usados = 0;
+      responder(
+        (c) => c.method == 'arrancar'
+            ? true
+            : respuesta(vistos: vistos, usados: usados, mejor: 30),
+      );
+      final s = Satelites(canal: canal);
+      await s.arrancar();
+      final antes = lineas().length;
+
+      await s.sondear(ahora: 0); // no ve ninguno
+      vistos = 12;
+      await s.sondear(ahora: 30000); // ve y no usa
+      usados = 8;
+      await s.sondear(ahora: 60000); // fijando
+      // Los números cambian todo el tiempo; la fase no.
+      for (var i = 0; i < 18; i++) {
+        vistos = 12 + i % 5;
+        usados = 8 + i % 3;
+        await s.sondear(ahora: 90000 + i * 30000);
+      }
+      final nuevas = lineas().skip(antes).toList();
+      expect(nuevas, hasLength(3));
+      expect(nuevas[0], startsWith('No ve satélites'));
+      expect(nuevas[1], startsWith('Ve satélites y no usa'));
+      expect(nuevas[2], startsWith('Fijando'));
+    });
+
+    test('y un resumen cada diez minutos aunque la fase no cambie', () async {
+      bitacora.limpiar();
+      responder(
+        (c) => c.method == 'arrancar'
+            ? true
+            : respuesta(vistos: 20, usados: 10, mejor: 40),
+      );
+      final s = Satelites(canal: canal);
+      await s.arrancar();
+      final antes = lineas().length;
+      // Una hora, una lectura cada 30 s: 120 lecturas.
+      for (var i = 0; i < 120; i++) {
+        await s.sondear(ahora: i * 30000);
+      }
+      // La primera, y una cada diez minutos: 6 en una hora.
+      expect(lineas().length - antes, 6);
+    });
+
+    test('sin canal no lanza, y la fase lo dice', () async {
+      final s = Satelites(canal: const MethodChannel('prueba/no-existe'));
+      await s.arrancar();
+      final e = await s.sondear(ahora: 0);
+      expect(Satelites.faseDe(e), 'Sin cuenta de satélites');
+    });
   });
 }

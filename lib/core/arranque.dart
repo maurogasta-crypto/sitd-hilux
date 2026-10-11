@@ -108,6 +108,14 @@ class Arranque {
       final satelites = Satelites();
       // No se espera: si el canal tarda o no está, la aplicación abre igual.
       unawaited(satelites.arrancar());
+      // Y se lee de fondo, cada medio minuto, mientras la aplicación viva
+      // (`sitd-36`). Hasta ahí sólo leía la pantalla de sensores, y manejando
+      // nadie la abre: el reporte y la bitácora quedaban en «sin arrancar».
+      // Es una llamada al canal cada 30 s: no se nota ni en un Helio G85.
+      Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => unawaited(satelites.sondear()),
+      );
       final registro = RegistroDeViajes(base);
       final cargas = RegistroDeCargas(base);
       final vibraciones = RegistroDeVibracion(base);
@@ -164,6 +172,9 @@ class Arranque {
           sello: selloApp,
           ahora: DateTime.now().millisecondsSinceEpoch,
           eventos: eventos,
+          // Lo último que leyó la escucha de fondo. Sin esto el reporte que
+          // sube solo decía «sin arrancar» en todos los teléfonos (`sitd-36`).
+          satelites: satelites.ultimo,
           // ESE viaje, no el último. Sin esto, con tres encolados los tres
           // documentos llevarían los datos del más nuevo.
           soloElViaje: viaje,

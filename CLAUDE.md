@@ -1248,6 +1248,18 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   la vista y `enganchado: false`. La arma `Arranque` y ninguna pantalla la
   apaga.
 
+  **Y engancharla no alcanza: alguien la tiene que LEER** (`sitd-36`). El
+  viaje de tres teléfonos del 2026-10-10 subió con «sin arrancar», cero a la
+  vista, en los tres. El receptor no tenía nada: eran dos cables sueltos. El
+  reporte que arma la cola de subida no recibía la cuenta, y durante el viaje
+  la leía sólo la pantalla de sensores — que manejando nadie abre. Ahora
+  `Arranque` la lee de fondo cada 30 s (`sondear`), el reporte usa la última
+  lectura (`ultimo`), y la bitácora anota la FASE —no ve, ve y no usa,
+  fija— cuando cambia y un resumen cada diez minutos: el número exacto cambia
+  todo el tiempo y llenaría el anillo. Es la regla de `sitd-13` otra vez: **un
+  dato de diagnóstico que depende de qué pantalla abrió alguien no está en el
+  reporte.**
+
 - **«No hay avisos» quería decir dos cosas opuestas, y ahora se distinguen.**
   Con la pantalla de vibración en silencio no había forma de saber si la
   camioneta está bien o si todavía no se anduvo lo suficiente a esa velocidad
