@@ -1,6 +1,14 @@
 package uy.gasta.sitd_hilux
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.media.AudioFormat
+import android.media.AudioManager
+import android.media.AudioRecord
+import android.media.MediaRecorder
+import android.os.BatteryManager
 import android.location.GnssStatus
 import android.location.LocationManager
 import android.os.Handler
@@ -8,6 +16,7 @@ import android.os.Looper
 import android.os.SystemClock
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 /**
@@ -66,6 +75,129 @@ class MainActivity : FlutterActivity() {
                 "leer" -> respuesta.success(leer())
                 else -> respuesta.notImplemented()
             }
+        }
+        // `sitd-37`: el micrófono (etapa E), lo que suena, y el cargador.
+        EventChannel(engine.dartExecutor.binaryMessenger, "uy.gasta.sitd_hilux/audio")
+            .setStreamHandler(Microfono())
+        MethodChannel(engine.dartExecutor.binaryMessenger, "uy.gasta.sitd_hilux/audio_estado")
+            .setMethodCallHandler { llamada, respuesta ->
+                if (llamada.method == "ocupado") respuesta.success(ocupado()) else respuesta.notImplemented()
+            }
+        EventChannel(engine.dartExecutor.binaryMessenger, "uy.gasta.sitd_hilux/carga")
+            .setStreamHandler(Cargador())
+    }
+
+    /**
+     * Si hay música sonando o una llamada. Sin permisos: `isMusicActive` y el
+     * modo del audio los da el sistema a cualquiera. Si algo falla se contesta
+     * «ocupado», que del lado de Dart quiere decir no escuchar.
+     */
+    private fun ocupado(): Map<String, Boolean> = try {
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        mapOf(
+            "musica" to am.isMusicActive,
+            "llamada" to (am.mode == AudioManager.MODE_IN_CALL ||
+                am.mode == AudioManager.MODE_IN_COMMUNICATION || am.mode == AudioManager.MODE_RINGTONE),
+        )
+    } catch (e: Exception) {
+        mapOf("musica" to true, "llamada" to true)
+    }
+
+    /**
+     * El micrófono, en trozos de un segundo de PCM de 16 bits (`sitd-37`).
+     *
+     * Lee en un hilo propio y manda cada trozo a Dart por el hilo principal,
+     * que es el único por el que Flutter acepta eventos. **Nada se guarda
+     * acá**: el trozo se manda y se suelta, y del lado de Dart se resume en
+     * números (`regimen.dart`). Si falta el permiso o el micrófono está
+     * tomado, se avisa con un error y el viaje sigue sin audio.
+     */
+    private inner class Microfono : EventChannel.StreamHandler {
+        @Volatile private var corriendo = false
+        private var hilo: Thread? = null
+
+        override fun onListen(argumentos: Any?, sumidero: EventChannel.EventSink?) {
+            if (sumidero == null || corriendo) return
+            val hz = ((argumentos as? Map<*, *>)?.get("hz") as? Int) ?: 8000
+            val principal = Handler(Looper.getMainLooper())
+            corriendo = true
+            hilo = Thread {
+                var grabador: AudioRecord? = null
+                try {
+                    val minimo = AudioRecord.getMinBufferSize(hz, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+                    // VOICE_RECOGNITION trae el procesado mínimo (sin el
+                    // supresor de ruido de una llamada, que se comería el motor).
+                    grabador = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, hz,
+                        AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(minimo, hz * 2))
+                    if (grabador.state != AudioRecord.STATE_INITIALIZED) throw IllegalStateException("el micrófono no se pudo abrir")
+                    grabador.startRecording()
+                    val trozo = ShortArray(hz)
+                    while (corriendo) {
+                        var leidas = 0
+                        while (corriendo && leidas < trozo.size) {
+                            val n = grabador.read(trozo, leidas, trozo.size - leidas)
+                            if (n < 0) throw IllegalStateException("el micrófono devolvió $n")
+                            leidas += n
+                        }
+                        if (!corriendo) break
+                        val bytes = ByteArray(trozo.size * 2)
+                        for (i in trozo.indices) {
+                            bytes[2 * i] = (trozo[i].toInt() and 0xff).toByte()
+                            bytes[2 * i + 1] = ((trozo[i].toInt() shr 8) and 0xff).toByte()
+                        }
+                        principal.post { if (corriendo) sumidero.success(bytes) }
+                    }
+                } catch (e: SecurityException) {
+                    principal.post { sumidero.error("permiso", "falta el permiso del micrófono", null) }
+                } catch (e: Exception) {
+                    principal.post { sumidero.error("microfono", e.message ?: e.javaClass.simpleName, null) }
+                } finally {
+                    try { grabador?.stop() } catch (e: Exception) { }
+                    grabador?.release()
+                }
+            }.apply { isDaemon = true; start() }
+        }
+
+        override fun onCancel(argumentos: Any?) {
+            corriendo = false
+            hilo = null
+        }
+    }
+
+    /**
+     * El cargador (`sitd-37`): el primer aviso dice cómo estaba («inicial»), y
+     * después llega uno por cada vez que se enchufa o se desenchufa. Con el
+     * cargador del encendedor de la camioneta, eso es el contacto puesto.
+     */
+    private inner class Cargador : EventChannel.StreamHandler {
+        private var receptor: BroadcastReceiver? = null
+
+        override fun onListen(argumentos: Any?, sumidero: EventChannel.EventSink?) {
+            if (sumidero == null) return
+            try {
+                val estado = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                val enchufado = (estado?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
+                sumidero.success(mapOf("conectado" to enchufado, "inicial" to true))
+                val r = object : BroadcastReceiver() {
+                    override fun onReceive(c: Context?, i: Intent?) {
+                        val conectado = i?.action == Intent.ACTION_POWER_CONNECTED
+                        sumidero.success(mapOf("conectado" to conectado, "inicial" to false))
+                    }
+                }
+                val filtro = IntentFilter().apply {
+                    addAction(Intent.ACTION_POWER_CONNECTED)
+                    addAction(Intent.ACTION_POWER_DISCONNECTED)
+                }
+                registerReceiver(r, filtro)
+                receptor = r
+            } catch (e: Exception) {
+                sumidero.error("cargador", e.message ?: e.javaClass.simpleName, null)
+            }
+        }
+
+        override fun onCancel(argumentos: Any?) {
+            try { receptor?.let { unregisterReceiver(it) } } catch (e: Exception) { }
+            receptor = null
         }
     }
 

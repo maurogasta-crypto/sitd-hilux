@@ -5,6 +5,7 @@ import '../../core/db/esquema.dart';
 import '../combustible/registro_cargas.dart';
 import '../odometro/registro.dart';
 import '../sensores/satelites.dart';
+import '../audio/registro_audio.dart';
 import '../vibracion/analisis.dart';
 import '../vibracion/cobertura.dart';
 import '../vibracion/espectro.dart';
@@ -142,6 +143,10 @@ Map<String, dynamic> armarReporte({
   required RegistroDeCargas cargas,
   required RegistroDeVibracion vibraciones,
   required Alcance alcance,
+
+  /// `sitd-37`: lo que escuchó el micrófono. Opcional para no obligar a cada
+  /// llamada vieja; sin él el reporte sale como antes.
+  RegistroDeAudio? audios,
   required String sello,
   required int ahora,
   int cuantosViajes = 20,
@@ -225,6 +230,10 @@ Map<String, dynamic> armarReporte({
                   'precisionVel': m.precisionVel,
                 },
             ],
+          // `sitd-37`: el motor por el micrófono. Números, ni una muestra de
+          // sonido. Lo diezma el recorte igual que la vibración.
+          if (audios != null)
+            'motor': [for (final w in audios.deViaje(v.id)) w.aMapa()],
           'vibraciones': [
             for (final w in porViaje[v.id] ?? const [])
               {

@@ -3,7 +3,11 @@ import 'dart:async';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../features/audio/fuente_audio.dart';
+import '../features/audio/registro_audio.dart';
+import '../features/audio/servicio_audio.dart';
 import '../features/combustible/registro_cargas.dart';
+import '../features/motor/cargador.dart';
 import '../features/odometro/cascada.dart';
 import '../features/odometro/modo_recordado.dart';
 import '../features/odometro/pantalla_despierta.dart';
@@ -45,6 +49,12 @@ class Arranque {
   final ServicioOdometria? servicio;
   final ServicioVibracion? vibracion;
 
+  /// `sitd-37`, etapa E: el micrófono, y el cargador que dice si el motor
+  /// está encendido.
+  final RegistroDeAudio? audios;
+  final ServicioAudio? audio;
+  final Stream<AvisoCarga>? cargador;
+
   /// La cascada de modos del GPS, para que la pantalla muestre cuál quedó
   /// puesto y cómo quedó el permiso de notificaciones.
   final FuenteEnCascada? gps;
@@ -78,6 +88,9 @@ class Arranque {
     this.despierta,
     this.servicio,
     this.vibracion,
+    this.audios,
+    this.audio,
+    this.cargador,
     this.gps,
     this.eventos,
     this.satelites,
@@ -119,6 +132,7 @@ class Arranque {
       final registro = RegistroDeViajes(base);
       final cargas = RegistroDeCargas(base);
       final vibraciones = RegistroDeVibracion(base);
+      final audios = RegistroDeAudio(base);
       final cola = ColaDeSubida(base);
       // El modo que entregó la última vez va primero: sin esto, en un teléfono
       // donde `normal` no anda, cada viaje empieza perdiendo noventa segundos
@@ -166,6 +180,7 @@ class Arranque {
           viajes: registro,
           cargas: cargas,
           vibraciones: vibraciones,
+          audios: audios,
           // Clavado, no elegible. Ver `alcanceQueSeSube`: lo que sale del
           // teléfono es el reporte SIN coordenadas y nada más.
           alcance: alcanceQueSeSube,
@@ -180,6 +195,7 @@ class Arranque {
           soloElViaje: viaje,
         ),
       );
+      final microfono = MicrofonoDelTelefono();
       // Al abrir se intenta lo que quedó esperando. No se espera el resultado:
       // si no hay señal, la aplicación abre igual y se reintenta después.
       unawaited(nube.subirPendientes());
@@ -206,6 +222,15 @@ class Arranque {
           fuente: Acelerometro(),
           velocidadKmh: () => servicio.estado.value.velocidadKmh,
         ),
+        audios: audios,
+        // Lo mismo para el micrófono: la velocidad sale de la odometría.
+        audio: ServicioAudio(
+          registro: audios,
+          abrir: microfono.trozos,
+          ocupado: microfono.ocupado,
+          velocidadKmh: () => servicio.estado.value.velocidadKmh,
+        ),
+        cargador: CargadorDelTelefono().avisos(),
       );
     } catch (e) {
       bitacora.anotar(Origen.sistema, 'La base NO abrió: $e');

@@ -78,7 +78,13 @@ import 'saneado.dart';
 /// No se las reconoce de a una: si el viaje entra, entran enteras; si el viaje
 /// ya estaba, no entra ninguna. Por eso no tienen llave natural — su identidad
 /// es la del viaje al que pertenecen.
-const List<String> tablasAtadasAlViaje = ['puntos', 'vibraciones', 'subidas'];
+const List<String> tablasAtadasAlViaje = [
+  'puntos',
+  'vibraciones',
+  'subidas',
+  // `sitd-37`: lo que escuchó el micrófono es de su viaje, como la vibración.
+  'audio',
+];
 
 /// Las que viven por su cuenta: una carga de combustible y un evento del
 /// sistema no pertenecen a ningún viaje. Se reconocen de a una, por su llave

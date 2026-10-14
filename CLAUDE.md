@@ -780,6 +780,52 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   inventado ensucia el factor de neumáticos y el consumo. Entra cuando haya
   línea base medida, no antes.
 
+  **Desde `sitd-37` (14-oct-2026) también lo abre el MOTOR, por el cargador**
+  (Mauro: «vamos con el detector de auto encendido»). El cargador del
+  encendedor da corriente sólo con el contacto puesto, y ésa es justamente la
+  señal que faltaba para distinguir la ruta del taller. Las reglas viven en
+  `DetectorMotor` y el banco las recorre: **sólo un CAMBIO abre** (abrir la
+  aplicación con el teléfono ya cargando no inventa un viaje), **sólo cierra lo
+  que abrió** (un viaje empezado a mano no lo toca el cargador) y **cerrar
+  espera tres minutos sin carga** (un motor que se apaga en un semáforo no
+  corta nada). Empezar por el motor no pide el odómetro, así que esos viajes no
+  calibran: está bien. **Anda con la aplicación abierta**: Android no deja
+  arrancar el servicio de ubicación desde atrás. Se apaga con el interruptor
+  «Empezar y terminar con el motor» de la pantalla del viaje.
+
+  **Y por qué no se lee el alternador por el cargador**, para que nadie lo
+  vuelva a intentar: su ondulación anda entre 1.000 y 4.000 Hz, Android da la
+  tensión y la corriente de carga unas pocas veces por segundo, y el cargador
+  de 12 a 5 V existe justamente para borrar esa ondulación. Las RPM salen del
+  micrófono (abajo) o, más preciso, del jack (`hilux:E1`).
+
+- **Las RPM salen del MICRÓFONO, y del sonido se guardan sólo números**
+  (`sitd-37`, etapa E). Un diésel de cuatro cilindros explota dos veces por
+  vuelta: el encendido suena a `RPM / 30` Hz (25 a ralentí, 133 a 4.000), y a
+  8.000 muestras por segundo eso se ve de sobra. `regimen.dart` elige la
+  fundamental con el producto de cuatro armónicos —un zumbido suelto no tiene
+  sus armónicos alineados y no gana— y afina entre casilleros. **El banco lo
+  encontró equivocándose de octava** a 1.800 RPM (leía 3.600): el armónico 4
+  caía entre dos casilleros; ahora cada armónico se busca en un entorno que
+  crece con su número. **Las RPM valen con 10 dB de prominencia**, medido:
+  ruido puro da hasta 5,3, un motor con tanto ruido como señal da 20.
+
+  La compuerta (`compuerta.dart`) es la de siempre: sin llamada, sin música,
+  a más de 30 km/h y estable (±5), con nivel y sin saturar. Se procesa **un
+  segundo de cada cinco**: 720 ventanas por hora, y entra en el reporte (el
+  recorte las diezma junto con la vibración). En la base van a `audio`
+  (esquema 7): RPM, prominencia, nivel, la frecuencia y ocho bandas por
+  octava. **Ni una muestra de sonido**: el trozo entra a la memoria, se resume
+  y se suelta, y el banco comprueba las columnas de la tabla.
+
+  **Lo que falta, dicho**: el «sobre histórico por cubeta» de la compuerta
+  (hace falta historia antes); y escuchar con la pantalla APAGADA, que desde
+  Android 14 exige un servicio en primer plano de tipo micrófono y el del GPS
+  es de tipo ubicación — hoy el motor se escucha con la aplicación a la
+  vista. El código nativo nuevo (`Microfono`, `Cargador` y `ocupado` en
+  `MainActivity.kt`) sigue la regla de siempre: si falla, el lado de Dart lo
+  trata como «no disponible» y el viaje mide igual.
+
 - **No se pide `ACCESS_BACKGROUND_LOCATION`.** Con un servicio en primer plano
   de tipo `location`, arrancado con la aplicación a la vista, no hace falta — y
   pedirlo abre el diálogo de «Permitir todo el tiempo», que es el más invasivo
@@ -1467,7 +1513,7 @@ el teléfono.
 | **B** | Servicio en primer plano y odometría GPS en vivo | **entregado** (`sitd-2`) |
 | **C** | Combustible: cargas, consumo derivado, calibración de `k` | **entregado** (`sitd-4`) |
 | **D** | Acelerómetro: línea base por cubeta, anomalías | **entregado** (`sitd-5`) |
-| **E** | Micrófono: FFT, compuerta de audio, escenarios | pendiente |
+| **E** | Micrófono: FFT, compuerta de audio, escenarios | **entregado en parte** (`sitd-37`): RPM y compuerta; falta el sobre histórico y escuchar con la pantalla apagada |
 | **—** | Panel de sensores: qué ve el teléfono y en qué estado | **entregado** (`sitd-6`) |
 | **—** | Sacar los datos: reporte para desarrollo y respaldo completo | **entregado** (`sitd-7`) |
 | **G** | La nube: cada viaje sube solo, y el chat lo lee | **entregado** (`sitd-17`) |

@@ -42,6 +42,19 @@
          `lib/features/permisos/avisos.dart`. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- `sitd-37`, etapa E: el micrófono, para las RPM del motor. Se pide en
+         tiempo de ejecución al empezar un viaje; si se niega, se mide igual
+         sin audio. Nada del sonido se guarda: un segundo entra a la memoria,
+         se resume en números (RPM, nivel, ocho bandas) y se suelta.
+
+         Lo que NO se pide: FOREGROUND_SERVICE_MICROPHONE. El servicio en
+         primer plano es el del GPS (tipo «location»), y desde Android 14 el
+         micrófono con la pantalla apagada exige uno de tipo «microphone». Por
+         eso, por ahora, el motor se escucha con la aplicación a la vista —la
+         pantalla del viaje puede quedar encendida—, y está dicho en la
+         pantalla. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
     <!-- Desde `sitd-17` la aplicación sube el reporte de cada viaje a una base
          remota. Es el ÚNICO motivo por el que pide red, y lo que sube es el
          reporte para desarrollo: el que no lleva una sola coordenada. Desde

@@ -1,3 +1,5 @@
+import '../features/audio/registro_audio.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -99,6 +101,8 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
         viajes: widget.viajes,
         cargas: widget.cargas,
         vibraciones: widget.vibraciones,
+        // `sitd-37`: lo que escuchó el micrófono, también en el reporte a mano.
+        audios: RegistroDeAudio(widget.base),
         alcance: alcance,
         sello: selloApp,
         ahora: DateTime.now().millisecondsSinceEpoch,

@@ -167,6 +167,16 @@ Map<String, dynamic> _conVibracionDiezmada(Map<String, dynamic> r, int n) {
             for (var i = 0; i < ventanas.length; i++)
               if (i % n == 0) ventanas[i],
           ];
+    // `sitd-37`: las ventanas del motor se diezman igual, si las hay.
+    final motor = copia['motor'] as List?;
+    if (motor != null) {
+      copia['motor'] = n == 0
+          ? const []
+          : [
+              for (var i = 0; i < motor.length; i++)
+                if (i % n == 0) motor[i],
+            ];
+    }
     viajes.add(copia);
   }
   return Map<String, dynamic>.from(r)..['viajes'] = viajes;

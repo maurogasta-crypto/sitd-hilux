@@ -513,6 +513,21 @@ cuando esté a mano.
 nada:** cada muestra se guardó apenas llegó, y al volver a abrir el viaje se
 retoma con sus kilómetros. Está probado en el banco (`servicio_test.dart`).
 
+## El motor: las RPM y el viaje que empieza solo (`sitd-37`)
+
+**Las RPM por el micrófono.** Al empezar un viaje, la aplicación pide el
+permiso del micrófono. Con la camioneta a más de 30 km/h estables, sin música
+ni llamada, escucha un segundo de cada cinco y saca las RPM del sonido del
+encendido. Se ven en el viaje («Motor») y quedan en la base y en el reporte.
+Del sonido no se guarda nada, sólo números. **Hoy escucha con la aplicación a
+la vista**: con la pantalla apagada, Android no se lo deja.
+
+**El viaje con el motor.** Con el interruptor «Empezar y terminar con el
+motor» encendido —viene encendido— y la aplicación abierta, cuando el cargador
+del encendedor empieza a cargar, empieza el viaje; tres minutos sin carga, lo
+cierra. Sólo cierra los viajes que abrió él, y abrir la aplicación con el
+teléfono ya cargando no inventa un viaje. Esos viajes no piden el odómetro.
+
 ## Mapa de archivos
 
 ```
@@ -614,8 +629,8 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-36` | `lib/core/version.dart` |
-| Esquema de la base | `6` | `lib/core/db/esquema.dart` |
+| Aplicación | `sitd-37` | `lib/core/version.dart` |
+| Esquema de la base | `7` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
 **manda el archivo**: esta tabla se copia a mano y se desactualiza en silencio.

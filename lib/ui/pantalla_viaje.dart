@@ -1,8 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
+import '../core/bitacora.dart';
+import '../features/audio/servicio_audio.dart';
 import '../features/combustible/registro_cargas.dart';
+import '../features/motor/cargador.dart';
+import '../features/motor/detector_motor.dart';
+import '../features/motor/preferencia_motor.dart';
 import '../features/odometro/fuente.dart';
 import '../features/odometro/registro.dart';
 import '../core/db/base.dart';
@@ -61,6 +67,11 @@ class PantallaViaje extends StatefulWidget {
   final Base base;
   final String ruta;
 
+  /// `sitd-37`: el micrófono (etapa E) y el viaje que empieza y termina con el
+  /// motor. Opcionales: el banco arma la pantalla sin ellos.
+  final ServicioAudio? audio;
+  final Stream<AvisoCarga>? cargador;
+
   const PantallaViaje({
     super.key,
     required this.servicio,
@@ -78,6 +89,8 @@ class PantallaViaje extends StatefulWidget {
     this.guarda,
     required this.base,
     required this.ruta,
+    this.audio,
+    this.cargador,
   });
 
   @override
@@ -94,14 +107,119 @@ class _PantallaViajeState extends State<PantallaViaje> {
   void initState() {
     super.initState();
     _tic = Timer.periodic(const Duration(seconds: 1), (_) {
+      _latirMotor();
       if (mounted) setState(() {});
     });
+    _avisosCarga = widget.cargador?.listen(
+      _alCambiarLaCarga,
+      onError: (Object e) =>
+          bitacora.anotar(Origen.sistema, 'El cargador no avisa: $e'),
+    );
   }
 
   @override
   void dispose() {
     _tic?.cancel();
+    _avisosCarga?.cancel();
     super.dispose();
+  }
+
+  // ── El viaje con el motor (`sitd-37`) ─────────────────────────────────────
+  //
+  // Las reglas están en `DetectorMotor` y el banco las recorre; acá sólo se
+  // hace lo que dice. Empezar por el motor NO pide el odómetro: el que maneja
+  // está arrancando, no tecleando. Terminar tampoco.
+  final DetectorMotor _motor = DetectorMotor();
+  StreamSubscription<AvisoCarga>? _avisosCarga;
+  late final PreferenciaMotor _prefMotor = PreferenciaMotor(widget.base);
+
+  void _alCambiarLaCarga(AvisoCarga a) {
+    final accion = _motor.alCambiar(
+      conectado: a.conectado,
+      inicial: a.inicial,
+      hayViaje: widget.servicio.estado.value.midiendo,
+      t: DateTime.now().millisecondsSinceEpoch,
+    );
+    if (!a.inicial) {
+      bitacora.anotar(
+        Origen.sistema,
+        a.conectado
+            ? 'El cargador empezó a cargar (¿motor encendido?).'
+            : 'El cargador dejó de cargar (¿motor apagado?).',
+      );
+    }
+    if (accion == AccionMotor.empezar && _prefMotor.activa) {
+      unawaited(_empezarPorElMotor());
+    }
+  }
+
+  void _latirMotor() {
+    final accion = _motor.alLatir(
+      hayViaje: widget.servicio.estado.value.midiendo,
+      t: DateTime.now().millisecondsSinceEpoch,
+    );
+    if (accion == AccionMotor.terminar) unawaited(_terminarPorElMotor());
+  }
+
+  Future<void> _empezarPorElMotor() async {
+    bitacora.anotar(Origen.viaje, 'Viaje empezado por el motor (el cargador).');
+    final ok = await widget.servicio.arrancar();
+    if (!ok) {
+      bitacora.anotar(
+        Origen.viaje,
+        'El motor arrancó pero el viaje no: ${widget.servicio.estado.value.problema ?? 'sin motivo'}.',
+      );
+      return;
+    }
+    _motor.abiertoPorElMotor = true;
+    final viaje = widget.servicio.estado.value.viaje;
+    if (viaje != null) {
+      widget.vibracion.arrancar(viaje);
+      await _arrancarAudio(viaje, pedir: false);
+    }
+    await widget.despierta.segun(midiendo: true);
+    if (mounted) _contar('Arrancó el motor: empezó el viaje.');
+  }
+
+  Future<void> _terminarPorElMotor() async {
+    bitacora.anotar(
+      Origen.viaje,
+      'Viaje terminado por el motor (3 min sin carga).',
+    );
+    _motor.abiertoPorElMotor = false;
+    await widget.audio?.detener();
+    await widget.vibracion.detener();
+    await widget.servicio.terminar();
+    await widget.despierta.segun(midiendo: false);
+    if (mounted) {
+      _contar(
+        'Motor apagado hace 3 minutos: el viaje se cerró y quedó guardado.',
+      );
+    }
+  }
+
+  /// El micrófono va pegado al viaje, como el acelerómetro. Pide el permiso
+  /// sólo cuando lo toca una persona ([pedir]); si arrancó el motor solo, usa
+  /// el que ya haya y si no hay, sigue sin audio.
+  Future<void> _arrancarAudio(int viaje, {required bool pedir}) async {
+    final audio = widget.audio;
+    if (audio == null) return;
+    try {
+      var permiso = await Permission.microphone.status;
+      if (pedir && permiso.isDenied) {
+        permiso = await Permission.microphone.request();
+      }
+      if (!permiso.isGranted) {
+        bitacora.anotar(
+          Origen.sistema,
+          'Sin permiso del micrófono: se mide sin audio.',
+        );
+        return;
+      }
+      audio.arrancar(viaje);
+    } catch (e) {
+      bitacora.anotar(Origen.sistema, 'El micrófono no arrancó: $e');
+    }
   }
 
   Future<void> _empezar() async {
@@ -134,11 +252,15 @@ class _PantallaViajeState extends State<PantallaViaje> {
     // El acelerómetro va pegado al viaje: sin viaje no hay a qué colgarle una
     // ventana, y sin velocidad no hay cubeta con la cual compararla.
     final viaje = widget.servicio.estado.value.viaje;
-    if (viaje != null) widget.vibracion.arrancar(viaje);
+    if (viaje != null) {
+      widget.vibracion.arrancar(viaje);
+      await _arrancarAudio(viaje, pedir: true);
+    }
     await widget.despierta.segun(midiendo: true);
   }
 
   Future<void> _pausar() async {
+    await widget.audio?.detener();
     await widget.vibracion.detener();
     await widget.servicio.pausar();
     await widget.despierta.segun(midiendo: false);
@@ -244,6 +366,13 @@ class _PantallaViajeState extends State<PantallaViaje> {
       Navigator.of(context)
           .push(MaterialPageRoute<void>(builder: (_) => pantalla));
 
+  /// Un aviso corto de algo que pasó solo (`sitd-37`: el motor).
+  void _contar(String texto) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(texto), duration: const Duration(seconds: 6)),
+    );
+  }
+
   void _avisar(Disponibilidad problema) {
     final detalle = problema.detalle;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -305,6 +434,8 @@ class _PantallaViajeState extends State<PantallaViaje> {
       );
     }
 
+    _motor.abiertoPorElMotor = false;
+    await widget.audio?.detener();
     await widget.vibracion.detener();
     await widget.servicio.terminar(odoTablero: odo);
     await widget.despierta.segun(midiendo: false);
@@ -452,8 +583,23 @@ class _PantallaViajeState extends State<PantallaViaje> {
                 _Cascada(gps: widget.gps!),
                 const SizedBox(height: 12),
               ],
-              _Detalle(estado: e, vibracion: widget.vibracion),
+              _Detalle(
+                estado: e,
+                vibracion: widget.vibracion,
+                audio: widget.audio,
+              ),
               const SizedBox(height: 12),
+              if (widget.cargador != null) ...[
+                _ConElMotor(
+                  preferencia: _prefMotor,
+                  cargando: _motor.cargando,
+                  segundosParaCerrar: _motor.segundosParaCerrar(
+                    DateTime.now().millisecondsSinceEpoch,
+                  ),
+                  alCambiar: () => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+              ],
               _Despierta(
                 despierta: widget.despierta,
                 midiendo: e.midiendo,
@@ -649,8 +795,9 @@ class _Aviso extends StatelessWidget {
 class _Detalle extends StatelessWidget {
   final EstadoViaje estado;
   final ServicioVibracion vibracion;
+  final ServicioAudio? audio;
 
-  const _Detalle({required this.estado, required this.vibracion});
+  const _Detalle({required this.estado, required this.vibracion, this.audio});
 
   @override
   Widget build(BuildContext context) {
@@ -679,6 +826,10 @@ class _Detalle extends StatelessWidget {
             // juntando algo: a velocidad de ciudad no junta nada a propósito,
             // y eso de afuera se ve igual que un sensor que no anda.
             _Dato(titulo: 'Vibración', valor: '${vibracion.guardadas}'),
+            // `sitd-37`: las RPM que escuchó el micrófono, si son recientes;
+            // si no, por qué no está escuchando.
+            if (audio != null)
+              _Dato(titulo: 'Motor', valor: _textoMotor(audio!)),
             _Dato(
               titulo: 'Haversine',
               valor: formatearKm(o.metrosHaversine / 1000),
@@ -688,6 +839,61 @@ class _Detalle extends StatelessWidget {
               valor: '${(o.discrepancia * 100).toStringAsFixed(1)} %',
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+String _textoMotor(ServicioAudio a) {
+  final t = a.ultimaRpmT;
+  if (a.ultimaRpm != null &&
+      t != null &&
+      DateTime.now().millisecondsSinceEpoch - t < 15000) {
+    return '${a.ultimaRpm!.round()} RPM';
+  }
+  return a.resumen;
+}
+
+/// El interruptor del viaje con el motor (`sitd-37`), con lo que está pasando
+/// dicho al lado: si el cargador carga y, si se va a cerrar, en cuánto.
+class _ConElMotor extends StatelessWidget {
+  final PreferenciaMotor preferencia;
+  final bool? cargando;
+  final int? segundosParaCerrar;
+  final VoidCallback alCambiar;
+
+  const _ConElMotor({
+    required this.preferencia,
+    required this.cargando,
+    required this.segundosParaCerrar,
+    required this.alCambiar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final estado = cargando == null
+        ? 'Todavía no se sabe si el cargador carga.'
+        : cargando!
+        ? 'El cargador está cargando.'
+        : 'El cargador no carga.';
+    final cierre = segundosParaCerrar == null
+        ? ''
+        : ' El viaje se cierra en ${segundosParaCerrar! ~/ 60}:${(segundosParaCerrar! % 60).toString().padLeft(2, '0')} si no vuelve.';
+    return Card(
+      child: SwitchListTile(
+        value: preferencia.activa,
+        onChanged: (v) {
+          preferencia.activa = v;
+          alCambiar();
+        },
+        title: const Text('Empezar y terminar con el motor'),
+        subtitle: Text(
+          'Con el cargador del encendedor: cuando empieza a cargar, empieza el '
+          'viaje; tres minutos sin carga, lo cierra. Sólo con la aplicación '
+          'abierta, y sólo cierra los viajes que abrió el motor. $estado$cierre',
+          style: t.textTheme.bodySmall,
         ),
       ),
     );

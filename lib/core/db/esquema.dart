@@ -13,7 +13,7 @@
 library;
 
 /// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
-const int versionEsquema = 6;
+const int versionEsquema = 7;
 
 /// Cada elemento son las sentencias que llevan el esquema de la versión
 /// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
@@ -226,6 +226,33 @@ const List<List<String>> migraciones = [
     )
     ''',
     'CREATE INDEX idx_pruebas_sensor_t ON pruebas_sensor (t DESC)',
+  ],
+  // 6 → 7 (`sitd-37`, etapa E): lo que escuchó el micrófono, por ventana.
+  //
+  // **Ni una muestra de audio**: un segundo de micrófono entra a la memoria,
+  // se resume y se tira. Lo que queda son las RPM que se le estimaron, cuánto
+  // confiar en ellas, el nivel y ocho bandas por octava. Con eso no se
+  // reconstruye una palabra, y es la condición con la que el micrófono entró
+  // a este proyecto.
+  [
+    '''
+    CREATE TABLE audio (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      viaje       INTEGER NOT NULL REFERENCES viajes (id) ON DELETE CASCADE,
+      t           INTEGER NOT NULL,
+      kmh         REAL    NOT NULL,
+      -- Las RPM, o NULL si la fundamental no sobresalía del ruido.
+      rpm         REAL,
+      -- Cuántos dB sobresalía. Con menos de 10 no hay RPM.
+      prominencia REAL    NOT NULL,
+      nivel       REAL    NOT NULL,
+      -- La frecuencia a la que se pidió el micrófono, como `hz` de la
+      -- vibración: sin ella las bandas no tienen unidades.
+      hz          INTEGER NOT NULL,
+      bandas      TEXT    NOT NULL
+    )
+    ''',
+    'CREATE INDEX idx_audio_viaje_t ON audio (viaje, t)',
   ],
 ];
 

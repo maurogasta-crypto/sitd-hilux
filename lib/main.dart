@@ -111,6 +111,8 @@ class AppSitd extends StatelessWidget {
               vibraciones: vibraciones,
               vibracion: vibracion,
               despierta: despierta,
+              audio: arranque.audio,
+              cargador: arranque.cargador,
               gps: arranque.gps,
               eventos: arranque.eventos,
               satelites: arranque.satelites,
