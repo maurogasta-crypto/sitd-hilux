@@ -16,6 +16,11 @@ import 'package:sitd_hilux/features/odometro/registro.dart';
 /// cuatro cilindros: la fundamental del encendido en RPM/30 Hz y sus
 /// armónicos, cada vez más débiles, con ruido de ruta encima. Si el estimador
 /// no saca las RPM de ESTO, no las va a sacar de la camioneta.
+///
+/// **Y eso no alcanzaba** (`sitd-38`): ese motor sintético no tenía la
+/// vuelta del cigüeñal (los órdenes ½, 1½, 2½) ni el retumbo de la ruta, y la
+/// camioneta sí. Con él todo daba verde y en el viaje 19 las RPM salieron a
+/// la mitad. `diesel` los tiene, y reproduce el error de antes.
 List<int> motorSintetico(
   double rpm, {
   double ruido = 0.05,
@@ -35,7 +40,127 @@ List<int> motorSintetico(
   });
 }
 
+/// Un diésel como suena en la cabina (`sitd-38`): el encendido y sus
+/// armónicos, la vuelta del cigüeñal (órdenes ½, 1½ y 2½ del encendido), y
+/// el retumbo de la ruta, un ruido que crece hacia los graves. Con esto el
+/// estimador de `sitd-37` leía la MITAD: 851 para 1.700, 1.155 para 2.300 —
+/// lo mismo que la camioneta a 110 km/h.
+List<int> diesel(
+  double rpm, {
+  int semilla = 1,
+  double ciguenal = 1,
+  double retumbo = 0.6,
+  double volumen = 0.15,
+}) {
+  final f = rpm / 30;
+  final azar = math.Random(semilla);
+  var marron = 0.0;
+  return List<int>.generate(hzAudio, (i) {
+    final t = i / hzAudio;
+    var x = 0.0;
+    for (var h = 1; h <= 8; h++) {
+      x += math.sin(2 * math.pi * h * f * t + h) / (h * h);
+    }
+    for (final h in [0.5, 1.5, 2.5]) {
+      x +=
+          ciguenal *
+          math.sin(2 * math.pi * h * f * t + 3 * h) /
+          (h * h * 2 + 0.5);
+    }
+    marron = 0.995 * marron + (azar.nextDouble() * 2 - 1) * 0.05;
+    x = volumen * x + retumbo * marron + 0.05 * (azar.nextDouble() * 2 - 1);
+    return (x * 16384).round().clamp(-32768, 32767);
+  });
+}
+
+/// Ruido de ruta solo, sin motor.
+List<int> retumbo(int semilla) {
+  final azar = math.Random(semilla);
+  var m = 0.0;
+  return List<int>.generate(hzAudio, (_) {
+    m = 0.995 * m + (azar.nextDouble() * 2 - 1) * 0.05;
+    return ((0.6 * m + 0.05 * (azar.nextDouble() * 2 - 1)) * 16000).round();
+  });
+}
+
 void main() {
+  group('las RPM con la velocidad del GPS (sitd-38)', () {
+    test('las marchas: rpm por km/h de la R150F con diferencial 3,583', () {
+      // Los números que cerraron 215 de 251 lecturas del viaje 19, a mano.
+      final esperado = [95.8, 51.6, 35.9, 25.0, 21.0];
+      for (var g = 1; g <= 5; g++) {
+        expect(rpmPorKmh(g), closeTo(esperado[g - 1], 0.1), reason: '$g.ª');
+      }
+    });
+
+    for (final (marcha, kmh) in [
+      (5, 110.0),
+      (5, 52.0),
+      (4, 60.0),
+      (3, 50.0),
+      (2, 40.0),
+      (4, 100.0),
+    ]) {
+      final rpm = kmh * rpmPorKmh(marcha);
+      for (final semilla in [1, 2, 3]) {
+        test(
+          '$marcha.ª a ${kmh.round()} km/h (${rpm.round()} RPM), semilla $semilla',
+          () {
+            final l = leerMotor(diesel(rpm, semilla: semilla), kmh: kmh);
+            expect(l.marcha, marcha, reason: 'por marcha ${l.porMarcha}');
+            expect(
+              (l.rpm! - rpm).abs() / rpm,
+              lessThan(0.02),
+              reason: 'leyó ${l.rpm}',
+            );
+          },
+        );
+      }
+    }
+
+    test('el error de octava del viaje 19 ya no pasa, ni sin velocidad', () {
+      for (final rpm in [2300.0, 2900.0]) {
+        for (final semilla in [1, 2, 3]) {
+          final l = leerMotor(diesel(rpm, semilla: semilla));
+          expect(l.rpm, isNotNull);
+          expect(
+            (l.rpm! - rpm).abs() / rpm,
+            lessThan(0.02),
+            reason: 'leyó ${l.rpm}',
+          );
+        }
+      }
+    });
+
+    test('ruido de ruta solo: ninguna marcha, ni RPM libres', () {
+      for (var s = 0; s < 10; s++) {
+        final l = leerMotor(retumbo(s), kmh: 80);
+        expect(l.rpm, isNull, reason: 'por marcha ${l.porMarcha}');
+        expect(l.marcha, isNull);
+      }
+    });
+
+    test('con el embrague apretado (motor a ralentí andando a 80) no inventa marcha', () {
+      final l = leerMotor(diesel(780), kmh: 80);
+      expect(l.marcha, isNull, reason: 'por marcha ${l.porMarcha}');
+    });
+
+    test('no prueba marchas imposibles, y deja picos para el diagnóstico', () {
+      final l = leerMotor(diesel(2300), kmh: 110);
+      // A 110, 1.ª y 2.ª pedirían más de 4.300 RPM.
+      expect(l.porMarcha[0], isNull);
+      expect(l.porMarcha[1], isNull);
+      expect(l.picos.length, 12);
+      // El pico más saliente es el encendido o su doble.
+      final f = l.picos.first;
+      expect(
+        [76.7, 153.3].any((x) => (f - x).abs() < 2),
+        isTrue,
+        reason: '${l.picos}',
+      );
+    });
+  });
+
   group('las RPM por el micrófono', () {
     for (final rpm in [750.0, 1200.0, 1800.0, 2600.0, 3800.0]) {
       test('un motor a ${rpm.round()} RPM se lee dentro del 2 %', () {
@@ -297,7 +422,28 @@ void main() {
         'nivel',
         'hz',
         'bandas',
+        // sitd-38: cinco números y doce números. Tampoco es sonido.
+        'marcha',
+        'marchas',
+        'picos',
       });
+    });
+
+    test('la marcha y el diagnóstico van y vuelven de la base (sitd-38)', () {
+      final v = RegistroDeViajes(base).abrir(inicio: 1000);
+      final l = leerMotor(diesel(2300), kmh: 110);
+      final r = RegistroDeAudio(base)
+        ..guardar(v, VentanaAudio.de(l, t: 2000, kmh: 110));
+      final w = r.deViaje(v).single;
+      expect(w.marcha, 5);
+      expect(w.porMarcha.length, 5);
+      expect(w.porMarcha[0], isNull);
+      expect(w.porMarcha[4], closeTo(l.porMarcha[4]!, 0.05));
+      expect(w.picos, l.picos);
+      expect(w.picos.length, lessThanOrEqualTo(12));
+      final m = w.aMapa();
+      expect(m['marcha'], 5);
+      expect((m['marchas'] as List).first, isNull);
     });
   });
 }

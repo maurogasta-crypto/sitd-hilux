@@ -814,7 +814,7 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   a más de 30 km/h y estable (±5), con nivel y sin saturar. Se procesa **un
   segundo de cada cinco**: 720 ventanas por hora, y entra en el reporte (el
   recorte las diezma junto con la vibración). En la base van a `audio`
-  (esquema 7): RPM, prominencia, nivel, la frecuencia y ocho bandas por
+  (esquema 7; desde `sitd-38`, 8): RPM, prominencia, nivel, la frecuencia y ocho bandas por
   octava. **Ni una muestra de sonido**: el trozo entra a la memoria, se resume
   y se suelta, y el banco comprueba las columnas de la tabla.
 
@@ -825,6 +825,45 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   vista. El código nativo nuevo (`Microfono`, `Cargador` y `ocupado` en
   `MainActivity.kt`) sigue la regla de siempre: si falla, el lado de Dart lo
   trata como «no disponible» y el viaje mide igual.
+
+- **Las RPM se buscan EN LAS MARCHAS, con la velocidad del GPS** (`sitd-38`,
+  14-oct-2026). Mauro: «hay incoherencia con las revoluciones… habría que
+  buscar otra forma… cruzarla con la velocidad del GPS». El viaje 19 (469
+  ventanas) dio RPM que no cerraban con el tacómetro, y cruzadas con la
+  velocidad lo dijeron solas: **215 de 251 eran la MITAD exacta del régimen
+  de una marcha**, y 94 más estaban clavadas en el piso de la búsqueda (615).
+  Dos causas: la **vuelta del cigüeñal** (`RPM / 60`) suena, y el producto de
+  armónicos de la frecuencia mitad le ganaba a la verdadera —el error de
+  octava—; y el **retumbo de la ruta** crece hacia los graves y hacía ganar al
+  borde de abajo.
+
+  Lo que cambió: el espectro se **blanquea** (cada casillero dividido por la
+  mediana de ±8 Hz), y con velocidad se prueban **sólo las cinco marchas**:
+  cada una predice a qué frecuencia suena el motor (`rpmPorKmh`, ±5 %) y gana
+  la que suena, con 6 dB y 3 de ventaja sobre la segunda. **La 2.ª y la 4.ª
+  suenan a una octava** (2,062 veces): empatadas, gana la de arriba, por el
+  mismo motivo. Sin marcha que suene (embrague, punto muerto) se busca libre,
+  con la corrección de octava, y la pantalla lo muestra con «~».
+
+  **Y de esa cuenta salió la caja**: R150F (3,830 · 2,062 · 1,436 · 1 ·
+  0,838) con diferencial **3,583** cierra 215 lecturas; con 3,909, 17. Es la
+  mejor hipótesis y no un hecho hasta que Mauro confirme UN punto contra el
+  tacómetro. Si no cierra, cambia `relacionesCaja` o `relacionDiferencial`.
+
+  **La lección, otra vez la de `hasSpeed`**: el banco daba verde porque el
+  motor sintético no tenía la vuelta del cigüeñal ni el retumbo. `diesel` del
+  banco los tiene, y con él el estimador viejo lee 851 para 1.700 y 1.155
+  para 2.300 — lo mismo que la camioneta a 110 km/h. **Un dato sintético que
+  no reproduce el error real no prueba el arreglo.** Por eso el esquema 8
+  guarda además, por ventana, la `marcha`, cuánto sonó cada una (`marchas`) y
+  los seis picos más salientes (`picos`): la próxima duda se contesta con los
+  datos. Siguen siendo números — diecisiete por ventana.
+
+  **Lo que no se hizo, a propósito: usar la vibración para las RPM.** El
+  acelerómetro, a 50 Hz, no ve el encendido sino plegado (`MEDICION.md`), y
+  la velocidad del GPS ya acota el régimen a cinco valores. Si los picos de
+  los próximos viajes muestran que hace falta, el lugar es comparar el
+  pliegue que predice la marcha elegida contra las bandas de vibración.
 
 - **No se pide `ACCESS_BACKGROUND_LOCATION`.** Con un servicio en primer plano
   de tipo `location`, arrancado con la aplicación a la vista, no hace falta — y
@@ -1513,7 +1552,7 @@ el teléfono.
 | **B** | Servicio en primer plano y odometría GPS en vivo | **entregado** (`sitd-2`) |
 | **C** | Combustible: cargas, consumo derivado, calibración de `k` | **entregado** (`sitd-4`) |
 | **D** | Acelerómetro: línea base por cubeta, anomalías | **entregado** (`sitd-5`) |
-| **E** | Micrófono: FFT, compuerta de audio, escenarios | **entregado en parte** (`sitd-37`): RPM y compuerta; falta el sobre histórico y escuchar con la pantalla apagada |
+| **E** | Micrófono: FFT, compuerta de audio, escenarios | **entregado en parte** (`sitd-37`, RPM por marcha en `sitd-38`): RPM y compuerta; falta el sobre histórico y escuchar con la pantalla apagada |
 | **—** | Panel de sensores: qué ve el teléfono y en qué estado | **entregado** (`sitd-6`) |
 | **—** | Sacar los datos: reporte para desarrollo y respaldo completo | **entregado** (`sitd-7`) |
 | **G** | La nube: cada viaje sube solo, y el chat lo lee | **entregado** (`sitd-17`) |

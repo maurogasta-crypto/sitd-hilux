@@ -850,7 +850,12 @@ String _textoMotor(ServicioAudio a) {
   if (a.ultimaRpm != null &&
       t != null &&
       DateTime.now().millisecondsSinceEpoch - t < 15000) {
-    return '${a.ultimaRpm!.round()} RPM';
+    final m = a.ultimaMarcha;
+    // Sin marcha, las RPM salieron de la búsqueda libre: se muestran con «~»
+    // porque son las que tienen el error de octava (`sitd-38`).
+    return m == null
+        ? '~${a.ultimaRpm!.round()} RPM'
+        : '${a.ultimaRpm!.round()} RPM · $m.ª';
   }
   return a.resumen;
 }

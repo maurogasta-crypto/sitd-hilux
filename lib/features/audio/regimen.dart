@@ -9,6 +9,33 @@
 /// muestras por segundo eso se ve de sobra, que es lo que el acelerómetro, a
 /// 50 Hz, no podía: ahí el motor se colaba plegado (ver `MEDICION.md`).
 ///
+/// ## Lo que salió mal en `sitd-37`, y por qué ahora se mira el GPS
+///
+/// El primer viaje con el micrófono (viaje 19, 14-oct-2026, 469 ventanas)
+/// dio RPM que no cerraban con el tacómetro. Cruzadas contra la velocidad
+/// del GPS lo dijeron solas: **215 de las 251 lecturas con señal eran la
+/// MITAD exacta del régimen de una marcha** (4.ª: 122, 5.ª: 65, 3.ª: 37), y
+/// otras 94 estaban clavadas en el piso de la búsqueda, 615 RPM. Dos errores:
+///
+///  1. **El error de octava.** Un diésel no suena sólo a la frecuencia de
+///     encendido: el cigüeñal da una vuelta cada DOS explosiones, y esa
+///     vuelta se oye (`RPM / 60`). El producto de armónicos de una
+///     frecuencia mitad suma f/2, f, 3f/2 y 2f, y con los armónicos altos
+///     más débiles le ganaba a la verdadera. El banco no lo vio porque el
+///     motor sintético no tenía esa componente; ahora la tiene (`diesel`).
+///  2. **El retumbo de la ruta.** Abajo de 40 Hz el ruido de rodadura y de
+///     viento crece, y sin corregirlo cualquier candidato del borde de abajo
+///     ganaba por puro volumen. Ahora el espectro se **blanquea**: cada
+///     casillero se divide por la mediana de su entorno, y lo que cuenta es
+///     cuánto sobresale un pico de lo que lo rodea, no cuán fuerte es.
+///
+/// Y de esa misma cuenta salió la caja: con R150F y diferencial 3,583 cierran
+/// 215 lecturas; con 3,909, 17. **Con la velocidad del GPS ya no se busca en
+/// todo el rango**: se prueban las cinco marchas, cada una dice a qué
+/// frecuencia tendría que sonar el motor a esa velocidad, y gana la que
+/// suena. Si ninguna suena (embrague apretado, punto muerto, cambiando), se
+/// busca libre y la lectura sale sin marcha.
+///
 /// **Qué se guarda: los números, nunca el sonido.** Esto recibe un segundo de
 /// muestras en memoria y devuelve las RPM, cuánto confiar en ellas, el nivel y
 /// ocho bandas gruesas. Con ocho bandas no se reconstruye una palabra.
@@ -17,6 +44,7 @@ library;
 import 'dart:math' as math;
 
 import '../vibracion/espectro.dart';
+import '../vibracion/rueda.dart';
 
 /// Muestras por segundo que se le piden al micrófono. 8.000 alcanza y sobra:
 /// el armónico 8 del encendido a 4.000 RPM son 1.067 Hz, y Nyquist queda en
@@ -60,10 +88,59 @@ const List<double> bordesAudioHz = [
 /// Cuántas bandas hay. A mano por el mismo motivo que `cantidadDeBandas`.
 const int bandasDeAudio = 8;
 
+/// Las cinco marchas de la caja (R150F), de 1.ª a 5.ª.
+///
+/// **Deducidas de los datos, no de un catálogo** (viaje 19): son las que
+/// hacen cerrar las RPM leídas contra la velocidad del GPS, junto con
+/// `relacionDiferencial`. Mientras Mauro no confirme un punto contra el
+/// tacómetro, son la mejor hipótesis y no un hecho.
+const List<double> relacionesCaja = [3.830, 2.062, 1.436, 1.000, 0.838];
+
+/// Cuántas RPM da el motor por cada km/h en la marcha [marcha] (1 a 5).
+///
+/// ```
+/// 1.ª 95,8   2.ª 51,6   3.ª 35,9   4.ª 25,0   5.ª 21,0
+/// ```
+double rpmPorKmh(int marcha) =>
+    frecuenciaDeRueda(1) *
+    60 *
+    relacionDiferencial *
+    relacionesCaja[marcha - 1];
+
+/// Un motor en marcha y con la camioneta andando no está por debajo de esto
+/// (se ahogaría) ni por encima de esto (no se maneja así). Una marcha que
+/// pida algo afuera no se prueba: es lo que separa la 2.ª de la 4.ª, que a la
+/// misma velocidad suenan a una octava de distancia.
+const double rpmMinimaEnMarcha = 900;
+const double rpmMaximaEnMarcha = 4300;
+
+/// Cuánto se busca alrededor de lo que predice una marcha. El diámetro bajo
+/// carga, el patinamiento y la velocidad que cambió en el segundo mueven la
+/// cuenta; en el viaje 19 la mediana del error fue −1,6 %.
+const double holguraDeMarcha = 0.05;
+
+/// Con la velocidad, la marcha ganadora vale con menos prominencia que la
+/// búsqueda libre —se eligen cinco candidatos y no ciento treinta, así que
+/// el azar gana mucho menos—, pero tiene que sacarle ventaja a la segunda.
+///
+/// **Medido** (banco, 14-oct-2026): con ruido de ruta solo, la mejor marcha
+/// sale entre 2,4 y 3,7 dB; un diésel débil a 1.100 RPM, entre 7,5 y 9,3, y
+/// la segunda marcha queda al menos 4 dB abajo.
+const double prominenciaMinimaEnMarchaDb = 6;
+const double margenEntreMarchasDb = 3;
+
+/// En la búsqueda libre, si el doble de la frecuencia elegida suena casi
+/// igual (a menos de esto, en dB), se toma el doble: es el error de octava.
+const double margenDeOctavaDb = 3;
+
 /// Lo que se saca de un segundo de micrófono.
 class LecturaMotor {
   /// Las RPM estimadas, o `null` si la fundamental no se distingue del ruido.
   final double? rpm;
+
+  /// La marcha (1 a 5) con la que cerraron las RPM contra la velocidad, o
+  /// `null` si se leyeron sin velocidad o sin marcha que suene.
+  final int? marcha;
 
   /// Cuántos dB sobresale la fundamental elegida sobre la mediana del rango.
   final double prominenciaDb;
@@ -78,17 +155,31 @@ class LecturaMotor {
   /// Energía por banda (raíz de la suma de cuadrados), como la vibración.
   final List<double> bandas;
 
+  /// Lo que sonó cada marcha, en dB sobre la mediana; `null` la que no se
+  /// probó. Es el diagnóstico: con esto se ve en la base si la elección fue
+  /// clara o pareja.
+  final List<double?> porMarcha;
+
+  /// Los picos más salientes del espectro blanqueado, de 15 a 400 Hz:
+  /// frecuencia y dB, de a pares. Una docena de números no reconstruye una
+  /// palabra, y dicen qué órdenes del motor se oyen de verdad.
+  final List<double> picos;
+
   const LecturaMotor({
     required this.rpm,
+    this.marcha,
     required this.prominenciaDb,
     required this.nivelDb,
     required this.saturadas,
     required this.bandas,
+    this.porMarcha = const [],
+    this.picos = const [],
   });
 }
 
-/// Estima el régimen de [pcm] (muestras de 16 bits) tomadas a [hz].
-LecturaMotor leerMotor(List<int> pcm, {int hz = hzAudio}) {
+/// Estima el régimen de [pcm] (muestras de 16 bits) tomadas a [hz]. Con
+/// [kmh] (la velocidad del GPS) prueba las marchas; sin ella, busca libre.
+LecturaMotor leerMotor(List<int> pcm, {int hz = hzAudio, double? kmh}) {
   final n = pcm.length;
   if (n < 256) {
     return LecturaMotor(
@@ -113,72 +204,231 @@ LecturaMotor leerMotor(List<int> pcm, {int hz = hzAudio}) {
   }
   final rmsTotal = math.sqrt(suma / n);
   final nivel = rmsTotal <= 1e-9 ? -90.0 : 20 * math.log(rmsTotal) / math.ln10;
+  final saturadas = techo / n;
 
   final espectro = magnitudes(x);
   final porCasillero = hz / (espectro.length * 2);
   final bandas = _bandas(espectro, porCasillero);
+  LecturaMotor sinRpm([double prom = 0]) => LecturaMotor(
+    rpm: null,
+    prominenciaDb: prom,
+    nivelDb: nivel,
+    saturadas: saturadas,
+    bandas: bandas,
+  );
 
-  // Producto de armónicos (en logaritmo, para que no se vaya a cero): para
-  // cada candidato f, la suma de log|X| en f, 2f, 3f y 4f. La fundamental del
-  // motor tiene a sus armónicos alineados; un ruido suelto, no.
   final kMin = (fMinimaHz / porCasillero).ceil();
   final kMax = (fMaximaHz / porCasillero).floor();
-  if (kMax * armonicos >= espectro.length || kMin < 1) {
-    return LecturaMotor(
-      rpm: null,
-      prominenciaDb: 0,
-      nivelDb: nivel,
-      saturadas: techo / n,
-      bandas: bandas,
-    );
+  final hasta = ((rpmMaximaEnMarcha / 30) * armonicos * 1.1 / porCasillero)
+      .ceil();
+  if (kMin < 1 || math.max(kMax * armonicos, hasta) + 20 >= espectro.length) {
+    return sinRpm();
   }
-  final puntaje = <double>[];
-  for (var k = kMin; k <= kMax; k++) {
-    var s = 0.0;
-    for (var h = 1; h <= armonicos; h++) {
-      // El armónico h cae en h·k, pero un casillero de error en la
-      // fundamental son h casilleros en el armónico: se busca su pico en un
-      // entorno que crece con h. Sin esto, a 1.800 RPM el 4.º armónico caía
-      // entre dos casilleros, se perdía, y ganaba el doble de la fundamental
-      // (el banco lo encontró: leía 3.600).
-      final centro = k * h;
-      final ancho = (h + 1) ~/ 2;
-      var pico = 0.0;
-      for (var j = centro - ancho; j <= centro + ancho; j++) {
-        if (j > 0 && j < espectro.length && espectro[j] > pico) {
-          pico = espectro[j];
+  final a = _Analisis(_blanquear(espectro, porCasillero, hasta), porCasillero);
+
+  // La búsqueda libre, que da también la vara: la mediana de todos los
+  // candidatos del rango es «lo que suena cualquier cosa».
+  final puntaje = <double>[
+    for (var k = kMin; k <= kMax; k++) a.puntaje(k * 1.0),
+  ];
+  final ordenado = List<double>.from(puntaje)..sort();
+  final mediana = ordenado[ordenado.length ~/ 2];
+  double enDb(double s) => (s - mediana) * 20 / math.ln10;
+
+  // Las marchas, si hay velocidad.
+  final porMarcha = List<double?>.filled(relacionesCaja.length, null);
+  final kPorMarcha = List<double>.filled(relacionesCaja.length, 0);
+  int? marcha;
+  var kMarcha = 0.0;
+  var sMarcha = double.negativeInfinity;
+  if (kmh != null && kmh > 0) {
+    for (var g = 1; g <= relacionesCaja.length; g++) {
+      final rpm = kmh * rpmPorKmh(g);
+      if (rpm < rpmMinimaEnMarcha || rpm > rpmMaximaEnMarcha) continue;
+      final centro = rpm / 30 / porCasillero;
+      final ancho = math.max(1, (centro * holguraDeMarcha).ceil());
+      var mejorK = centro;
+      var mejorS = double.negativeInfinity;
+      for (var k = centro.round() - ancho; k <= centro.round() + ancho; k++) {
+        final s = a.puntaje(k * 1.0);
+        if (s > mejorS) {
+          mejorS = s;
+          mejorK = k * 1.0;
         }
       }
-      s += math.log(pico + 1e-12);
+      porMarcha[g - 1] = enDb(mejorS);
+      kPorMarcha[g - 1] = mejorK;
+      if (mejorS > sMarcha) {
+        sMarcha = mejorS;
+        kMarcha = mejorK;
+        marcha = g;
+      }
     }
-    puntaje.add(s / armonicos);
   }
+  final picos = a.picos(15, 400, 6);
+  // La 2.ª suena una octava arriba de la 4.ª a la misma velocidad (2,062
+  // veces), y la 1.ª casi una arriba de la 3.ª (2,667: no). Entre dos
+  // marchas a una octava, empatadas, gana la de arriba: es el mismo error
+  // de octava, y la vuelta del cigüeñal hace sonar a la de abajo.
+  final ganadora = marcha;
+  if (ganadora != null) {
+    for (var g = 1; g <= relacionesCaja.length; g++) {
+      final sg = porMarcha[g - 1];
+      if (sg == null || g == ganadora) continue;
+      final razon = relacionesCaja[g - 1] / relacionesCaja[ganadora - 1];
+      if (razon > 1.9 &&
+          razon < 2.2 &&
+          enDb(sMarcha) - sg <= margenDeOctavaDb) {
+        marcha = g;
+        kMarcha = kPorMarcha[g - 1];
+        break;
+      }
+    }
+  }
+  // La segunda, sin contar la compañera de octava: esa no es otra hipótesis
+  // del motor, es la misma oída una octava abajo.
+  final probadas = <double>[
+    for (var g = 1; g <= relacionesCaja.length; g++)
+      if (porMarcha[g - 1] != null && g != marcha && !_aUnaOctava(g, marcha))
+        porMarcha[g - 1]!,
+  ]..sort();
+  final segunda = probadas.isEmpty ? double.negativeInfinity : probadas.last;
+  if (marcha != null &&
+      enDb(sMarcha) >= prominenciaMinimaEnMarchaDb &&
+      enDb(sMarcha) - segunda >= margenEntreMarchasDb) {
+    final k = a.afinar(kMarcha);
+    return LecturaMotor(
+      rpm: k * porCasillero * 30,
+      marcha: marcha,
+      prominenciaDb: enDb(sMarcha),
+      nivelDb: nivel,
+      saturadas: saturadas,
+      bandas: bandas,
+      porMarcha: porMarcha,
+      picos: picos,
+    );
+  }
+
+  // Libre: la mejor del rango, corregida de octava.
   var mejor = 0;
   for (var i = 1; i < puntaje.length; i++) {
     if (puntaje[i] > puntaje[mejor]) mejor = i;
   }
-  final ordenado = List<double>.from(puntaje)..sort();
-  final mediana = ordenado[ordenado.length ~/ 2];
-  // De logaritmo natural de una magnitud a decibeles: 20·log10(e) ≈ 8,686.
-  final prominencia = (puntaje[mejor] - mediana) * 20 / math.ln10;
-
-  // Afinado parabólico entre los tres casilleros vecinos: el espaciado es de
-  // 0,98 Hz y eso solo serían ±29 RPM de escalón.
   var k = (mejor + kMin).toDouble();
-  if (mejor > 0 && mejor < puntaje.length - 1) {
-    final a = puntaje[mejor - 1], b = puntaje[mejor], c = puntaje[mejor + 1];
-    final d = a - 2 * b + c;
-    if (d < 0) k += 0.5 * (a - c) / d;
+  var s = puntaje[mejor];
+  // Pegada al borde no es un pico: es el retumbo que sigue bajando.
+  final enElBorde = mejor == 0 || mejor == puntaje.length - 1;
+  for (var vuelta = 0; vuelta < 2; vuelta++) {
+    final doble = k * 2;
+    if (doble > kMax * 1.0) break;
+    var sDoble = double.negativeInfinity;
+    var kDoble = doble;
+    for (var j = doble.round() - 1; j <= doble.round() + 1; j++) {
+      final sj = a.puntaje(j * 1.0);
+      if (sj > sDoble) {
+        sDoble = sj;
+        kDoble = j * 1.0;
+      }
+    }
+    if ((s - sDoble) * 20 / math.ln10 > margenDeOctavaDb) break;
+    k = kDoble;
+    s = sDoble;
   }
-  final f0 = k * porCasillero;
-
+  final prominencia = enDb(s);
+  final vale =
+      prominencia >= prominenciaMinimaDb && !(enElBorde && k == mejor + kMin);
   return LecturaMotor(
-    rpm: prominencia >= prominenciaMinimaDb ? f0 * 30 : null,
+    rpm: vale ? a.afinar(k) * porCasillero * 30 : null,
     prominenciaDb: prominencia,
     nivelDb: nivel,
-    saturadas: techo / n,
+    saturadas: saturadas,
     bandas: bandas,
+    porMarcha: porMarcha,
+    picos: picos,
   );
+}
+
+bool _aUnaOctava(int g, int? h) {
+  if (h == null) return false;
+  final r = relacionesCaja[g - 1] / relacionesCaja[h - 1];
+  return (r > 1.9 && r < 2.2) || (r > 1 / 2.2 && r < 1 / 1.9);
+}
+
+/// Cada casillero dividido por la mediana de su entorno (±8 Hz). Lo que
+/// queda es cuánto sobresale de lo que lo rodea: un pico del motor sigue
+/// siendo un pico, el retumbo de la ruta deja de serlo.
+List<double> _blanquear(List<double> e, double porCasillero, int hasta) {
+  final w = math.max(3, (8 / porCasillero).round());
+  final fin = math.min(hasta + w, e.length - 1);
+  final b = List<double>.filled(fin + 1, 0);
+  for (var k = 1; k <= fin; k++) {
+    final entorno = <double>[
+      for (var j = math.max(1, k - w); j <= math.min(e.length - 1, k + w); j++)
+        e[j],
+    ]..sort();
+    final piso = entorno[entorno.length ~/ 2];
+    b[k] = e[k] / (piso + 1e-12);
+  }
+  return b;
+}
+
+class _Analisis {
+  final List<double> b;
+  final double porCasillero;
+  _Analisis(this.b, this.porCasillero);
+
+  /// Producto de armónicos (en logaritmo) del candidato en el casillero
+  /// [k]: la media de log|X| en k, 2k, 3k y 4k. El armónico h se busca en un
+  /// entorno que crece con h, porque un casillero de error en la fundamental
+  /// son h en el armónico (a 1.800 RPM el 4.º caía entre dos y ganaba el
+  /// doble: lo encontró el banco en `sitd-37`).
+  double puntaje(double k) {
+    var s = 0.0;
+    for (var h = 1; h <= armonicos; h++) {
+      final centro = (k * h).round();
+      final ancho = (h + 1) ~/ 2;
+      var pico = 0.0;
+      for (var j = centro - ancho; j <= centro + ancho; j++) {
+        if (j > 0 && j < b.length && b[j] > pico) pico = b[j];
+      }
+      s += math.log(pico + 1e-12);
+    }
+    return s / armonicos;
+  }
+
+  /// Afinado parabólico entre los vecinos: el espaciado es de 0,98 Hz y eso
+  /// solo serían ±29 RPM de escalón.
+  double afinar(double k) {
+    final a = puntaje(k - 1), c = puntaje(k + 1), m = puntaje(k);
+    final d = a - 2 * m + c;
+    if (d >= 0) return k;
+    final corrido = k + 0.5 * (a - c) / d;
+    return (corrido - k).abs() <= 1 ? corrido : k;
+  }
+
+  /// Los [cuantos] máximos locales más salientes entre [desde] y [hastaHz],
+  /// separados al menos 3 Hz: frecuencia y dB, de a pares.
+  List<double> picos(double desde, double hastaHz, int cuantos) {
+    final k0 = math.max(1, (desde / porCasillero).ceil());
+    final k1 = math.min(b.length - 2, (hastaHz / porCasillero).floor());
+    final cand = <int>[
+      for (var k = k0; k <= k1; k++)
+        if (b[k] > b[k - 1] && b[k] >= b[k + 1] && b[k] > 1) k,
+    ]..sort((x, y) => b[y].compareTo(b[x]));
+    final elegidos = <int>[];
+    for (final k in cand) {
+      if (elegidos.every((e) => (e - k).abs() * porCasillero >= 3)) {
+        elegidos.add(k);
+        if (elegidos.length == cuantos) break;
+      }
+    }
+    return [
+      for (final k in elegidos) ...[
+        double.parse((k * porCasillero).toStringAsFixed(1)),
+        double.parse((20 * math.log(b[k]) / math.ln10).toStringAsFixed(1)),
+      ],
+    ];
+  }
 }
 
 List<double> _bandas(List<double> espectro, double porCasillero) {

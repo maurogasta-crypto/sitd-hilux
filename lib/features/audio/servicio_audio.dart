@@ -39,6 +39,7 @@ class ServicioAudio {
 
   /// Lo último que se escuchó con RPM, para la pantalla.
   double? ultimaRpm;
+  int? ultimaMarcha;
   int? ultimaRpmT;
 
   int? _viaje;
@@ -109,7 +110,7 @@ class ServicioAudio {
       } catch (_) {
         o = (musica: true, llamada: true);
       }
-      final lectura = leerMotor(pcm);
+      final lectura = leerMotor(pcm, kmh: kmh);
       final motivo = compuerta(
         musica: o.musica,
         llamada: o.llamada,
@@ -127,6 +128,7 @@ class ServicioAudio {
       guardadas++;
       if (lectura.rpm != null) {
         ultimaRpm = lectura.rpm;
+        ultimaMarcha = lectura.marcha;
         ultimaRpmT = t;
       }
     } finally {
@@ -136,7 +138,7 @@ class ServicioAudio {
 
   /// En palabras, para la pantalla: por qué no se está escuchando.
   String get resumen {
-    if (!escuchando) return 'apagado';
+    if (!escuchando) return 'micrófono apagado';
     if (descartes.isEmpty && guardadas == 0) return 'escuchando';
     final peor = descartes.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));

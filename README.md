@@ -520,7 +520,14 @@ permiso del micrófono. Con la camioneta a más de 30 km/h estables, sin música
 ni llamada, escucha un segundo de cada cinco y saca las RPM del sonido del
 encendido. Se ven en el viaje («Motor») y quedan en la base y en el reporte.
 Del sonido no se guarda nada, sólo números. **Hoy escucha con la aplicación a
-la vista**: con la pantalla apagada, Android no se lo deja.
+la vista**: con la pantalla apagada, Android no se lo deja. El permiso se pide
+al empezar un viaje A MANO; un viaje que abre el cargador usa el que haya.
+
+**Desde `sitd-38` las RPM se buscan en las marchas.** Con la velocidad del GPS
+se prueban las cinco (R150F, diferencial 3,583) y gana la que suena: el viaje
+muestra «2300 RPM · 5.ª». Sin marcha que suene —embrague, punto muerto— sale
+«~» delante: es una lectura libre, menos confiable. El porqué está en el
+`CLAUDE.md`: las RPM de `sitd-37` salían a la mitad.
 
 **El viaje con el motor.** Con el interruptor «Empezar y terminar con el
 motor» encendido —viene encendido— y la aplicación abierta, cuando el cargador
@@ -629,8 +636,8 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-37` | `lib/core/version.dart` |
-| Esquema de la base | `7` | `lib/core/db/esquema.dart` |
+| Aplicación | `sitd-38` | `lib/core/version.dart` |
+| Esquema de la base | `8` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
 **manda el archivo**: esta tabla se copia a mano y se desactualiza en silencio.

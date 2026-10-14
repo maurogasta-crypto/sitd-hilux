@@ -63,16 +63,19 @@ double velocidadParaFrecuencia(double hz) => hz * 3.6 * circunferencia;
 /// Relación del diferencial: cuántas vueltas da el cardán por cada vuelta de
 /// rueda.
 ///
-/// **Es un valor de catálogo y no está medido**, y por eso se llama
-/// «aproximada». Las Hilux 3.0 de esos años traen 3,583 o 3,909 según la
-/// versión, y de cuál es ésta no hay forma de enterarse desde el teléfono. Con
-/// cualquiera de los dos la conclusión que importa no cambia: **el cardán se
-/// sale del espectro arriba de unos 60 km/h**, y de la banda de 17 Hz arriba
-/// de unos 40.
+/// **Hasta `sitd-38` era un valor de catálogo sin medir**: las Hilux 3.0 de
+/// esos años traen 3,583 o 3,909 según la versión. El micrófono lo zanjó
+/// (viaje 19, 14-oct-2026): cruzando las RPM leídas contra la velocidad del
+/// GPS, con 3,583 cierran 215 de 251 lecturas con las marchas de la R150F, y
+/// con 3,909 cierran 17. Sigue faltando UN punto contra el tacómetro para
+/// darlo por hecho (ver `regimen.dart`).
 ///
-/// El día que haya tacómetro esto se puede MEDIR en vez de suponer: la
-/// relación total en directa ES la del diferencial.
-const double relacionDiferencialAproximada = 3.583;
+/// La conclusión de antes no cambia: **el cardán se sale del espectro del
+/// acelerómetro arriba de unos 60 km/h**, y de la banda de 17 Hz arriba de 40.
+const double relacionDiferencial = 3.583;
+
+/// El nombre de antes, para lo que ya lo usaba.
+const double relacionDiferencialAproximada = relacionDiferencial;
 
 /// La velocidad más alta a la que un componente que gira [orden] veces por
 /// vuelta de rueda todavía entra en un espectro con este [nyquist].

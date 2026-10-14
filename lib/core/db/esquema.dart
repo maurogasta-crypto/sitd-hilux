@@ -13,7 +13,7 @@
 library;
 
 /// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
-const int versionEsquema = 7;
+const int versionEsquema = 8;
 
 /// Cada elemento son las sentencias que llevan el esquema de la versión
 /// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
@@ -253,6 +253,19 @@ const List<List<String>> migraciones = [
     )
     ''',
     'CREATE INDEX idx_audio_viaje_t ON audio (viaje, t)',
+  ],
+  // 7 → 8 (`sitd-38`): la marcha con la que cerraron las RPM contra la
+  // velocidad del GPS, y el diagnóstico de cada ventana. El viaje 19 dio RPM
+  // a la mitad, y lo que se pudo saber fue gracias a que cada ventana
+  // guardaba la velocidad al lado; esto guarda además cuánto sonó cada
+  // marcha y los picos que se oyeron, para que la próxima duda se conteste
+  // con los datos y no con otra salida a la ruta. Siguen siendo números.
+  [
+    'ALTER TABLE audio ADD COLUMN marcha INTEGER',
+    // Cinco números (dB por marcha, vacío la que no se probó), con comas.
+    "ALTER TABLE audio ADD COLUMN marchas TEXT NOT NULL DEFAULT ''",
+    // Frecuencia y dB de los picos más salientes, de a pares, con comas.
+    "ALTER TABLE audio ADD COLUMN picos TEXT NOT NULL DEFAULT ''",
   ],
 ];
 
