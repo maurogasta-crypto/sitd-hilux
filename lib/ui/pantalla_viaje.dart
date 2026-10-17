@@ -827,9 +827,13 @@ class _Detalle extends StatelessWidget {
             // y eso de afuera se ve igual que un sensor que no anda.
             _Dato(titulo: 'Vibración', valor: '${vibracion.guardadas}'),
             // `sitd-37`: las RPM que escuchó el micrófono, si son recientes;
-            // si no, por qué no está escuchando.
+            // si no, por qué no está escuchando. `sitd-39`: con la marcha
+            // oída, las RPM del GPS de este segundo.
             if (audio != null)
-              _Dato(titulo: 'Motor', valor: _textoMotor(audio!)),
+              _Dato(
+                titulo: 'Motor',
+                valor: _textoMotor(audio!, estado.velocidadKmh),
+              ),
             _Dato(
               titulo: 'Haversine',
               valor: formatearKm(o.metrosHaversine / 1000),
@@ -845,7 +849,16 @@ class _Detalle extends StatelessWidget {
   }
 }
 
-String _textoMotor(ServicioAudio a) {
+String _textoMotor(ServicioAudio a, double? kmh) {
+  // sitd-39: primero el tacómetro —la marcha oída, las RPM del GPS de ahora—,
+  // que se mueve cada segundo. «(GPS)» cuando la marcha no se oye hace rato:
+  // las RPM siguen siendo de ahora, la marcha es la última que se oyó.
+  final ahora = DateTime.now().millisecondsSinceEpoch;
+  final tac = a.tacometro.leer(ahora, kmh);
+  if (tac != null) {
+    final rpm = (tac.rpm / 10).round() * 10;
+    return '$rpm RPM · ${tac.marcha}.ª${tac.oidaHaceMs > 8000 ? ' (GPS)' : ''}';
+  }
   final t = a.ultimaRpmT;
   if (a.ultimaRpm != null &&
       t != null &&

@@ -865,6 +865,33 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   los próximos viajes muestran que hace falta, el lugar es comparar el
   pliegue que predice la marcha elegida contra las bandas de vibración.
 
+- **El tacómetro de la pantalla es la marcha OÍDA y las RPM del GPS**
+  (`sitd-39`, 17-oct-2026). Mauro: «no era verdaderamente dinámica la
+  visualización de revoluciones, aparecía como dato estático con mucha
+  latencia». El viaje 23 (11 min de ciudad) lo explicó: se escuchaba un
+  segundo de cada cinco y sólo arriba de 30 km/h —28 escuchas—, cada una
+  decidía sola con 3 dB de ventaja —4 dieron RPM— y la pantalla las mostraba
+  15 segundos. En ciudad la 2.ª y la 3.ª se pisan (el 2.º armónico de una cae
+  a un 4 % del 3.º de la otra) y una ventana sola no las separa.
+
+  Ahora el micrófono se procesa **todos los segundos** para el tacómetro y se
+  GUARDA uno de cada cinco, como antes (la base y el reporte no cambian); la
+  marcha se decide con la **media de las últimas tres escuchas** (5 dB y 1,5 de
+  ventaja: con el viaje 23, 12 de 28 con marcha, todas 3.ª, sin un salto), y
+  mientras está tomada las RPM son `kmh × rpmPorKmh(marcha)`, cada segundo.
+  **Es honesto**: con la marcha puesta el motor y las ruedas están unidos por
+  engranajes y el GPS mide la velocidad mejor que nada en el teléfono; lo único
+  que no sabe es la marcha, y eso es lo que se oye. Se suelta parado, con un
+  salto de más de 15 km/h desde que se oyó, con RPM fuera de 900–3.800 o a los
+  90 s sin oírla, y la pantalla dice «(GPS)» si no se oye hace más de 8 s.
+  Todo en `tacometro.dart`, con el viaje 23 entero como caso del banco.
+
+  **Lo que el viaje 23 dejó sin explicar**: en 9 escuchas suena un tono que
+  sigue a la velocidad pero cae un 6 % arriba del 3.º armónico de la 3.ª.
+  Puede ser rodadura o transmisión, o el diferencial o la rueda un poco
+  corridos; lo resuelve un viaje en ruta en 5.ª con un punto del tacómetro
+  (`hilux:E2`).
+
 - **No se pide `ACCESS_BACKGROUND_LOCATION`.** Con un servicio en primer plano
   de tipo `location`, arrancado con la aplicación a la vista, no hace falta — y
   pedirlo abre el diálogo de «Permitir todo el tiempo», que es el más invasivo
@@ -1552,7 +1579,7 @@ el teléfono.
 | **B** | Servicio en primer plano y odometría GPS en vivo | **entregado** (`sitd-2`) |
 | **C** | Combustible: cargas, consumo derivado, calibración de `k` | **entregado** (`sitd-4`) |
 | **D** | Acelerómetro: línea base por cubeta, anomalías | **entregado** (`sitd-5`) |
-| **E** | Micrófono: FFT, compuerta de audio, escenarios | **entregado en parte** (`sitd-37`, RPM por marcha en `sitd-38`): RPM y compuerta; falta el sobre histórico y escuchar con la pantalla apagada |
+| **E** | Micrófono: FFT, compuerta de audio, escenarios | **entregado en parte** (`sitd-37`, RPM por marcha en `sitd-38`, tacómetro en vivo en `sitd-39`): RPM y compuerta; falta el sobre histórico y escuchar con la pantalla apagada |
 | **—** | Panel de sensores: qué ve el teléfono y en qué estado | **entregado** (`sitd-6`) |
 | **—** | Sacar los datos: reporte para desarrollo y respaldo completo | **entregado** (`sitd-7`) |
 | **G** | La nube: cada viaje sube solo, y el chat lo lee | **entregado** (`sitd-17`) |

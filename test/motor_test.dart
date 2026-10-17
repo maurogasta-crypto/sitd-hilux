@@ -388,6 +388,32 @@ void main() {
       },
     );
 
+    test('el tacómetro escucha TODOS los segundos, aunque se guarde uno de cada cinco (sitd-39)', () async {
+      final trozos = StreamController<List<int>>();
+      var t = 0;
+      final s = ServicioAudio(
+        registro: registro,
+        abrir: () => trozos.stream,
+        ocupado: () async => (musica: false, llamada: false),
+        velocidadKmh: () => 50,
+        reloj: () => t,
+      );
+      s.arrancar(viaje);
+      final rpm = 50 * rpmPorKmh(3);
+      for (var i = 0; i < 4; i++) {
+        t = i * 1000;
+        trozos.add(motorSintetico(rpm, semilla: i));
+        await Future<void>.delayed(Duration.zero);
+      }
+      // Se guardó a lo sumo uno, pero la marcha ya está tomada y las RPM
+      // salen del GPS.
+      expect(s.guardadas, lessThanOrEqualTo(1));
+      expect(s.tacometro.marcha, 3);
+      expect(s.tacometro.leer(4000, 52)!.rpm, closeTo(52 * rpmPorKmh(3), 0.01));
+      await s.detener();
+      await trozos.close();
+    });
+
     test('un canal que no contesta cuenta como «no escuchar»', () async {
       final trozos = StreamController<List<int>>();
       final s = ServicioAudio(

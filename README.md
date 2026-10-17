@@ -529,6 +529,13 @@ muestra «2300 RPM · 5.ª». Sin marcha que suene —embrague, punto muerto— 
 «~» delante: es una lectura libre, menos confiable. El porqué está en el
 `CLAUDE.md`: las RPM de `sitd-37` salían a la mitad.
 
+**Desde `sitd-39` el número se mueve cada segundo.** El micrófono escucha
+TODOS los segundos (en la base sigue quedando uno de cada cinco), la marcha se
+decide juntando las últimas tres escuchas, y mientras está tomada las RPM
+salen de la velocidad del GPS: «1540 RPM · 3.ª». Si la marcha no se oye hace
+más de 8 segundos, dice «(GPS)» al final. Se suelta parado, con un cambio de
+velocidad de más de 15 km/h, con RPM imposibles o a los 90 segundos sin oírla.
+
 **El viaje con el motor.** Con el interruptor «Empezar y terminar con el
 motor» encendido —viene encendido— y la aplicación abierta, cuando el cargador
 del encendedor empieza a cargar, empieza el viaje; tres minutos sin carga, lo
@@ -636,7 +643,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-38` | `lib/core/version.dart` |
+| Aplicación | `sitd-39` | `lib/core/version.dart` |
 | Esquema de la base | `8` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

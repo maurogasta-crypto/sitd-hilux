@@ -4,6 +4,7 @@ import '../../core/bitacora.dart';
 import 'compuerta.dart';
 import 'regimen.dart';
 import 'registro_audio.dart';
+import 'tacometro.dart';
 
 /// Lo que hay sonando en el teléfono, según el sistema.
 typedef Ocupado = ({bool musica, bool llamada});
@@ -14,10 +15,15 @@ typedef Ocupado = ({bool musica, bool llamada});
 ///
 ///  - **Pasa por la compuerta** (`compuerta.dart`) antes de guardar: música,
 ///    llamada, velocidad, nivel. Lo que no pasa se cuenta por motivo.
-///  - **Procesa un segundo de cada [cadaCuantos]**: un viaje de cinco horas
+///  - **GUARDA un segundo de cada [cadaCuantos]**: un viaje de cinco horas
 ///    con una ventana por segundo serían 18.000 filas y un reporte que no
-///    entra en un documento. Una cada cinco segundos alcanza para seguir las
-///    RPM y son 720 por hora.
+///    entra en un documento. Una cada cinco segundos son 720 por hora.
+///  - **Pero ESCUCHA todos los segundos para el tacómetro** (`sitd-39`):
+///    hasta `sitd-38` procesaba sólo el que guardaba, y la pantalla mostraba
+///    un número cada cinco segundos —cuando lo mostraba—. Ahora cada segundo
+///    alimenta a [tacometro], que decide la marcha con las últimas escuchas
+///    juntas; lo que se guarda en la base no cambia. Un segundo de FFT en el
+///    Helio G85 son milisegundos.
 ///
 /// El sonido nunca sale de la memoria: cada trozo se resume y se suelta.
 class ServicioAudio {
@@ -37,7 +43,10 @@ class ServicioAudio {
   int guardadas = 0;
   final Map<MotivoAudio, int> descartes = {};
 
-  /// Lo último que se escuchó con RPM, para la pantalla.
+  /// La marcha que se oye y las RPM que da el GPS con ella (`sitd-39`).
+  final Tacometro tacometro = Tacometro();
+
+  /// Lo último que se escuchó con RPM (también sin marcha), para la pantalla.
   double? ultimaRpm;
   int? ultimaMarcha;
   int? ultimaRpmT;
@@ -64,6 +73,7 @@ class ServicioAudio {
     _viaje = viaje;
     _trozos = 0;
     _kmhAnterior = null;
+    tacometro.olvidar();
     guardadas = 0;
     descartes.clear();
     try {
@@ -78,7 +88,7 @@ class ServicioAudio {
       );
       bitacora.anotar(
         Origen.sistema,
-        'Micrófono escuchando (una ventana cada $cadaCuantos s).',
+        'Micrófono escuchando (cada segundo; guarda una ventana cada $cadaCuantos s).',
       );
     } catch (e) {
       bitacora.anotar(Origen.sistema, 'El micrófono no abrió: $e');
@@ -101,7 +111,8 @@ class ServicioAudio {
     final alEmpezar = _kmhAnterior;
     _kmhAnterior = kmh;
     _trozos++;
-    if ((_trozos - 1) % cadaCuantos != 0 || _ocupadoProcesando) return;
+    final toca = (_trozos - 1) % cadaCuantos == 0;
+    if (_ocupadoProcesando) return;
     _ocupadoProcesando = true;
     try {
       Ocupado o;
@@ -111,6 +122,13 @@ class ServicioAudio {
         o = (musica: true, llamada: true);
       }
       final lectura = leerMotor(pcm, kmh: kmh);
+      final t = ahora();
+      // El tacómetro escucha todos los segundos, salvo con música o llamada:
+      // lo que suena ahí no es el motor.
+      if (!o.musica && !o.llamada && _viaje == viaje) {
+        tacometro.escuchar(t, kmh, lectura.porMarcha);
+      }
+      if (!toca) return;
       final motivo = compuerta(
         musica: o.musica,
         llamada: o.llamada,
@@ -123,7 +141,6 @@ class ServicioAudio {
         descartes[motivo] = (descartes[motivo] ?? 0) + 1;
         return;
       }
-      final t = ahora();
       registro.guardar(viaje, VentanaAudio.de(lectura, t: t, kmh: kmh!));
       guardadas++;
       if (lectura.rpm != null) {
