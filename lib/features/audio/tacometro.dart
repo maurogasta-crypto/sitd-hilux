@@ -109,7 +109,7 @@ class Tacometro {
     while (_escuchas.length > escuchasJuntas) {
       _escuchas.removeAt(0);
     }
-    final g = decidirMarcha([for (final e in _escuchas) e.porMarcha]);
+    final g = decidirMarcha([for (final e in _escuchas) e.porMarcha], kmh: kmh);
     if (g != null) {
       _marcha = g;
       _oidaT = t;
@@ -145,7 +145,7 @@ class Tacometro {
 /// ventaja de arriba. Las dos marchas a una octava (2.ª y 4.ª) no compiten:
 /// son el mismo motor oído una octava abajo, y entre ellas, si empatan, gana
 /// la de arriba, como en `leerMotor`.
-int? decidirMarcha(List<List<double?>> escuchas) {
+int? decidirMarcha(List<List<double?>> escuchas, {double? kmh}) {
   if (escuchas.isEmpty) return null;
   final n = relacionesCaja.length;
   final requeridas = escuchas.length >= 2 ? 2 : 1;
@@ -173,7 +173,8 @@ int? decidirMarcha(List<List<double?>> escuchas) {
     final m = media[g];
     if (m == null || g == mejor || !_aUnaOctava(g, mejor)) continue;
     if (relacionesCaja[g] > relacionesCaja[mejor] &&
-        media[mejor]! - m <= margenDeOctavaDb) {
+        media[mejor]! - m <= margenDeOctavaDb &&
+        arribaCreible(g + 1, kmh)) {
       mejor = g;
       break;
     }

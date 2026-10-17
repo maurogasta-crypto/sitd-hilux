@@ -133,6 +133,17 @@ const double margenEntreMarchasDb = 3;
 /// igual (a menos de esto, en dB), se toma el doble: es el error de octava.
 const double margenDeOctavaDb = 3;
 
+/// Entre la 2.ª y la 4.ª empatadas gana la de arriba… salvo que la de arriba
+/// pida más que esto a esa velocidad (`sitd-40`). En el viaje 25 dos escuchas
+/// a 70 y 79 km/h dijeron «2.ª, 3.450 y 3.900 RPM»; el sonido estaba en
+/// 1.730, que es la 4.ª. Nadie va en 2.ª a 3.500 RPM a velocidad pareja.
+const double rpmCreibleArribaDeOctava = 3000;
+
+/// Si, entre dos marchas a una octava, la de arriba ([g], la de más RPM)
+/// es creíble a [kmh]. Sin velocidad, como antes: sí.
+bool arribaCreible(int g, double? kmh) =>
+    kmh == null || kmh * rpmPorKmh(g) <= rpmCreibleArribaDeOctava;
+
 /// Lo que se saca de un segundo de micrófono.
 class LecturaMotor {
   /// Las RPM estimadas, o `null` si la fundamental no se distingue del ruido.
@@ -278,7 +289,8 @@ LecturaMotor leerMotor(List<int> pcm, {int hz = hzAudio, double? kmh}) {
       final razon = relacionesCaja[g - 1] / relacionesCaja[ganadora - 1];
       if (razon > 1.9 &&
           razon < 2.2 &&
-          enDb(sMarcha) - sg <= margenDeOctavaDb) {
+          enDb(sMarcha) - sg <= margenDeOctavaDb &&
+          arribaCreible(g, kmh)) {
         marcha = g;
         kMarcha = kPorMarcha[g - 1];
         break;

@@ -17,25 +17,53 @@
 ///  3. **Cerrar espera.** Un corte de contacto de un minuto —una parada, el
 ///     motor que se apaga en un semáforo— no corta el viaje: hace falta
 ///     [gracia] sin carga. Si vuelve antes, no pasó nada.
+///  4. **Un viaje del cargador está A PRUEBA hasta que la camioneta se mueve**
+///     (`sitd-40`, 17-oct-2026). Mauro enchufó el teléfono en un cargador de
+///     la CASA y la app abrió un viaje que duró dos horas con cero metros: el
+///     cargador dice «hay corriente», no «es la Hilux». Si en [prueba] no se
+///     anduvieron [metrosMinimos], o si se apaga antes de andarlos, el viaje
+///     se DESCARTA —se borra, no se guarda ni se sube—. Una vez que anduvo,
+///     es un viaje como cualquiera.
 ///
 /// No sabe nada de Android: recibe los cambios y el reloj, y dice qué hacer.
 library;
 
 /// Lo que el detector le pide a la pantalla.
-enum AccionMotor { nada, empezar, terminar }
+enum AccionMotor { nada, empezar, terminar, descartar }
 
 class DetectorMotor {
   /// Cuánto tiempo sin carga antes de cerrar el viaje que abrió el motor.
   final Duration gracia;
 
-  DetectorMotor({this.gracia = const Duration(minutes: 3)});
+  /// Cuánto tiene la camioneta para moverse antes de descartar el viaje.
+  final Duration prueba;
+
+  /// Cuánto hay que andar para que el viaje del cargador sea un viaje.
+  final double metrosMinimos;
+
+  DetectorMotor({
+    this.gracia = const Duration(minutes: 3),
+    this.prueba = const Duration(minutes: 5),
+    this.metrosMinimos = 200,
+  });
 
   bool? _conectado;
   int? _sinCargaDesde;
+  int? _abiertoT;
 
   /// Si el viaje que está abierto lo abrió el motor. Lo pone la pantalla
-  /// cuando el arranque automático anduvo, y lo saca al cerrar.
+  /// (con [abrioElMotor]) cuando el arranque automático anduvo, y lo saca al
+  /// cerrar.
   bool abiertoPorElMotor = false;
+
+  /// Si el viaje del cargador todavía no anduvo lo suficiente.
+  bool get aPrueba => abiertoPorElMotor && _abiertoT != null;
+
+  /// El viaje lo abrió el cargador en [t]: arranca a prueba.
+  void abrioElMotor(int t) {
+    abiertoPorElMotor = true;
+    _abiertoT = t;
+  }
 
   bool? get cargando => _conectado;
 
@@ -62,8 +90,25 @@ class DetectorMotor {
     return AccionMotor.nada;
   }
 
-  /// Se llama cada tanto (la pantalla late una vez por segundo).
-  AccionMotor alLatir({required bool hayViaje, required int t}) {
+  /// Se llama cada tanto (la pantalla late una vez por segundo), con lo que
+  /// lleva andado el viaje ([metros]).
+  AccionMotor alLatir({
+    required bool hayViaje,
+    required int t,
+    double metros = 0,
+  }) {
+    // La prueba: anduvo lo suficiente → viaje de verdad; se le acabó el
+    // tiempo sin andar → se descarta.
+    final abierto = _abiertoT;
+    if (hayViaje && abiertoPorElMotor && abierto != null) {
+      if (metros >= metrosMinimos) {
+        _abiertoT = null;
+      } else if (t - abierto >= prueba.inMilliseconds) {
+        _abiertoT = null;
+        _sinCargaDesde = null;
+        return AccionMotor.descartar;
+      }
+    }
     final desde = _sinCargaDesde;
     if (desde == null) return AccionMotor.nada;
     if (!hayViaje || !abiertoPorElMotor) {
@@ -72,6 +117,12 @@ class DetectorMotor {
     }
     if (t - desde >= gracia.inMilliseconds) {
       _sinCargaDesde = null;
+      // Se apagó sin haber andado: tampoco era un viaje.
+      if (aPrueba && metros < metrosMinimos) {
+        _abiertoT = null;
+        return AccionMotor.descartar;
+      }
+      _abiertoT = null;
       return AccionMotor.terminar;
     }
     return AccionMotor.nada;

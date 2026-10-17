@@ -150,6 +150,13 @@ class RegistroDeViajes {
     );
   }
 
+  /// Borra un viaje entero —sus puntos, vibraciones, audio y subida van con
+  /// él, por `ON DELETE CASCADE`—. Lo usa SÓLO el viaje que abrió el cargador
+  /// y en el que la camioneta no se movió (`sitd-40`): ése no es un viaje,
+  /// es un teléfono que se cargó en casa.
+  void borrar(int viaje) =>
+      base.db.execute('DELETE FROM viajes WHERE id = ?', [viaje]);
+
   /// El viaje que quedó sin cerrar, si hay alguno.
   ///
   /// **Esto es la recuperación después de una muerte súbita.** Si el sistema

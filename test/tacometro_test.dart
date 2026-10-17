@@ -106,6 +106,22 @@ void main() {
       );
     });
 
+    test(
+      'a 70 km/h la 2.ª serían 3.600 RPM: empatadas, gana la 4.ª (sitd-40)',
+      () {
+        final escuchas = [
+          <double?>[null, 7.0, 3.0, 8.0, null],
+          <double?>[null, 7.5, 3.5, 8.2, null],
+        ];
+        expect(decidirMarcha(escuchas, kmh: 70), 4);
+        expect(
+          decidirMarcha(escuchas, kmh: 45),
+          2,
+          reason: 'a 45, la 2.ª es creíble',
+        );
+      },
+    );
+
     test('2.ª y 4.ª a una octava, empatadas: gana la 2.ª, y no compiten', () {
       expect(
         decidirMarcha([

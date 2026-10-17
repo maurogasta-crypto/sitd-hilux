@@ -793,6 +793,15 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   arrancar el servicio de ubicación desde atrás. Se apaga con el interruptor
   «Empezar y terminar con el motor» de la pantalla del viaje.
 
+  **Y el viaje del cargador está A PRUEBA hasta que la camioneta anda**
+  (`sitd-40`, 17-oct-2026). Mauro enchufó el teléfono en un cargador de la
+  CASA y la app abrió el viaje 24: dos horas y cero metros. El cargador dice
+  «hay corriente», no «es la Hilux». Ahora, si en 5 minutos no se anduvieron
+  200 m —o si se desenchufa antes de andarlos—, el viaje se **descarta**: se
+  BORRA con todo lo suyo (`ON DELETE CASCADE`) y no se sube. Un viaje que
+  abrió una persona no se descarta nunca, y uno del cargador que ya anduvo
+  es un viaje como cualquiera (una parada larga no lo borra).
+
   **Y por qué no se lee el alternador por el cargador**, para que nadie lo
   vuelva a intentar: su ondulación anda entre 1.000 y 4.000 Hz, Android da la
   tensión y la corriente de carga unas pocas veces por segundo, y el cargador
@@ -842,7 +851,9 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   cada una predice a qué frecuencia suena el motor (`rpmPorKmh`, ±5 %) y gana
   la que suena, con 6 dB y 3 de ventaja sobre la segunda. **La 2.ª y la 4.ª
   suenan a una octava** (2,062 veces): empatadas, gana la de arriba, por el
-  mismo motivo. Sin marcha que suene (embrague, punto muerto) se busca libre,
+  mismo motivo — salvo que la de arriba pida más de 3.000 RPM a esa velocidad
+  (`sitd-40`: en el viaje 25, a 70 y 79 km/h, dos escuchas dijeron «2.ª, 3.450
+  y 3.900 RPM» con el sonido en 1.730, que es la 4.ª). Sin marcha que suene (embrague, punto muerto) se busca libre,
   con la corrección de octava, y la pantalla lo muestra con «~».
 
   **Y de esa cuenta salió la caja**: R150F (3,830 · 2,062 · 1,436 · 1 ·
@@ -1579,7 +1590,7 @@ el teléfono.
 | **B** | Servicio en primer plano y odometría GPS en vivo | **entregado** (`sitd-2`) |
 | **C** | Combustible: cargas, consumo derivado, calibración de `k` | **entregado** (`sitd-4`) |
 | **D** | Acelerómetro: línea base por cubeta, anomalías | **entregado** (`sitd-5`) |
-| **E** | Micrófono: FFT, compuerta de audio, escenarios | **entregado en parte** (`sitd-37`, RPM por marcha en `sitd-38`, tacómetro en vivo en `sitd-39`): RPM y compuerta; falta el sobre histórico y escuchar con la pantalla apagada |
+| **E** | Micrófono: FFT, compuerta de audio, escenarios | **entregado en parte** (`sitd-37`, RPM por marcha en `sitd-38`, tacómetro en vivo en `sitd-39`, 2.ª/4.ª en `sitd-40`): RPM y compuerta; falta el sobre histórico y escuchar con la pantalla apagada |
 | **—** | Panel de sensores: qué ve el teléfono y en qué estado | **entregado** (`sitd-6`) |
 | **—** | Sacar los datos: reporte para desarrollo y respaldo completo | **entregado** (`sitd-7`) |
 | **G** | La nube: cada viaje sube solo, y el chat lo lee | **entregado** (`sitd-17`) |

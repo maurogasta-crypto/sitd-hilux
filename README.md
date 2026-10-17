@@ -643,7 +643,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-39` | `lib/core/version.dart` |
+| Aplicación | `sitd-40` | `lib/core/version.dart` |
 | Esquema de la base | `8` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

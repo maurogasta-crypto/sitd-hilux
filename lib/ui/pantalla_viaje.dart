@@ -157,8 +157,10 @@ class _PantallaViajeState extends State<PantallaViaje> {
     final accion = _motor.alLatir(
       hayViaje: widget.servicio.estado.value.midiendo,
       t: DateTime.now().millisecondsSinceEpoch,
+      metros: widget.servicio.estado.value.odometria.metros,
     );
     if (accion == AccionMotor.terminar) unawaited(_terminarPorElMotor());
+    if (accion == AccionMotor.descartar) unawaited(_descartarPorElMotor());
   }
 
   Future<void> _empezarPorElMotor() async {
@@ -171,7 +173,7 @@ class _PantallaViajeState extends State<PantallaViaje> {
       );
       return;
     }
-    _motor.abiertoPorElMotor = true;
+    _motor.abrioElMotor(DateTime.now().millisecondsSinceEpoch);
     final viaje = widget.servicio.estado.value.viaje;
     if (viaje != null) {
       widget.vibracion.arrancar(viaje);
@@ -179,6 +181,25 @@ class _PantallaViajeState extends State<PantallaViaje> {
     }
     await widget.despierta.segun(midiendo: true);
     if (mounted) _contar('Arrancó el motor: empezó el viaje.');
+  }
+
+  /// `sitd-40`: el cargador abrió un viaje y la camioneta no anduvo. Se
+  /// borra: un teléfono cargando en casa no es un viaje.
+  Future<void> _descartarPorElMotor() async {
+    _motor.abiertoPorElMotor = false;
+    await widget.audio?.detener();
+    await widget.vibracion.detener();
+    await widget.servicio.descartar(
+      'lo abrió el cargador y la camioneta no anduvo '
+      '${_motor.metrosMinimos.round()} m en ${_motor.prueba.inMinutes} min '
+      '(¿un cargador fuera de la Hilux?).',
+    );
+    await widget.despierta.segun(midiendo: false);
+    if (mounted) {
+      _contar(
+        'El cargador abrió un viaje pero la camioneta no se movió: se descartó.',
+      );
+    }
   }
 
   Future<void> _terminarPorElMotor() async {

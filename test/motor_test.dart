@@ -327,6 +327,81 @@ void main() {
       },
     );
 
+    test(
+      'cargador de la casa (sitd-40): a los 5 min sin moverse, se descarta',
+      () {
+        final d = DetectorMotor();
+        d.alCambiar(conectado: false, inicial: true, hayViaje: false, t: 0);
+        d.alCambiar(conectado: true, inicial: false, hayViaje: false, t: 0);
+        d.abrioElMotor(0);
+        expect(d.aPrueba, isTrue);
+        expect(
+          d.alLatir(hayViaje: true, t: 299000, metros: 30),
+          AccionMotor.nada,
+        );
+        expect(
+          d.alLatir(hayViaje: true, t: 300000, metros: 30),
+          AccionMotor.descartar,
+        );
+        expect(
+          d.alLatir(hayViaje: true, t: 301000, metros: 30),
+          AccionMotor.nada,
+          reason: 'una sola vez',
+        );
+      },
+    );
+
+    test(
+      'si la camioneta anduvo, es un viaje: no se descarta y se cierra normal',
+      () {
+        final d = DetectorMotor();
+        d.alCambiar(conectado: false, inicial: true, hayViaje: false, t: 0);
+        d.alCambiar(conectado: true, inicial: false, hayViaje: false, t: 0);
+        d.abrioElMotor(0);
+        expect(
+          d.alLatir(hayViaje: true, t: 60000, metros: 250),
+          AccionMotor.nada,
+        );
+        expect(d.aPrueba, isFalse);
+        // Una parada larga en el camino (metros quietos) ya no lo descarta.
+        expect(
+          d.alLatir(hayViaje: true, t: 900000, metros: 250),
+          AccionMotor.nada,
+        );
+        d.alCambiar(
+          conectado: false,
+          inicial: false,
+          hayViaje: true,
+          t: 900000,
+        );
+        expect(
+          d.alLatir(hayViaje: true, t: 1080000, metros: 250),
+          AccionMotor.terminar,
+        );
+      },
+    );
+
+    test('se desenchufa antes de andar: se descarta en vez de guardarse', () {
+      final d = DetectorMotor();
+      d.alCambiar(conectado: false, inicial: true, hayViaje: false, t: 0);
+      d.alCambiar(conectado: true, inicial: false, hayViaje: false, t: 0);
+      d.abrioElMotor(0);
+      d.alCambiar(conectado: false, inicial: false, hayViaje: true, t: 60000);
+      expect(
+        d.alLatir(hayViaje: true, t: 60000 + 180000, metros: 0),
+        AccionMotor.descartar,
+      );
+    });
+
+    test('un viaje que abrió una persona nunca se descarta', () {
+      final d = DetectorMotor();
+      d.alCambiar(conectado: true, inicial: true, hayViaje: true, t: 0);
+      expect(
+        d.alLatir(hayViaje: true, t: 9999999, metros: 0),
+        AccionMotor.nada,
+      );
+    });
+
     test('si vuelve la carga antes de la gracia, no pasó nada', () {
       final d = DetectorMotor();
       d.alCambiar(conectado: true, inicial: true, hayViaje: true, t: 0);
@@ -453,6 +528,21 @@ void main() {
         'marchas',
         'picos',
       });
+    });
+
+    test('borrar un viaje se lleva su audio (sitd-40, ON DELETE CASCADE)', () {
+      registro.guardar(
+        viaje,
+        VentanaAudio.de(
+          leerMotor(motorSintetico(1800), kmh: 50),
+          t: 1,
+          kmh: 50,
+        ),
+      );
+      expect(registro.deViaje(viaje), isNotEmpty);
+      RegistroDeViajes(base).borrar(viaje);
+      expect(registro.deViaje(viaje), isEmpty);
+      expect(RegistroDeViajes(base).porId(viaje), isNull);
     });
 
     test('la marcha y el diagnóstico van y vuelven de la base (sitd-38)', () {

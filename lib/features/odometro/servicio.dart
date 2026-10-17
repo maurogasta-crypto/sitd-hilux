@@ -384,6 +384,22 @@ class ServicioOdometria {
     return cerrado;
   }
 
+  /// Suelta el GPS y BORRA el viaje abierto, sin encolarlo para subir
+  /// (`sitd-40`). Sólo para el viaje que abrió el cargador sin que la
+  /// camioneta se moviera: guardarlo ensuciaría el consumo y el factor, y
+  /// subirlo mandaría un viaje de cero metros a la nube.
+  Future<void> descartar(String porque) async {
+    final viaje = estado.value.viaje;
+    bitacora.anotar(Origen.viaje, 'Viaje $viaje descartado: $porque');
+    await _suscripcion?.cancel();
+    _suscripcion = null;
+    await fuente.detener();
+    if (viaje != null) registro.borrar(viaje);
+    _acumulador = Acumulador(criterios: criterios);
+    _desdeElUltimoVuelco = 0;
+    estado.value = const EstadoViaje();
+  }
+
   void cerrarRecursos() {
     _suscripcion?.cancel();
     estado.dispose();
