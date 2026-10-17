@@ -627,10 +627,10 @@ lib/
 │   ├── pantalla_vibracion.dart  Qué aprendió, y qué cambió.
 │   ├── pantalla_sensores.dart   Qué ve el teléfono, en vivo.
 │   ├── pantalla_respaldo.dart   Reporte y respaldo, con su advertencia.
-│   └── pantalla_diagnostico.dart  ¿Esto anda? y los últimos viajes.
+│   └── pantalla_diagnostico.dart  ¿Esto anda?, los últimos viajes y borrar uno.
 └── main.dart                Abre la base y dibuja.
 
-test/                        339 casos. Corren sin emulador ni teléfono.
+test/                        625 casos. Corren sin emulador ni teléfono.
 firestore.rules              Las reglas de la base remota. PLANTILLA: los
                              UID van como marcadores, este repo es público.
 android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
@@ -643,7 +643,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-40` | `lib/core/version.dart` |
+| Aplicación | `sitd-41` | `lib/core/version.dart` |
 | Esquema de la base | `8` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

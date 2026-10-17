@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sitd_hilux/core/db/base.dart';
+import 'package:sitd_hilux/features/nube/cola.dart';
 import 'package:sitd_hilux/features/odometro/integrador.dart';
 import 'package:sitd_hilux/features/odometro/muestra.dart';
 import 'package:sitd_hilux/features/odometro/registro.dart';
@@ -131,6 +132,36 @@ void main() {
       registro.guardarPunto(id, m(1000, 10));
       base.db.execute('DELETE FROM viajes WHERE id = ?', [id]);
       expect(registro.puntosDe(id), isEmpty);
+    });
+
+    // «Borrar este viaje» de ⋮ → Estado (sitd-41).
+    test('borrarCerrado no toca el viaje que sigue abierto', () {
+      final id = registro.abrir(inicio: 0);
+      registro.guardarPunto(id, m(1000, 10));
+      expect(registro.borrarCerrado(id), isFalse);
+      expect(registro.porId(id), isNotNull);
+      expect(registro.puntosDe(id).length, 1);
+    });
+
+    test('borrarCerrado borra uno cerrado, sus puntos y su lugar en la cola, '
+        'y deja los demás', () {
+      final a = registro.abrir(inicio: 0);
+      registro.guardarPunto(a, m(1000, 10));
+      registro.cerrar(a, fin: 2000);
+      final b = registro.abrir(inicio: 3000);
+      registro.cerrar(b, fin: 4000);
+      final cola = ColaDeSubida(base, reloj: () => 5000)
+        ..encolar(a)
+        ..encolar(b);
+      expect(registro.borrarCerrado(a), isTrue);
+      expect(registro.porId(a), isNull);
+      expect(registro.puntosDe(a), isEmpty);
+      expect(cola.pendientes().map((p) => p.viaje), [b]);
+      expect(registro.ultimos().map((v) => v.id), [b]);
+    });
+
+    test('borrarCerrado de un viaje que no existe no rompe', () {
+      expect(registro.borrarCerrado(99), isFalse);
     });
   });
 

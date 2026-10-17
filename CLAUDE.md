@@ -802,6 +802,17 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   abrió una persona no se descarta nunca, y uno del cargador que ya anduvo
   es un viaje como cualquiera (una parada larga no lo borra).
 
+  **Y desde `sitd-41` una persona también borra un viaje**, con el tacho de
+  cada fila en ⋮ → Estado (Mauro, por el viaje 24: «agregá borrar viaje»).
+  Pregunta con la fecha, los kilómetros y la duración a la vista, no con un
+  «¿estás seguro?»; se lleva todo lo suyo por la cascada, también su lugar
+  en la cola (lo que no había subido ya no sube), y anota en la bitácora qué
+  se borró. **El viaje que está midiendo no tiene tacho**
+  (`RegistroDeViajes.borrarCerrado` se niega): el servicio lo sigue
+  escribiendo. **Lo que ya subió a la nube queda allá**: el teléfono sólo
+  CREA en `reportes/` y el agente sólo lee; borrar un reporte es de Mauro,
+  desde la consola.
+
   **Y por qué no se lee el alternador por el cargador**, para que nadie lo
   vuelva a intentar: su ondulación anda entre 1.000 y 4.000 Hz, Android da la
   tensión y la corriente de carga unas pocas veces por segundo, y el cargador

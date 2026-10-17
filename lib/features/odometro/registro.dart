@@ -151,11 +151,24 @@ class RegistroDeViajes {
   }
 
   /// Borra un viaje entero —sus puntos, vibraciones, audio y subida van con
-  /// él, por `ON DELETE CASCADE`—. Lo usa SÓLO el viaje que abrió el cargador
-  /// y en el que la camioneta no se movió (`sitd-40`): ése no es un viaje,
-  /// es un teléfono que se cargó en casa.
+  /// él, por `ON DELETE CASCADE`—. Lo usa el viaje que abrió el cargador y en
+  /// el que la camioneta no se movió (`sitd-40`): ése no es un viaje, es un
+  /// teléfono que se cargó en casa. Una persona borra por [borrarCerrado].
   void borrar(int viaje) =>
       base.db.execute('DELETE FROM viajes WHERE id = ?', [viaje]);
+
+  /// Borra un viaje CERRADO, a pedido de una persona (`sitd-41`): «Borrar
+  /// este viaje» en ⋮ → Estado. Devuelve `false` sin tocar nada si el viaje
+  /// no existe o sigue abierto — el que está midiendo no se borra desde una
+  /// lista, porque el servicio lo sigue escribiendo y la fila volvería a
+  /// aparecer a medias. Se lleva todo lo suyo por la cascada, también su
+  /// lugar en la cola de subida: lo que no subió, ya no sube.
+  bool borrarCerrado(int viaje) {
+    final v = porId(viaje);
+    if (v == null || v.enMarcha) return false;
+    borrar(viaje);
+    return true;
+  }
 
   /// El viaje que quedó sin cerrar, si hay alguno.
   ///
