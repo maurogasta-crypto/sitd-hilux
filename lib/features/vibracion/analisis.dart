@@ -109,8 +109,58 @@ bool seCompara(VentanaVibracion v) =>
 /// La forma de [v], o `null` si no se puede comparar: por la frecuencia, o
 /// porque no tiene energía. Es la ÚNICA puerta por la que una ventana entra a
 /// la línea base o a una comparación.
+///
+/// Desde `sitd-42` tampoco pasa una ventana en la que el teléfono se movió
+/// en el soporte (`movido`): lo que midió es en parte el teléfono.
 List<double>? formaComparable(VentanaVibracion v) =>
-    seCompara(v) ? formaDelEspectro(v.bandas) : null;
+    seCompara(v) && !v.movido ? formaDelEspectro(v.bandas) : null;
+
+/// La clase de muestreo con la que se está midiendo AHORA: la de la ventana
+/// comparable más nueva (`sitd-42`). `null` si no hay ninguna.
+int? claseVigente(Map<int, List<VentanaVibracion>> porViaje) {
+  VentanaVibracion? ultima;
+  for (final ventanas in porViaje.values) {
+    for (final v in ventanas) {
+      if (!seCompara(v)) continue;
+      if (ultima == null || v.t > ultima.t) ultima = v;
+    }
+  }
+  return ultima == null ? null : claseDeMuestreo(ultima.hz);
+}
+
+/// Las ventanas de la clase vigente, por viaje. **Es lo que entra al
+/// análisis** desde `sitd-42`: a 50 Hz las bandas llevan un pedazo del motor
+/// plegado y a 200 Hz no, así que mezclarlas haría que la camioneta pareciera
+/// distinta de sí misma el día que cambió el muestreo. Al pasar a 200 Hz la
+/// línea base vuelve a aprender desde cero; las ventanas viejas no se borran,
+/// y si el sistema vuelve a dar 50 Hz, vuelven a contar.
+Map<int, List<VentanaVibracion>> deLaClaseVigente(
+  Map<int, List<VentanaVibracion>> porViaje,
+) {
+  final clase = claseVigente(porViaje);
+  if (clase == null) return porViaje;
+  return {
+    for (final e in porViaje.entries)
+      e.key: [
+        for (final v in e.value)
+          if (!seCompara(v) || claseDeMuestreo(v.hz) == clase) v,
+      ],
+  };
+}
+
+/// Cuántas ventanas que se comparan hay por cubeta: la cobertura.
+Map<int, int> ventanasComparablesPorCubeta(
+  Map<int, List<VentanaVibracion>> porViaje,
+) {
+  final salida = <int, int>{};
+  for (final ventanas in porViaje.values) {
+    for (final v in ventanas) {
+      if (formaComparable(v) == null) continue;
+      salida[v.cubeta] = (salida[v.cubeta] ?? 0) + 1;
+    }
+  }
+  return salida;
+}
 
 /// Lo normal de una cubeta de velocidad, aprendido de la historia.
 class LineaBase {

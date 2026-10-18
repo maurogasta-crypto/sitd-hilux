@@ -21,7 +21,12 @@ class PantallaVibracion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    final porViaje = registro.porViaje();
+    // Sólo la clase de muestreo vigente (`sitd-42`): 50 y 200 Hz no se
+    // comparan entre sí.
+    final todas = registro.porViaje();
+    final porViaje = deLaClaseVigente(todas);
+    final clase = claseVigente(todas);
+    final movidas = todas.values.expand((w) => w).where((v) => v.movido);
     final ultimos = registro.ultimosViajes();
     final base = lineaBase(porViaje);
     final avisos = anomalias(porViaje, ultimos);
@@ -41,8 +46,23 @@ class PantallaVibracion extends StatelessWidget {
             for (final a in avisos) _Aviso(anomalia: a),
           const SizedBox(height: 16),
           _Cobertura(
-            cobertura: cobertura(registro.ventanasPorCubeta()),
+            cobertura: cobertura(ventanasComparablesPorCubeta(porViaje)),
             aBajaFrecuencia: registro.ventanasABajaFrecuencia(),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            [
+              if (clase == 1)
+                'Midiendo a unos 200 Hz (desde sitd-42): lo aprendido a 50 Hz '
+                    'no se mezcla, así que vuelve a aprender desde cero.',
+              if (clase == 0) 'Midiendo a unos 50 Hz.',
+              if (movidas.isNotEmpty)
+                '${movidas.length} ventanas con el teléfono movido en el '
+                    'soporte: no se comparan.',
+            ].join(' '),
+            style: t.textTheme.bodySmall?.copyWith(
+              color: t.colorScheme.outline,
+            ),
           ),
           const SizedBox(height: 16),
           Text('Lo que fue aprendiendo', style: t.textTheme.titleMedium),

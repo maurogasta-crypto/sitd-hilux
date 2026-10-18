@@ -455,6 +455,12 @@ sature se arregla moviendo el teléfono. Un número solo taparía los tres.
 
 ## Lo que falta medir, y por qué vale más que todo lo demás
 
+**Medido el 2026-10-18: «lo más rápido» entrega 199,4 Hz en el Redmi 15 y
+201,3 en el Note 9**, parejo y sin faltantes, y desde `sitd-42` cada viaje
+mide así. Lo que queda abierto es si lo sostiene manejando —la bitácora
+anota cada cambio— y cruzar los picos de 15 a 100 Hz con las RPM del
+micrófono. Lo que se escribió antes de medirlo, que sigue valiendo:
+
 **Qué entrega el modo «lo más rápido».** El sensor da más de lo que se le pide:
 pidiendo 50 Hz entrega 49,85 con `game`, y nunca se midió `fastest`. Si fueran
 200 Hz, el techo sube a 100 y:

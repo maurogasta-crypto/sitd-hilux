@@ -11,7 +11,8 @@ class RegistroDeVibracion {
   void guardar(int viaje, VentanaVibracion v) {
     base.db.execute(
       'INSERT INTO vibraciones (viaje, t, cubeta, hz, muestras, rms, pico, '
-      'bandas) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'bandas, giro, angulo, movido, picos) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         viaje,
         v.t,
@@ -21,6 +22,10 @@ class RegistroDeVibracion {
         v.rms,
         v.pico,
         v.bandas.join(','),
+        v.giro,
+        v.angulo,
+        v.movido ? 1 : 0,
+        v.picos.join(','),
       ],
     );
   }
@@ -90,6 +95,13 @@ class RegistroDeVibracion {
     bandas: [
       for (final x in (f['bandas'] as String).split(','))
         double.tryParse(x) ?? 0,
+    ],
+    giro: (f['giro'] as num?)?.toDouble(),
+    angulo: (f['angulo'] as num?)?.toDouble(),
+    movido: (f['movido'] as int? ?? 0) == 1,
+    picos: [
+      for (final x in ((f['picos'] as String?) ?? '').split(','))
+        ?double.tryParse(x),
     ],
   );
 }

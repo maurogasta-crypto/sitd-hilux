@@ -16,6 +16,30 @@ abstract class FuenteDeVibracion {
   Future<void> detener();
 }
 
+/// De dónde sale el giro (`sitd-42`). Puede no haber: el Redmi 15 no tiene
+/// giróscopo, y entonces el stream no emite nunca y todo sigue como antes.
+abstract class FuenteDeGiro {
+  Stream<Giro> get giros;
+}
+
+/// El giróscopo del teléfono, a unos 50 Hz: para saber si la camioneta dobla
+/// y si el teléfono se mueve no hace falta más, y cada evento cruza el canal
+/// de la plataforma.
+class Giroscopo implements FuenteDeGiro {
+  @override
+  Stream<Giro> get giros =>
+      gyroscopeEventStream(samplingPeriod: SensorInterval.gameInterval)
+          .map((e) {
+            final t = e.timestamp.millisecondsSinceEpoch;
+            return Giro(
+              t > 0 ? t : DateTime.now().millisecondsSinceEpoch,
+              e.x,
+              e.y,
+              e.z,
+            );
+          });
+}
+
 /// El acelerómetro del teléfono.
 ///
 /// **El período que se pide no es el que se recibe.** Android trata
@@ -25,17 +49,19 @@ abstract class FuenteDeVibracion {
 /// ventana, y se guarda con el vector. Sin ese número, un vector viejo no se
 /// puede volver a leer: las bandas se calculan con él.
 class Acelerometro implements FuenteDeVibracion {
-  /// `game` son unos 50 Hz pedidos, que en el Redmi 15 dan 49,85 medidos y un
-  /// espectro hasta 24,93 Hz.
+  /// **Desde `sitd-42` se pide lo más rápido** (`fastest`). Hasta ahí se
+  /// pedía `game`, unos 50 Hz, que daban un espectro hasta 24,93 Hz: alcanza
+  /// para la rueda y NO para el motor —el encendido está en RPM/30, 26,7 Hz a
+  /// ralentí—, que además se plegaba y aparecía abajo, donde no está.
   ///
-  /// **Alcanza para lo mecánico de la camioneta y NO alcanza para el motor**,
-  /// y esa segunda mitad recién quedó clara el 2026-09-22. El encendido de un
-  /// 4 cilindros de 4 tiempos está en RPM/30: 26,7 Hz a ralentí, o sea ya por
-  /// encima de Nyquist antes de arrancar. No es que se vea mal — es que se
-  /// pliega y aparece abajo, donde no está. Ver `calidad.dart`.
+  /// El 2026-10-18 Mauro midió con «Probar la medición»: **el Redmi 15 da
+  /// 199,4 Hz y el Note 9 201,3, los dos sin un faltante.** Con eso el
+  /// espectro llega a 100 Hz: el motor se ve hasta unas 3.000 RPM y ya no se
+  /// cuela en las bandas de la rueda. Las bandas siguen siendo las mismas;
+  /// lo que cambia es que se miden limpias (ver `claseDeMuestreo`).
   final Duration periodo;
 
-  Acelerometro({this.periodo = SensorInterval.gameInterval});
+  Acelerometro({this.periodo = SensorInterval.fastestInterval});
 
   @override
   Stream<Sacudon> get sacudones =>
@@ -52,6 +78,9 @@ class Acelerometro implements FuenteDeVibracion {
           t > 0 ? t : ahora.millisecondsSinceEpoch,
           _magnitud(e),
           micros: t > 0 ? u : ahora.microsecondsSinceEpoch,
+          x: e.x,
+          y: e.y,
+          z: e.z,
         );
       });
 

@@ -1,4 +1,22 @@
+import 'dart:math' as math;
+
 import 'espectro.dart';
+
+/// Arriba de esto la ventana es una curva: 0,04 rad/s son 2,3° por segundo.
+/// Una curva de ruta de 500 m de radio a 100 km/h da 0,056; una esquina de
+/// ciudad, diez veces eso. Abajo queda el ruido del giróscopo con el sesgo ya
+/// descontado (`sitd-42`).
+const double giroDeCurva = 0.04;
+
+/// Desde acá la ventana se midió «rápido» (`sitd-42`): el espectro llega a
+/// 100 Hz y el motor ya no se pliega sobre las bandas de la rueda.
+const double hzDeMuestreoAlto = 80;
+
+/// 0 = medida a unos 50 Hz, 1 = a 200. **Dos ventanas de clases distintas no
+/// se comparan**: a 50 Hz las bandas llevan adentro un pedazo del motor
+/// plegado y a 200 no, así que la misma camioneta reparte distinto. Es lo
+/// que ya mostró el Redmi 13C a 63 Hz el 10-oct.
+int claseDeMuestreo(double hz) => hz >= hzDeMuestreoAlto ? 1 : 0;
 
 /// El ancho de cada cubeta de velocidad, en km/h.
 const double anchoDeCubeta = 10;
@@ -62,6 +80,24 @@ class VentanaVibracion {
   /// Energía por banda, en el orden de [bordesHz].
   final List<double> bandas;
 
+  /// Cuánto giraba la camioneta en la ventana, en rad/s, con el sesgo del
+  /// giróscopo descontado (`sitd-42`). `null` si el teléfono no tiene
+  /// giróscopo. Arriba de [giroDeCurva] la ventana es una CURVA.
+  final double? giro;
+
+  /// Cuántos grados se corrió la gravedad, vista desde el teléfono, contra la
+  /// posición con la que arrancó el viaje. `null` si todavía no hay
+  /// referencia o la fuente no da los ejes.
+  final double? angulo;
+
+  /// El teléfono se movió en el soporte durante esta ventana. **No se
+  /// compara**: lo que midió es en parte el teléfono moviéndose.
+  final bool movido;
+
+  /// Frecuencia y veces sobre la mediana de los picos entre 15 y 100 Hz, de
+  /// a pares. Vacío si se midió a 50 Hz: ahí no se ve el motor.
+  final List<double> picos;
+
   const VentanaVibracion({
     required this.t,
     required this.cubeta,
@@ -70,7 +106,42 @@ class VentanaVibracion {
     required this.rms,
     required this.pico,
     required this.bandas,
+    this.giro,
+    this.angulo,
+    this.movido = false,
+    this.picos = const [],
   });
+
+  bool get enCurva => (giro ?? 0) >= giroDeCurva;
+
+  VentanaVibracion con({double? giro, double? angulo, bool? movido}) =>
+      VentanaVibracion(
+        t: t,
+        cubeta: cubeta,
+        hz: hz,
+        muestras: muestras,
+        rms: rms,
+        pico: pico,
+        bandas: bandas,
+        giro: giro ?? this.giro,
+        angulo: angulo ?? this.angulo,
+        movido: movido ?? this.movido,
+        picos: picos,
+      );
+
+  Map<String, dynamic> aMapa() => {
+    't': t,
+    'cubeta': cubeta,
+    'hz': hz,
+    'muestras': muestras,
+    'rms': rms,
+    'pico': pico,
+    'bandas': bandas,
+    if (giro != null) 'giro': double.parse(giro!.toStringAsFixed(4)),
+    if (angulo != null) 'angulo': double.parse(angulo!.toStringAsFixed(1)),
+    if (movido) 'movido': true,
+    if (picos.isNotEmpty) 'picos': picos,
+  };
 
   bool get completa => bandas.length == cantidadDeBandas;
 }
@@ -100,6 +171,7 @@ VentanaVibracion? armarVentana({
   if (!hz.isFinite || hz <= 1) return null;
 
   final centrada = centrar(magnitud);
+  final espectro = magnitudes(centrada);
   return VentanaVibracion(
     t: tFin,
     cubeta: cubeta,
@@ -107,6 +179,9 @@ VentanaVibracion? armarVentana({
     muestras: magnitud.length,
     rms: rms(centrada),
     pico: pico(centrada),
-    bandas: energiaPorBanda(magnitudes(centrada), hz),
+    bandas: energiaPorBanda(espectro, hz),
+    picos: claseDeMuestreo(hz) == 1
+        ? picosDelEspectro(espectro, hz, hastaHz: math.min(100, hz / 2 - 1))
+        : const [],
   );
 }

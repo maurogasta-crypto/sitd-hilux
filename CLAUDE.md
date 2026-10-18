@@ -1182,6 +1182,39 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   acelerómetro solo, sin micrófono y sin la etapa E**. La pantalla lo dice en
   RPM: «motor visible hasta N RPM».
 
+  **Medido el 2026-10-18, y entregó** (`sitd-42`): «Lo más rápido» da
+  **199,4 Hz en el Redmi 15 y 201,3 en el Note 9**, irregularidad 0,00 y
+  ningún faltante. Desde `sitd-42` cada viaje pide `fastest`: el espectro
+  llega a 100 Hz, el motor se ve hasta unas 3.000 RPM y **ya no se pliega
+  sobre las bandas de la rueda**. Tres decisiones que no se deshacen:
+
+  **Las bandas son las mismas** (0,5 a 25 Hz) y salen del espectro a
+  200 Hz: con 5 s de ventana el casillero sigue midiendo 0,2 Hz y la escala
+  coincide, así que una rueda da la misma forma a 50 y a 200 (está en el
+  banco). Lo nuevo va aparte: los **picos de 15 a 100 Hz** de cada ventana
+  (`picos`, esquema 9), para cruzar el motor de la vibración con el del
+  micrófono con los datos, como se hizo con el viaje 19.
+
+  **50 y 200 Hz NO se comparan entre sí** (`claseDeMuestreo`,
+  `deLaClaseVigente`). A 50 Hz las bandas llevaban un pedazo del motor
+  plegado y a 200 no: la misma camioneta reparte distinto. El análisis usa
+  la clase de la ventana más nueva, así que **al pasar a 200 la línea base
+  vuelve a aprender desde cero** —en ciudad, 30 ventanas por cubeta son
+  minutos—. Lo viejo no se borra: si el sistema vuelve a dar 50 Hz, vuelve a
+  contar. Y si el sistema baja el sensor a mitad de viaje, la bitácora lo
+  anota (`_anotarMuestreo`).
+
+  **El giróscopo marca curvas y avisa si el teléfono se movió**
+  (`postura.dart`). El Note 9 lo tiene y el Redmi 15 no: sin él, todo sigue
+  igual. El giro de la ventana lleva el SESGO descontado, y el sesgo se mide
+  parado —el Note 9 quieto marca 0,038 rad/s, casi una curva de ruta—, así
+  que hasta la primera parada el giro no se dice. Que el teléfono se movió
+  sale de la GRAVEDAD y no de integrar el giróscopo (integrando, el sesgo
+  suma para siempre): si se corre más de 15° tres ventanas seguidas, se
+  anota en la bitácora, esas ventanas no se comparan (`movido`) y la
+  posición nueva pasa a ser la referencia. Las curvas se MARCAN (`giro`) y
+  todavía no se sacan de la comparación: eso se decide con los datos.
+
 - **LO QUE EL PANEL DICE DE LAS REGLAS ES UN REGISTRO, NO UNA MEDICIÓN — y a
   la base se le puede preguntar** (2026-09-22). Vale como regla general porque
   me costó un pendiente de prioridad alta que era falso.

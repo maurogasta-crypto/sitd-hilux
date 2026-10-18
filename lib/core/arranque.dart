@@ -220,6 +220,9 @@ class Arranque {
         vibracion: ServicioVibracion(
           registro: vibraciones,
           fuente: Acelerometro(),
+          // `sitd-42`: curvas y posición del teléfono. El Redmi 15 no tiene
+          // giróscopo; ahí el stream no emite y la vibración sigue igual.
+          giroscopo: Giroscopo(),
           velocidadKmh: () => servicio.estado.value.velocidadKmh,
         ),
         audios: audios,

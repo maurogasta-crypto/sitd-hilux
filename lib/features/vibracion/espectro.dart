@@ -192,3 +192,44 @@ List<double> centrar(List<double> x) {
   final media = suma / x.length;
   return [for (final v in x) v - media];
 }
+
+/// Los picos más salientes del espectro entre [desdeHz] y [hastaHz], de a
+/// pares: frecuencia y cuántas veces sobresale de la mediana de ese tramo
+/// (`sitd-42`). Es lo mismo que guarda el micrófono, para que el motor visto
+/// por la vibración se pueda cruzar con el oído sin otra salida a la ruta.
+///
+/// Un pico es un casillero más alto que sus dos vecinos; la frecuencia se
+/// afina con la parábola de los tres, porque el casillero solo tiene 0,2 Hz
+/// de ancho y a 100 Hz eso ya son 6 RPM de error.
+List<double> picosDelEspectro(
+  List<double> espectro,
+  double hz, {
+  double desdeHz = 15,
+  double hastaHz = 100,
+  int cuantos = 6,
+}) {
+  if (espectro.length < 8 || !hz.isFinite || hz <= 0) return const [];
+  final porCasillero = hz / (espectro.length * 2);
+  final desde = math.max(1, (desdeHz / porCasillero).ceil());
+  final hasta = math.min(espectro.length - 2, (hastaHz / porCasillero).floor());
+  if (hasta - desde < 4) return const [];
+  final tramo = [for (var k = desde; k <= hasta; k++) espectro[k]]..sort();
+  final mediana = tramo[tramo.length ~/ 2];
+  if (mediana <= 0) return const [];
+
+  final candidatos = <(double, double)>[];
+  for (var k = desde; k <= hasta; k++) {
+    final a = espectro[k - 1], b = espectro[k], c = espectro[k + 1];
+    if (b <= a || b < c) continue;
+    final den = a - 2 * b + c;
+    final corrimiento = den == 0 ? 0.0 : 0.5 * (a - c) / den;
+    candidatos.add(((k + corrimiento) * porCasillero, b / mediana));
+  }
+  candidatos.sort((p, q) => q.$2.compareTo(p.$2));
+  return [
+    for (final (f, veces) in candidatos.take(cuantos)) ...[
+      double.parse(f.toStringAsFixed(2)),
+      double.parse(veces.toStringAsFixed(1)),
+    ],
+  ];
+}

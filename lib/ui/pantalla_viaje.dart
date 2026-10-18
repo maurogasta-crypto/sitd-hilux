@@ -469,7 +469,7 @@ class _PantallaViajeState extends State<PantallaViaje> {
   /// distracción arriba de una camioneta de dos toneladas, y lo que se va a
   /// avisar viene repitiéndose hace tres viajes — puede esperar cinco minutos.
   Future<void> _avisarDeLaVibracion() async {
-    final porViaje = widget.vibraciones.porViaje();
+    final porViaje = deLaClaseVigente(widget.vibraciones.porViaje());
     final avisos = anomalias(porViaje, widget.vibraciones.ultimosViajes());
     if (avisos.isEmpty || !mounted) return;
     final a = avisos.first;

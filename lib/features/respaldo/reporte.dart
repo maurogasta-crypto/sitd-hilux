@@ -9,6 +9,7 @@ import '../audio/registro_audio.dart';
 import '../vibracion/analisis.dart';
 import '../vibracion/cobertura.dart';
 import '../vibracion/espectro.dart';
+import '../vibracion/postura.dart';
 import '../vibracion/registro_vibracion.dart';
 import '../vibracion/ventana.dart';
 
@@ -43,18 +44,20 @@ Map<String, dynamic> _analisis(
   // últimos, no tres cualesquiera.
   List<int> ultimosViajes,
 ) {
+  // Sólo la clase de muestreo vigente (`sitd-42`). Las ventanas de la otra
+  // clase siguen viajando en cada viaje, abajo; acá no cuentan.
+  final todas = porViaje;
+  porViaje = deLaClaseVigente(porViaje);
   final base = lineaBase(porViaje);
-  final ventanasPorCubeta = <int, int>{};
+  // Las que no se comparan no cuentan como cobertura: ver
+  // `hzMinimoParaComparar`. Se cuentan aparte, abajo.
+  final ventanasPorCubeta = ventanasComparablesPorCubeta(porViaje);
   var aBajaFrecuencia = 0;
-  for (final ventanas in porViaje.values) {
+  var movidas = 0;
+  for (final ventanas in todas.values) {
     for (final v in ventanas) {
-      // Las que no se comparan no cuentan como cobertura: ver
-      // `hzMinimoParaComparar`. Se cuentan aparte, abajo.
-      if (!seCompara(v)) {
-        aBajaFrecuencia++;
-        continue;
-      }
-      ventanasPorCubeta[v.cubeta] = (ventanasPorCubeta[v.cubeta] ?? 0) + 1;
+      if (!seCompara(v)) aBajaFrecuencia++;
+      if (v.movido) movidas++;
     }
   }
   final encontradas = anomalias(porViaje, ultimosViajes);
@@ -69,6 +72,12 @@ Map<String, dynamic> _analisis(
       'anchoDeCubetaKmh': anchoDeCubeta,
       'velocidadMinimaKmh': velocidadMinimaKmh,
       'cubetaMaxima': cubetaMaxima,
+      // `sitd-42`: con qué clase de muestreo se armó todo lo de abajo
+      // (0 = unos 50 Hz, 1 = unos 200), y los umbrales del giróscopo.
+      'claseVigente': claseVigente(todas),
+      'hzDeMuestreoAlto': hzDeMuestreoAlto,
+      'giroDeCurva': giroDeCurva,
+      'anguloDeMovido': anguloDeMovido,
       'segundosPorVentana': segundosPorVentana,
       'ventanasParaLineaBase': ventanasParaLineaBase,
       'umbralDeDesvio': umbralDeDesvio,
@@ -86,6 +95,8 @@ Map<String, dynamic> _analisis(
     // Las ventanas guardadas que NO entraron a nada por haberse medido a baja
     // frecuencia. Si crece, el teléfono está recortando el acelerómetro.
     'ventanasABajaFrecuencia': aBajaFrecuencia,
+    // `sitd-42`: ventanas en las que el teléfono se movió en el soporte.
+    'ventanasMovidas': movidas,
     // Cuánto sabe de cada velocidad. Incluye las cubetas vacías: una cubeta
     // que falta dice a qué velocidad hay que salir a andar.
     'cobertura': [
@@ -235,16 +246,7 @@ Map<String, dynamic> armarReporte({
           if (audios != null)
             'motor': [for (final w in audios.deViaje(v.id)) w.aMapa()],
           'vibraciones': [
-            for (final w in porViaje[v.id] ?? const [])
-              {
-                't': w.t,
-                'cubeta': w.cubeta,
-                'hz': w.hz,
-                'muestras': w.muestras,
-                'rms': w.rms,
-                'pico': w.pico,
-                'bandas': w.bandas,
-              },
+            for (final w in porViaje[v.id] ?? const []) w.aMapa(),
           ],
         },
     ],

@@ -1,6 +1,9 @@
 import 'dart:async';
 
+import '../../core/bitacora.dart';
+import 'analisis.dart';
 import 'fuente_vibracion.dart';
+import 'postura.dart';
 import 'registro_vibracion.dart';
 import 'ventana.dart';
 
@@ -14,6 +17,14 @@ import 'ventana.dart';
 class ServicioVibracion {
   final RegistroDeVibracion registro;
   final FuenteDeVibracion fuente;
+
+  /// El giróscopo, si hay (`sitd-42`). Sin él la ventana sale sin giro y todo
+  /// lo demás igual.
+  final FuenteDeGiro? giroscopo;
+
+  /// Curvas y posición del teléfono. Vive mientras vive el servicio: el sesgo
+  /// del giróscopo es del sensor y sirve de un viaje al siguiente.
+  final Postura postura = Postura();
 
   /// De dónde sale la velocidad. Devuelve `null` si todavía no se sabe.
   final double? Function() velocidadKmh;
@@ -35,11 +46,17 @@ class ServicioVibracion {
   int? _cubetaInicial;
   int? _viaje;
   StreamSubscription<Sacudon>? _suscripcion;
+  StreamSubscription<Giro>? _suscripcionGiro;
+
+  /// La clase de muestreo de la última ventana, para anotar cuando el sistema
+  /// le baja (o le sube) la frecuencia al acelerómetro.
+  int? _claseAnterior;
 
   ServicioVibracion({
     required this.registro,
     required this.fuente,
     required this.velocidadKmh,
+    this.giroscopo,
     this.duracionDeVentana = const Duration(seconds: 5),
     int Function()? reloj,
   }) : ahora = reloj ?? (() => DateTime.now().millisecondsSinceEpoch);
@@ -51,7 +68,19 @@ class ServicioVibracion {
     _viaje = viaje;
     guardadas = 0;
     descartadas = 0;
+    _claseAnterior = null;
+    postura.nuevoViaje();
     _reiniciar();
+    try {
+      _suscripcionGiro = giroscopo?.giros.listen(
+        postura.giro,
+        // Sin giróscopo —el Redmi 15— el stream falla o no emite: la
+        // vibración sigue igual, sólo que sin curvas.
+        onError: (Object _) => _suscripcionGiro?.cancel(),
+      );
+    } catch (_) {
+      _suscripcionGiro = null;
+    }
     _suscripcion = fuente.sacudones.listen(
       _recibir,
       onError: (Object _) {
@@ -72,10 +101,13 @@ class ServicioVibracion {
   /// un viaje y empezar el siguiente enseguida.
   Future<void> detener() async {
     final suscripcion = _suscripcion;
+    final suscripcionGiro = _suscripcionGiro;
     _suscripcion = null;
+    _suscripcionGiro = null;
     _viaje = null;
     _magnitud.clear();
     await suscripcion?.cancel();
+    await suscripcionGiro?.cancel();
     await fuente.detener();
   }
 
@@ -99,23 +131,36 @@ class ServicioVibracion {
       _cubetaInicial = _cubetaActual();
     }
     _magnitud.add(s.magnitud);
+    postura.aceleracion(s);
 
     if (s.t - _tInicio < duracionDeVentana.inMilliseconds) return;
 
     final cubeta = _cubetaInicial;
     final alCerrar = _cubetaActual();
+    final p = postura.cerrar(velocidadKmh());
+    if (p.seMovio != null) {
+      bitacora.anotar(
+        Origen.sistema,
+        'El teléfono se movió en el soporte: la gravedad se corrió '
+        '${p.seMovio!.toStringAsFixed(0)}° durante '
+        '${ventanasParaMovido * duracionDeVentana.inSeconds} s. Esas '
+        'ventanas no se comparan.',
+      );
+    }
 
     // Sólo se guarda si la velocidad se mantuvo en la MISMA cubeta de punta a
     // punta. Una ventana que empieza a 58 y termina a 72 km/h mezcla dos
     // espectros distintos, y mezclados no se parecen a ninguno de los dos.
     if (cubeta != null && alCerrar == cubeta) {
-      final v = armarVentana(
+      final armada = armarVentana(
         magnitud: List<double>.from(_magnitud),
         tInicio: _tInicio,
         tFin: s.t,
         cubeta: cubeta,
       );
+      final v = armada?.con(giro: p.giro, angulo: p.angulo, movido: p.movido);
       if (v != null) {
+        _anotarMuestreo(v.hz);
         registro.guardar(viaje, v);
         guardadas++;
       } else {
@@ -125,5 +170,21 @@ class ServicioVibracion {
       descartadas++;
     }
     _reiniciar();
+  }
+
+  /// Si el sistema le cambia la frecuencia al acelerómetro a mitad de viaje
+  /// —el Note 9 la bajó de 50 a 12,6 Hz el 28-sep—, queda escrito. Sólo el
+  /// cambio, no cada ventana.
+  void _anotarMuestreo(double hz) {
+    final clase = hz < hzMinimoParaComparar ? -1 : claseDeMuestreo(hz);
+    if (clase == _claseAnterior) return;
+    final antes = _claseAnterior;
+    _claseAnterior = clase;
+    bitacora.anotar(
+      Origen.sistema,
+      '${antes == null ? "El acelerómetro entrega" : "El acelerómetro pasó a"} '
+      '${hz.toStringAsFixed(1)} Hz'
+      '${clase == -1 ? " (no alcanza para comparar)" : ""}.',
+    );
   }
 }

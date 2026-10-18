@@ -36,6 +36,19 @@ class Sacudon {
   /// mentira del banco: ahí los instantes son exactos por construcción.
   final int tMicro;
 
-  const Sacudon(this.t, this.magnitud, {int? micros})
+  /// Los tres ejes, cuando la fuente los tiene (`sitd-42`). El espectro sigue
+  /// saliendo del [magnitud]; los ejes sirven para otra cosa: el promedio de
+  /// una ventana es la GRAVEDAD vista desde el teléfono, y si esa dirección
+  /// cambia, el teléfono se movió en el soporte.
+  final double? x, y, z;
+
+  const Sacudon(this.t, this.magnitud, {int? micros, this.x, this.y, this.z})
     : tMicro = micros ?? t * 1000;
+}
+
+/// Una lectura del giróscopo: cuánto gira el teléfono, en rad/s, por eje.
+class Giro {
+  final int t;
+  final double x, y, z;
+  const Giro(this.t, this.x, this.y, this.z);
 }

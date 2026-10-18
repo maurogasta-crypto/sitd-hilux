@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sitd_hilux/core/bitacora.dart';
 import 'package:sitd_hilux/core/db/base.dart';
 import 'package:sitd_hilux/features/odometro/registro.dart';
 import 'package:sitd_hilux/features/vibracion/fuente_vibracion.dart';
@@ -38,6 +39,12 @@ class AcelerometroFalso implements FuenteDeVibracion {
   }
 
   void fallar(Object e) => _control.addError(e);
+}
+
+class GiroFalso implements FuenteDeGiro {
+  final control = StreamController<Giro>.broadcast(sync: true);
+  @override
+  Stream<Giro> get giros => control.stream;
 }
 
 void main() {
@@ -177,5 +184,50 @@ void main() {
     fuente.sacudir(desde: 0, segundos: 6);
     base.db.execute('DELETE FROM viajes WHERE id = ?', [viaje]);
     expect(registro.deViaje(viaje), isEmpty);
+  });
+
+  group('sitd-42: giróscopo y 200 Hz', () {
+    test('con giróscopo, la ventana sale con el giro sin sesgo', () {
+      final giro = GiroFalso();
+      final s2 = ServicioVibracion(
+        registro: registro,
+        fuente: fuente,
+        giroscopo: giro,
+        velocidadKmh: () => velocidad,
+        reloj: () => 0,
+      );
+      final viaje = unViaje();
+      s2.arrancar(viaje);
+      // Parado cinco segundos: mide el sesgo.
+      velocidad = 0;
+      giro.control.add(const Giro(0, 0.03, 0, 0.02));
+      fuente.sacudir(desde: 0, segundos: 5.02);
+      // Doblando a 65 km/h.
+      velocidad = 65;
+      giro.control.add(const Giro(6000, 0.03, 0.2, 0.02));
+      fuente.sacudir(desde: 5020, segundos: 5.02);
+      final v = registro.deViaje(viaje).single;
+      expect(v.giro, closeTo(0.2, 1e-9));
+      expect(v.enCurva, isTrue);
+    });
+
+    test('sin giróscopo la ventana sale igual, sin giro', () {
+      final viaje = unViaje();
+      servicio.arrancar(viaje);
+      fuente.sacudir(desde: 0, segundos: 6);
+      expect(registro.deViaje(viaje).single.giro, isNull);
+    });
+
+    test('la bitácora anota el muestreo y cuando el sistema lo baja', () {
+      final viaje = unViaje();
+      servicio.arrancar(viaje);
+      fuente.sacudir(desde: 0, segundos: 5.1, hz: 200);
+      expect(bitacora.alReves.first.texto, contains('entrega 200'));
+      fuente.sacudir(desde: 5100, segundos: 5.1, hz: 200);
+      expect(bitacora.alReves.first.texto, contains('entrega 200'));
+      fuente.sacudir(desde: 10200, segundos: 6, hz: 12.5);
+      expect(bitacora.alReves.first.texto, contains('pasó a'));
+      expect(bitacora.alReves.first.texto, contains('no alcanza'));
+    });
   });
 }

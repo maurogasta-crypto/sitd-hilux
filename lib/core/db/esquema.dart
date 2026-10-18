@@ -13,7 +13,7 @@
 library;
 
 /// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
-const int versionEsquema = 8;
+const int versionEsquema = 9;
 
 /// Cada elemento son las sentencias que llevan el esquema de la versión
 /// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
@@ -266,6 +266,17 @@ const List<List<String>> migraciones = [
     "ALTER TABLE audio ADD COLUMN marchas TEXT NOT NULL DEFAULT ''",
     // Frecuencia y dB de los picos más salientes, de a pares, con comas.
     "ALTER TABLE audio ADD COLUMN picos TEXT NOT NULL DEFAULT ''",
+  ],
+  // 8 → 9 (`sitd-42`): el acelerómetro a 200 Hz y el giróscopo. Por ventana
+  // de vibración: cuánto doblaba la camioneta (rad/s, NULL sin giróscopo),
+  // cuántos grados se corrió la gravedad desde que arrancó el viaje, si el
+  // teléfono se movió en el soporte, y los picos de 15 a 100 Hz —el motor—
+  // que sólo existen midiendo rápido.
+  [
+    'ALTER TABLE vibraciones ADD COLUMN giro REAL',
+    'ALTER TABLE vibraciones ADD COLUMN angulo REAL',
+    'ALTER TABLE vibraciones ADD COLUMN movido INTEGER NOT NULL DEFAULT 0',
+    "ALTER TABLE vibraciones ADD COLUMN picos TEXT NOT NULL DEFAULT ''",
   ],
 ];
 
