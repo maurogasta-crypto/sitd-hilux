@@ -24,6 +24,12 @@
 ///     anduvieron [metrosMinimos], o si se apaga antes de andarlos, el viaje
 ///     se DESCARTA —se borra, no se guarda ni se sube—. Una vez que anduvo,
 ///     es un viaje como cualquiera.
+///  5. **Y también si lo cierra una persona** (`sitd-43`, 18-oct-2026). El
+///     viaje 19 del Note 9 lo abrió el cargador, alguien tocó Terminar a los
+///     20 segundos con un metro andado, y subió como un viaje más. Mauro:
+///     «que se descarte también si se cierra a mano». Cerrar a mano un viaje
+///     del cargador que todavía está a prueba lo descarta, igual que si se le
+///     acabara el tiempo ([descartaAlCerrarAMano]).
 ///
 /// No sabe nada de Android: recibe los cambios y el reloj, y dice qué hacer.
 library;
@@ -58,6 +64,12 @@ class DetectorMotor {
 
   /// Si el viaje del cargador todavía no anduvo lo suficiente.
   bool get aPrueba => abiertoPorElMotor && _abiertoT != null;
+
+  /// Si una persona cierra ahora el viaje, con [metros] andados, ¿se descarta?
+  /// Sólo si lo abrió el cargador y no llegó a [metrosMinimos]: un viaje que
+  /// abrió una persona, o uno del cargador que ya anduvo, se guarda siempre.
+  bool descartaAlCerrarAMano(double metros) =>
+      aPrueba && metros < metrosMinimos;
 
   /// El viaje lo abrió el cargador en [t]: arranca a prueba.
   void abrioElMotor(int t) {

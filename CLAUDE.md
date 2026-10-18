@@ -800,7 +800,10 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   200 m —o si se desenchufa antes de andarlos—, el viaje se **descarta**: se
   BORRA con todo lo suyo (`ON DELETE CASCADE`) y no se sube. Un viaje que
   abrió una persona no se descarta nunca, y uno del cargador que ya anduvo
-  es un viaje como cualquiera (una parada larga no lo borra).
+  es un viaje como cualquiera (una parada larga no lo borra). **Y desde `sitd-43` también si lo cierra una persona** antes de andar
+  los 200 m (Mauro, por el viaje 19 del Note 9: un toque en Terminar a los 20
+  segundos con un metro, que subió como un viaje): se descarta sin preguntar el
+  odómetro (`DetectorMotor.descartaAlCerrarAMano`).
 
   **Y desde `sitd-41` una persona también borra un viaje**, con el tacho de
   cada fila en ⋮ → Estado (Mauro, por el viaje 24: «agregá borrar viaje»).

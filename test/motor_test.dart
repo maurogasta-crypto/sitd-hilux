@@ -269,6 +269,20 @@ void main() {
   });
 
   group('el detector del motor', () {
+    test('cerrar a mano un viaje del cargador que no anduvo lo descarta', () {
+      final d = DetectorMotor();
+      d.abrioElMotor(0);
+      expect(d.descartaAlCerrarAMano(1), isTrue, reason: 'el viaje 19: 1 m');
+      expect(d.descartaAlCerrarAMano(199), isTrue);
+      // Ya anduvo: es un viaje de verdad, aunque después pare.
+      d.alLatir(hayViaje: true, t: 60000, metros: 250);
+      expect(d.descartaAlCerrarAMano(250), isFalse);
+      expect(d.descartaAlCerrarAMano(0), isFalse);
+      // Uno que abrió una persona no se descarta nunca.
+      final e = DetectorMotor();
+      expect(e.descartaAlCerrarAMano(0), isFalse);
+    });
+
     test('al abrir con el cargador puesto NO inventa un viaje', () {
       final d = DetectorMotor();
       expect(

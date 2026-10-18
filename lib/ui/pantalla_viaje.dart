@@ -185,14 +185,17 @@ class _PantallaViajeState extends State<PantallaViaje> {
 
   /// `sitd-40`: el cargador abrió un viaje y la camioneta no anduvo. Se
   /// borra: un teléfono cargando en casa no es un viaje.
-  Future<void> _descartarPorElMotor() async {
+  Future<void> _descartarPorElMotor({bool aMano = false}) async {
     _motor.abiertoPorElMotor = false;
     await widget.audio?.detener();
     await widget.vibracion.detener();
     await widget.servicio.descartar(
-      'lo abrió el cargador y la camioneta no anduvo '
-      '${_motor.metrosMinimos.round()} m en ${_motor.prueba.inMinutes} min '
-      '(¿un cargador fuera de la Hilux?).',
+      aMano
+          ? 'lo abrió el cargador y lo cerraron a mano antes de andar '
+                '${_motor.metrosMinimos.round()} m.'
+          : 'lo abrió el cargador y la camioneta no anduvo '
+                '${_motor.metrosMinimos.round()} m en ${_motor.prueba.inMinutes} min '
+                '(¿un cargador fuera de la Hilux?).',
     );
     await widget.despierta.segun(midiendo: false);
     if (mounted) {
@@ -410,6 +413,13 @@ class _PantallaViajeState extends State<PantallaViaje> {
 
   Future<void> _terminar() async {
     final viaje = widget.servicio.estado.value;
+    // `sitd-43`: el viaje que abrió el cargador y todavía no anduvo no se
+    // guarda aunque lo cierre una persona. Ni se pregunta el odómetro: no
+    // hay viaje que calibrar.
+    if (_motor.descartaAlCerrarAMano(viaje.odometria.metros)) {
+      await _descartarPorElMotor(aMano: true);
+      return;
+    }
     // Una confirmación dice qué pasa exactamente, no «¿estás seguro?».
     final pedido = await _pedirOdometro(
       titulo: 'Terminar el viaje',
