@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import '../../core/aparato.dart';
 import '../../core/bitacora.dart';
 import '../../core/db/base.dart';
 import '../../core/db/esquema.dart';
 import '../../core/version.dart';
+import '../calibracion/calibracion.dart';
 import '../odometro/registro.dart';
 import '../respaldo/importar.dart';
 import '../respaldo/reporte.dart';
@@ -77,6 +79,10 @@ class ServicioNube {
   /// `sesion` — una capacidad nueva no puede romper a la anterior.
   final RegistroDeViajes? viajes;
 
+  /// Las calibraciones del garage (`sitd-46`). Opcional como `viajes`: sin
+  /// esto no suben y todo lo demás sigue igual.
+  final RegistroDeCalibraciones? calibraciones;
+
   ServicioNube({
     required this.cola,
     required this.guarda,
@@ -84,6 +90,7 @@ class ServicioNube {
     required this.armar,
     this.sesion,
     this.viajes,
+    this.calibraciones,
   });
 
   bool get configurada => guarda.configurada;
@@ -107,12 +114,18 @@ class ServicioNube {
       );
     }
 
-    final faltan = cola.pendientes(tope);
-    if (faltan.isEmpty) return const Tanda();
+    // sitd-46: primero las calibraciones terminadas que no subieron. Antes
+    // viajaban sólo adentro del reporte de un viaje, así que una medida
+    // hecha en el garage no llegaba hasta el próximo viaje.
+    final cal = await _subirCalibraciones(c);
+    var subidos = cal.subidas;
+    var fallaron = cal.fallaron;
+    String? primera = cal.falla;
 
-    var subidos = 0;
-    var fallaron = 0;
-    String? primera;
+    final faltan = cola.pendientes(tope);
+    if (faltan.isEmpty) {
+      return Tanda(subidos: subidos, fallaron: fallaron, primeraFalla: primera);
+    }
 
     for (final p in faltan) {
       // Antes de mandarlo, que entre. Un documento de Firestore no puede
@@ -416,6 +429,58 @@ class ServicioNube {
   /// Los documentos subidos con el esquema viejo quedan donde están y siguen
   /// siendo válidos: la cola ya los tiene marcados como subidos, así que no se
   /// duplican. Lo nuevo entra con el identificador nuevo.
+  /// Dónde se anota qué calibraciones ya subieron (`tipo@inicio`, una lista).
+  static const String claveDeCalibracionesSubidas = 'calibraciones_subidas';
+
+  /// Sube cada calibración TERMINADA que no subió, como un documento propio
+  /// de `reportes/`: `<quien>-cal-<tipo>-<inicio>`. La regla del teléfono
+  /// (crear, con `json`, `sello` y `generado`) no cambia, y un 409 es que ya
+  /// estaba. La prueba con peso sube cuando se cierra: mientras dura no es un
+  /// dato terminado. No lleva coordenadas: se hacen parado.
+  Future<({int subidas, int fallaron, String? falla})> _subirCalibraciones(
+    Credencial c,
+  ) async {
+    final reg = calibraciones;
+    if (reg == null) return (subidas: 0, fallaron: 0, falla: null);
+    final base = reg.base;
+    final ya = <String>{
+      ...(base.leerAjuste(claveDeCalibracionesSubidas) ?? '')
+          .split(',')
+          .where((s) => s.isNotEmpty),
+    };
+    var subidas = 0;
+    var fallaron = 0;
+    String? falla;
+    for (final cal in reg.ultimas(cuantas: 100).reversed) {
+      final llave = '${cal.tipo}@${cal.inicio}';
+      if (cal.abierta || ya.contains(llave)) continue;
+      final r = await subida.subir(
+        credencial: c,
+        id: '${_quien(c)}-cal-${cal.tipo}-${cal.inicio}',
+        reporte: reporteDeCalibracion(
+          cal,
+          sello: selloApp,
+          ahora: DateTime.now().millisecondsSinceEpoch,
+          telefono: base.leerAjuste(claveDelTelefono),
+        ),
+        sesion: sesion,
+      );
+      if (r.ok) {
+        ya.add(llave);
+        base.escribirAjuste(claveDeCalibracionesSubidas, ya.join(','));
+        subidas++;
+      } else {
+        fallaron++;
+        falla ??= r.falla;
+        if (r.esCulpaNuestra) break;
+      }
+    }
+    if (subidas > 0) {
+      bitacora.anotar(Origen.sistema, 'Subieron $subidas calibraciones.');
+    }
+    return (subidas: subidas, fallaron: fallaron, falla: falla);
+  }
+
   static String _idDe(int viaje, Credencial c, {int? inicio}) {
     final quien = _quien(c);
     return inicio != null ? '$quien-t$inicio' : '$quien-viaje-$viaje';

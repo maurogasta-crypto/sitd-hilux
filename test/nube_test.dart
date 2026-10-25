@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:sitd_hilux/core/db/base.dart';
+import 'package:sitd_hilux/features/calibracion/calibracion.dart';
 import 'package:sitd_hilux/features/nube/cola.dart';
 import 'package:sitd_hilux/features/nube/credencial.dart';
 import 'package:sitd_hilux/features/nube/servicio_nube.dart';
@@ -285,6 +286,40 @@ void pruebasDelServicio() {
           'app': {'sello': 's'},
         },
   );
+
+  // sitd-46: una calibración del garage sube sola, sin esperar un viaje.
+  test('las calibraciones terminadas suben una vez; la que dura, no', () async {
+    final reg = RegistroDeCalibraciones(base);
+    reg.guardar(
+      const Calibracion(
+        tipo: 'rueda',
+        inicio: 100,
+        fin: 100,
+        datos: {'circunferenciaM': 2.39},
+      ),
+    );
+    reg.guardar(const Calibracion(tipo: 'peso', inicio: 200, datos: {}));
+    final s = ServidorFalso();
+    ServicioNube servicio() => ServicioNube(
+      cola: cola,
+      guarda: guarda,
+      subida: Subida(cliente: s),
+      armar: (v) => {'viaje': v},
+      calibraciones: reg,
+    );
+    final t = await servicio().subirPendientes();
+    expect(t.subidos, 1);
+    expect(
+      s.urls.where((u) => u.toString().contains('-cal-rueda-100')),
+      hasLength(1),
+    );
+    expect(s.urls.any((u) => u.toString().contains('-cal-peso-')), isFalse);
+    expect(s.cuerposEnviados.single, contains('calibracion'));
+
+    // La segunda vez no la vuelve a mandar.
+    await servicio().subirPendientes();
+    expect(s.cuerposEnviados, hasLength(1));
+  });
 
   // LA prueba de esta etapa. El respaldo completo lleva dónde estuvo la
   // camioneta minuto a minuto y NO sale del teléfono por ningún canal — ni

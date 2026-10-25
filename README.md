@@ -637,7 +637,7 @@ lib/
 │   └── pantalla_diagnostico.dart  ¿Esto anda?, los últimos viajes y borrar uno.
 └── main.dart                Abre la base y dibuja.
 
-test/                        669 casos. Corren sin emulador ni teléfono.
+test/                        673 casos. Corren sin emulador ni teléfono.
 firestore.rules              Las reglas de la base remota. PLANTILLA: los
                              UID van como marcadores, este repo es público.
 android/…/MainActivity.kt    El ÚNICO código nativo: el puente con

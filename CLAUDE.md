@@ -1318,8 +1318,24 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
     (`RPM/30` Hz) se ve en la vibración. No corre con un viaje midiendo.
   Las calibraciones viajan en el reporte (no llevan coordenadas) y se suman
   en un respaldo por `tipo` + `inicio`. La pantalla lista además lo que
-  convendría sumar después (soporte quieto, golpecitos al soporte, aire
-  acondicionado, rodar en punto muerto, la rueda cargada).
+  convendría sumar después (soporte quieto, golpecitos al soporte, rodar en
+  punto muerto, la rueda cargada).
+
+  **Desde `sitd-46` (25-oct)**: la prueba del motor tiene su variante **con el
+  aire acondicionado prendido** (`variante: 'aire'`, Mauro: «agregá también la
+  calibración con el aire acondicionado»): el compresor carga el motor y suma
+  su zumbido, y hay que conocerlo para no leerlo como falla. **Cada
+  calibración terminada sube sola** a `reportes/` como su propio documento
+  (`<quien>-cal-<tipo>-<inicio>`, la misma regla de crear del teléfono), al
+  abrir la app y con el botón de subir: hasta `sitd-45` viajaba sólo dentro
+  del reporte de un viaje y una medida del garage no llegaba hasta el
+  siguiente. La del peso sube al cerrarse. **Y las RPM del motor parado las
+  da el oído, no la aguja** (Mauro: «creyendo más en la precisión del aparato
+  para estar en el rango correcto que en mi mirada de la aguja y mi pie»): la
+  aguja marca el rango, y de cada lectura del oído, su mitad o su doble —el
+  error de octava de `regimen.dart`— se queda la que cae a ±30 % del régimen
+  pedido (`enElRango`; a ralentí, 600 a 1100). Se guardan las dos medianas,
+  `rpmOida` y `rpmOidaCruda`.
 
 - **El pico dominante se muestra con su margen, porque el espaciado de bins no
   es la resolución** (`sitd-29`). La FFT rellena con ceros hasta la próxima

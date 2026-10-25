@@ -98,10 +98,11 @@ Map<String, dynamic> resumirPaso(
   List<VentanaVibracion> ventanas,
   List<LecturaMotor> escuchas,
 ) {
-  final rpmOidas = [
+  final crudas = [
     for (final e in escuchas)
       if (e.rpm != null) e.rpm!,
   ];
+  final rpmOidas = [for (final r in crudas) ?enElRango(r, paso.rpm)];
   final rpmOida = rpmOidas.isEmpty ? null : _mediana(rpmOidas);
   final picosVib = picosFrecuentes([for (final v in ventanas) v.picos]);
   final referencia = paso.rpm ?? rpmOida;
@@ -120,6 +121,7 @@ Map<String, dynamic> resumirPaso(
     'escuchas': escuchas.length,
     'escuchasConRpm': rpmOidas.length,
     if (rpmOida != null) 'rpmOida': _r(rpmOida, 0),
+    if (crudas.isNotEmpty) 'rpmOidaCruda': _r(_mediana(crudas), 0),
     if (escuchas.isNotEmpty) ...{
       'nivelDb': _r(_mediana([for (final e in escuchas) e.nivelDb]), 1),
       'prominenciaDb': _r(
@@ -133,6 +135,30 @@ Map<String, dynamic> resumirPaso(
     if (encendidoHz != null && ventanas.isNotEmpty)
       'encendidoEnVibracion': _aparece(picosVib, encendidoHz),
   };
+}
+
+/// Una lectura del oído puesta en el régimen que se pidió (`sitd-46`).
+///
+/// Mauro, 25-oct: «creyendo más en la precisión que pueda tener el aparato
+/// de medición para estar en el rango correcto que en la precisión de mi
+/// mirada de la aguja y de mi pie». La aguja dice el RANGO; el número lo dice
+/// el oído. Pero el oído, sin la velocidad del GPS, se puede equivocar de
+/// octava —la mitad o el doble: es el error conocido de `regimen.dart`—, así
+/// que de la lectura, su mitad y su doble se queda la que cae cerca del
+/// régimen pedido (±30 %, más que lo que se le escapa a un pie). Lo que no
+/// cae cerca de ninguno no se cuenta: no era el motor. A ralentí, sin aguja,
+/// el rango es el de un ralentí diésel: 600 a 1100.
+double? enElRango(double rpm, double? pedido) {
+  double? mejor;
+  for (final r in [rpm, rpm * 2, rpm / 2]) {
+    final ok = pedido == null
+        ? r >= 600 && r <= 1100
+        : (r - pedido).abs() <= pedido * 0.3;
+    if (!ok) continue;
+    final ref = pedido ?? 800;
+    if (mejor == null || (r - ref).abs() < (mejor - ref).abs()) mejor = r;
+  }
+  return mejor;
 }
 
 /// De muchas listas de picos (frecuencia, fuerza, de a pares), los que más se

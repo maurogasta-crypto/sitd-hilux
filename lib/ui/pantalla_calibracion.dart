@@ -124,10 +124,11 @@ class _PantallaCalibracionState extends State<PantallaCalibracion> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(texto)));
 
-  Future<void> _probarMotor() async {
+  Future<void> _probarMotor({String? variante}) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => PantallaPruebaMotor(registro: _registro),
+        builder: (_) =>
+            PantallaPruebaMotor(registro: _registro, variante: variante),
       ),
     );
     if (mounted) setState(() {});
@@ -339,6 +340,17 @@ class _PantallaCalibracionState extends State<PantallaCalibracion> {
                 icon: const Icon(Icons.speed),
                 label: const Text('Empezar la prueba del motor'),
               ),
+              const SizedBox(height: 8),
+              // sitd-46 (Mauro: «agregá también la calibración con el aire
+              // acondicionado prendido»): los mismos pasos, con el compresor
+              // cargando el motor. Su zumbido queda como referencia.
+              FilledButton.tonalIcon(
+                onPressed: widget.hayViajeMidiendo
+                    ? null
+                    : () => _probarMotor(variante: 'aire'),
+                icon: const Icon(Icons.ac_unit),
+                label: const Text('La misma, con el aire acondicionado'),
+              ),
               if (widget.hayViajeMidiendo)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
@@ -368,8 +380,6 @@ class _PantallaCalibracionState extends State<PantallaCalibracion> {
                     'ruido propio del sensor y del soporte.',
                 'Unos golpecitos en el soporte: su resonancia propia (¿es el '
                     'pico fijo de 4 a 6 Hz?).',
-                'Aire acondicionado o ventilador prendido a ralentí: su '
-                    'zumbido, para no confundirlo con el motor.',
                 'Rodar en punto muerto por una bajada suave: la rueda y el '
                     'camino sin el motor.',
                 'La vuelta de la rueda con la camioneta cargada: cuánto cambia '
@@ -389,7 +399,9 @@ class _PantallaCalibracionState extends State<PantallaCalibracion> {
   static String _resumenMotor(Calibracion c) {
     final pasos = (c.datos['pasos'] as List?) ?? const [];
     if (pasos.isEmpty) return 'sin datos';
+    final v = variantesDelMotor[c.datos['variante']];
     return [
+      ?v,
       for (final p in pasos.whereType<Map>())
         '${p['paso']}${p['rpmOida'] != null ? ' (oye ${p['rpmOida']})' : ''}',
     ].join(' · ');
@@ -400,7 +412,10 @@ class _PantallaCalibracionState extends State<PantallaCalibracion> {
 class PantallaPruebaMotor extends StatefulWidget {
   final RegistroDeCalibraciones registro;
 
-  const PantallaPruebaMotor({super.key, required this.registro});
+  /// `null` la de siempre; `'aire'`, con el aire acondicionado prendido.
+  final String? variante;
+
+  const PantallaPruebaMotor({super.key, required this.registro, this.variante});
 
   @override
   State<PantallaPruebaMotor> createState() => _PantallaPruebaMotorState();
@@ -528,7 +543,11 @@ class _PantallaPruebaMotorState extends State<PantallaPruebaMotor> {
         tipo: 'motor',
         inicio: _inicio,
         fin: DateTime.now().millisecondsSinceEpoch,
-        datos: {'pasos': _resumenes, if (_sinMicrofono) 'sinMicrofono': true},
+        datos: {
+          if (widget.variante != null) 'variante': widget.variante,
+          'pasos': _resumenes,
+          if (_sinMicrofono) 'sinMicrofono': true,
+        },
       ),
     );
     setState(() => _fase = _Fase.terminada);
@@ -544,7 +563,13 @@ class _PantallaPruebaMotorState extends State<PantallaPruebaMotor> {
     final t = Theme.of(context);
     final paso = pasosDelMotor[_paso];
     return Scaffold(
-      appBar: AppBar(title: const Text('Prueba del motor')),
+      appBar: AppBar(
+        title: Text(
+          widget.variante == 'aire'
+              ? 'Prueba del motor · con aire'
+              : 'Prueba del motor',
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: switch (_fase) {
@@ -555,6 +580,19 @@ class _PantallaPruebaMotorState extends State<PantallaPruebaMotor> {
                 'Antes de empezar: camioneta estacionada, freno de mano, en '
                 'punto muerto, el teléfono en su soporte de siempre y sin '
                 'música. Prendé el motor.',
+              ),
+              if (widget.variante == 'aire') ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Prendé el aire acondicionado al máximo de frío y el '
+                  'ventilador al máximo, y esperá a que el compresor arranque '
+                  '(el ralentí sube un poco: está bien, la app lo mide).',
+                ),
+              ],
+              const SizedBox(height: 8),
+              const Text(
+                'La aguja da el rango; el número lo mide la app. Si el pie no '
+                'la deja quieta, no importa: guarda lo que oyó.',
               ),
               const SizedBox(height: 12),
               for (final p in pasosDelMotor)

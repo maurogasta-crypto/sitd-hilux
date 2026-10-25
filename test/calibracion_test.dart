@@ -175,6 +175,28 @@ void main() {
       expect(r.containsKey('rpmOida'), isFalse);
     });
 
+    // sitd-46: la aguja da el rango, el número lo da el oído.
+    test('una lectura a la mitad o al doble se pone en el régimen pedido', () {
+      expect(enElRango(760, 1500), 1520); // el oído leyó la mitad
+      expect(enElRango(1510, 1500), 1510);
+      expect(enElRango(3020, 1500), 1510); // y acá el doble
+      expect(enElRango(1440, 1500), 1440); // el pie no la dejó en 1500: vale
+      expect(enElRango(400, 1500), isNull); // no era el motor
+      expect(enElRango(780, null), 780); // ralentí, sin aguja
+      expect(enElRango(1560, null), 780);
+      expect(enElRango(3000, null), isNull);
+    });
+
+    test('el resumen guarda lo oído, corregido y crudo', () {
+      final r = resumirPaso(pasosDelMotor[1], const [], [
+        oido(505),
+        oido(1010),
+        oido(990),
+      ]);
+      expect(r['rpmOida'], 1010);
+      expect(r['rpmOidaCruda'], 990);
+    });
+
     test('un pico que aparece en una sola ventana pesa menos que uno fijo', () {
       final p = picosFrecuentes([
         [12.1, 5, 30.0, 2],
@@ -199,6 +221,26 @@ void main() {
     await t.pump();
     expect(registro.ultimas(tipo: 'rueda'), hasLength(1));
     expect(circunferenciaEsMedida, isTrue);
+  });
+
+  test('una calibración sube sola: su documento no lleva coordenadas', () {
+    final doc = reporteDeCalibracion(
+      const Calibracion(
+        tipo: 'motor',
+        inicio: 10,
+        fin: 20,
+        datos: {'variante': 'aire', 'pasos': []},
+      ),
+      sello: 'sitd-46',
+      ahora: 30,
+      telefono: 'Xiaomi Redmi Note 9',
+    );
+    expect(doc['reporte'], 'calibracion');
+    expect((doc['app'] as Map)['sello'], 'sitd-46');
+    expect((doc['calibracion'] as Map)['datos']['variante'], 'aire');
+    final texto = doc.toString();
+    expect(texto.contains('lat'), isFalse);
+    expect(texto.contains('lon'), isFalse);
   });
 
   testWidgets('con un viaje midiendo, la prueba del motor no arranca', (

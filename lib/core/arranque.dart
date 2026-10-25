@@ -180,6 +180,9 @@ class Arranque {
         // que es lo único que sale del teléfono cuando alguien lo pide a
         // mano. Sin esto todo lo demás anda igual y el recorrido no sube.
         viajes: registro,
+        // sitd-46: las calibraciones del garage suben solas, cada una en su
+        // documento, sin esperar al próximo viaje.
+        calibraciones: RegistroDeCalibraciones(base),
         // Un documento POR VIAJE y no el reporte entero: así cada documento
         // queda chico —bien abajo del límite de 1 MB de Firestore— y la
         // colección acumulada ES la historia.

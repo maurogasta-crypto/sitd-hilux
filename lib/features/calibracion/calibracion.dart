@@ -40,6 +40,14 @@ const Map<String, String> tiposDeCalibracion = {
   'motor': 'Motor parado: ralentí, 1000, 1500 y 2000 RPM',
 };
 
+/// Las variantes de la prueba del motor (`sitd-46`). La de siempre no lleva
+/// nombre; con el aire acondicionado prendido el compresor carga el motor y
+/// suma su propio zumbido, y es lo que hay que conocer para no confundirlo
+/// con una falla.
+const Map<String, String> variantesDelMotor = {
+  'aire': 'con el aire acondicionado prendido',
+};
+
 /// Las cuatro ruedas, como las nombra quien está parado al lado.
 const List<String> ruedas = [
   'delantera izquierda',
@@ -119,6 +127,25 @@ class Calibracion {
     problema: null,
   );
 }
+
+// ─── Lo que sube a la nube ───────────────────────────────────────────────────
+
+/// El documento que sube una calibración sola (`sitd-46`): la calibración y
+/// con qué vuelta de rueda leía la app en ese momento. Ni una coordenada.
+Map<String, dynamic> reporteDeCalibracion(
+  Calibracion c, {
+  required String sello,
+  required int ahora,
+  String? telefono,
+}) => {
+  'reporte': 'calibracion',
+  'generado': ahora,
+  'app': {'sello': sello},
+  'telefono': ?telefono,
+  'circunferenciaM': double.parse(circunferencia.toStringAsFixed(4)),
+  'circunferenciaMedida': circunferenciaEsMedida,
+  'calibracion': c.aMapa(),
+};
 
 // ─── El registro ─────────────────────────────────────────────────────────────
 
