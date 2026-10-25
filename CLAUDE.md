@@ -653,8 +653,9 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
 
 - **Los espectros se comparan por cubeta de velocidad, nunca en crudo.** Una
   falla mecánica tiene frecuencia proporcional a las revoluciones: un
-  desbalanceo a 60 km/h está en 6,98 Hz y a 110 en 12,80 (con la rueda medida
-  de esta camioneta; ver `rueda.dart`). Comparar espectros de
+  desbalanceo a 60 km/h está en 6,86 Hz y a 110 en 12,58 (con la vuelta
+  MEDIDA rodando el 25-oct-2026, 2,428 m; con el diámetro de cinta de 76 cm
+  eran 6,98 y 12,80; ver `rueda.dart`). Comparar espectros de
   velocidades distintas hace que todo sea anomalía.
 
 - **Nunca se alerta por una muestra.** Histéresis obligatoria: tres viajes
@@ -1523,8 +1524,12 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   regla de fondo sigue intacta y este número no la toca.
 
   Para lo que sí sirve es para decir en qué banda buscar: a 65 km/h la rueda da
-  7,6 vueltas por segundo y un desbalanceo cae en la banda 6-8 Hz; a 110 da
-  12,8 y cae en la de 10-13. **Es el porqué entero de las cubetas**, ahora con
+  7,4 vueltas por segundo y un desbalanceo cae en la banda 6-8 Hz; a 110 da
+  12,6 y cae en la de 10-13. **Desde el 25-oct-2026 la vuelta es MEDIDA**
+  (Calibración, `hilux:D6`): 5 vueltas = 12,142 m, 2,428 m por vuelta, 77,3 cm
+  de diámetro efectivo —1,7 % más que la cinta—. Ninguna cubeta cambió de
+  banda con eso; las RPM por marcha bajaron lo mismo, un 1,7 % (5.ª: 20,6 por
+  km/h en vez de 21,0). **Es el porqué entero de las cubetas**, ahora con
   los números de esta camioneta y no de una genérica, y el banco lo comprueba.
 
 - **Lo que NO se va a hacer, y no es pereza: entrenar un modelo.** La pregunta
