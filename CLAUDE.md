@@ -1295,6 +1295,32 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   viajes. El diámetro sirve para LEER un espectro, no para convertir vueltas en
   kilómetros.
 
+- **La pantalla de CALIBRACIÓN guarda lo que se mide parado** (`sitd-45`,
+  25-oct-2026, Mauro: «un botón que diga calibración… el registro de todos
+  los datos que pueden hacerse en garage antes de arrancar un viaje»). Está a
+  la vista en la pantalla del viaje y va a `calibraciones` (esquema 11), con
+  un `datos` JSON por tipo para que una calibración nueva no pida otra
+  migración. Hoy son tres:
+  · **La vuelta de la rueda** (`hilux:D6`): tantas vueltas rodando en el piso
+    son tantos metros. La última medida pasa a ser la `circunferencia` de
+    `rueda.dart` —la frecuencia de la rueda, la banda del reporte y las RPM
+    por marcha salen de ahí— y sin medida vale π × 76 cm. Se acepta de 2,2 a
+    2,6 m: con 10 vueltas, una de más o de menos queda afuera. **Sigue sin
+    medir distancia**: es para leer el espectro.
+  · **La prueba con un peso**: de cuándo a cuándo hay un peso en qué rueda.
+    No mide nada por su cuenta; lo que midan los viajes en ese tramo es «con
+    peso», la pantalla del viaje lo muestra mientras dura, y la ronda lo cruza
+    por la hora contra el viaje de antes y el de después.
+  · **El motor parado**: ralentí 60 s, y 1000, 1500 y 2000 RPM 45 s cada uno,
+    con el tacómetro del tablero y el reloj de la app. Mide con la MISMA
+    cuenta que los viajes (`armarVentana`, `leerMotor`) y guarda medianas por
+    paso: bandas, picos que se repiten, las RPM que oyó y si el encendido
+    (`RPM/30` Hz) se ve en la vibración. No corre con un viaje midiendo.
+  Las calibraciones viajan en el reporte (no llevan coordenadas) y se suman
+  en un respaldo por `tipo` + `inicio`. La pantalla lista además lo que
+  convendría sumar después (soporte quieto, golpecitos al soporte, aire
+  acondicionado, rodar en punto muerto, la rueda cargada).
+
 - **El pico dominante se muestra con su margen, porque el espaciado de bins no
   es la resolución** (`sitd-29`). La FFT rellena con ceros hasta la próxima
   potencia de dos —251 muestras pasan a 256— y eso junta los bins, pero

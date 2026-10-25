@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import '../features/audio/fuente_audio.dart';
 import '../features/audio/registro_audio.dart';
 import '../features/audio/servicio_audio.dart';
+import '../features/calibracion/calibracion.dart';
 import '../features/combustible/registro_cargas.dart';
 import '../features/motor/cargador.dart';
 import '../features/odometro/cascada.dart';
@@ -122,6 +123,9 @@ class Arranque {
       // sitd-44: el modelo del teléfono, para que cada viaje diga dónde se
       // midió. No se espera: si el canal no contesta, abre igual.
       unawaited(anotarTelefono(base));
+      // sitd-45: la vuelta de rueda medida en el garage, si la hay, pasa a
+      // ser la que usa la lectura del espectro y las RPM por marcha.
+      RegistroDeCalibraciones(base).aplicarRueda();
       final satelites = Satelites();
       // No se espera: si el canal tarda o no está, la aplicación abre igual.
       unawaited(satelites.arrancar());

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../features/calibracion/calibracion.dart';
 import '../core/bitacora.dart';
 import '../features/audio/servicio_audio.dart';
 import '../features/combustible/registro_cargas.dart';
@@ -27,6 +28,7 @@ import '../features/odometro/validacion_odometro.dart';
 import '../features/vibracion/analisis.dart';
 import '../features/vibracion/registro_vibracion.dart';
 import '../features/vibracion/servicio_vibracion.dart';
+import 'pantalla_calibracion.dart';
 import 'formato.dart';
 import 'pantalla_combustible.dart';
 import 'pantalla_diagnostico.dart';
@@ -98,6 +100,10 @@ class PantallaViaje extends StatefulWidget {
 }
 
 class _PantallaViajeState extends State<PantallaViaje> {
+  /// La prueba del peso en curso (`sitd-45`). Se lee al abrir y al volver de
+  /// Calibración, no en cada `build`: la pantalla se redibuja seguido.
+  late Calibracion? _peso = RegistroDeCalibraciones(widget.base).pesoEnCurso();
+
   /// El reloj de la duración avanza aunque no llegue una muestra. Sin esto,
   /// con el receptor callado la pantalla parecería congelada — y «no llega
   /// señal» tiene que verse distinto de «la aplicación se colgó».
@@ -602,6 +608,28 @@ class _PantallaViajeState extends State<PantallaViaje> {
             children: [
               _Tablero(estado: e),
               const SizedBox(height: 12),
+              // sitd-45: la calibración, a la vista (Mauro: «un botón que
+              // diga calibración»), y la prueba del peso si está en curso.
+              _Calibrar(
+                peso: _peso,
+                alTocar: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => PantallaCalibracion(
+                        base: widget.base,
+                        hayViajeMidiendo: e.midiendo,
+                      ),
+                    ),
+                  );
+                  if (!mounted) return;
+                  setState(
+                    () =>
+                        _peso = RegistroDeCalibraciones(widget.base)
+                            .pesoEnCurso(),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
               if (problema != null) ...[
                 _Aviso(problema: problema),
                 const SizedBox(height: 12),
@@ -689,6 +717,44 @@ class _PantallaViajeState extends State<PantallaViaje> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// El botón de Calibración, y arriba la prueba del peso si está en curso:
+/// manejando con un peso puesto, que se vea.
+class _Calibrar extends StatelessWidget {
+  final Calibracion? peso;
+  final VoidCallback alTocar;
+
+  const _Calibrar({required this.peso, required this.alTocar});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (peso != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: t.colorScheme.tertiaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '⚖️ Prueba con peso en curso: ${peso!.datos['gramos']} g en la '
+              '${peso!.datos['rueda']}. Al sacarlo, terminala en Calibración.',
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        OutlinedButton.icon(
+          onPressed: alTocar,
+          icon: const Icon(Icons.tune),
+          label: const Text('Calibración'),
+        ),
+      ],
     );
   }
 }

@@ -13,7 +13,7 @@
 library;
 
 /// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
-const int versionEsquema = 10;
+const int versionEsquema = 11;
 
 /// Cada elemento son las sentencias que llevan el esquema de la versión
 /// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
@@ -283,6 +283,27 @@ const List<List<String>> migraciones = [
   // viaje tiene que poder decir de dónde salió. NULL en los viejos: no se
   // sabe, y no se inventa.
   ['ALTER TABLE viajes ADD COLUMN telefono TEXT'],
+  // 10 → 11 (`sitd-45`): las CALIBRACIONES — lo que se mide en el garage para
+  // leer después los viajes: cuánto avanza la camioneta por vuelta de rueda,
+  // una prueba con un peso puesto en una rueda (de cuándo a cuándo), y el
+  // motor parado a ralentí, 1000, 1500 y 2000 RPM. `datos` es un JSON con lo
+  // de cada tipo, para que una calibración nueva no pida otra migración.
+  // Ni una coordenada: se hacen parado, y viajan en el reporte.
+  [
+    '''
+    CREATE TABLE calibraciones (
+      id     INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo   TEXT    NOT NULL,
+      inicio INTEGER NOT NULL,
+      -- NULL mientras dura: la prueba del peso queda abierta hasta que se
+      -- saca el peso, y todo lo que se mida en el medio es de esa prueba.
+      fin    INTEGER,
+      datos  TEXT    NOT NULL DEFAULT '{}',
+      notas  TEXT
+    )
+    ''',
+    'CREATE INDEX idx_calibraciones_inicio ON calibraciones (inicio DESC)',
+  ],
 ];
 
 /// Comprobaciones del esquema que no dependen de que haya un SQLite cargado,

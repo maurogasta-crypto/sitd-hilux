@@ -572,6 +572,11 @@ lib/
 │       │                    a perder noventa segundos descubriéndolo.
 │       ├── registro.dart    Viajes, puntos y los pares de calibración.
 │       └── servicio.dart    Junta las tres piezas y sostiene el viaje.
+│   ├── calibracion/
+│   │   ├── calibracion.dart Lo que se mide en el garage: la vuelta de la
+│   │   │                    rueda, la prueba con un peso y el motor parado.
+│   │   └── prueba_motor.dart  Los pasos de la prueba del motor (ralentí,
+│   │                        1000, 1500, 2000) y cómo se resume cada uno.
 │   ├── combustible/
 │   │   ├── carga.dart       Una carga, tal como se teclea en la estación.
 │   │   ├── consumo.dart     Consumo de lleno a lleno, calculado al leer.
@@ -626,15 +631,18 @@ lib/
 │   ├── pantalla_carga.dart  El formulario, para llenar al lado del surtidor.
 │   ├── pantalla_vibracion.dart  Qué aprendió, y qué cambió.
 │   ├── pantalla_sensores.dart   Qué ve el teléfono, en vivo.
+│   ├── pantalla_calibracion.dart  El botón «Calibración»: rueda, peso y
+│   │                        motor, con el reloj de cada paso a la vista.
 │   ├── pantalla_respaldo.dart   Reporte y respaldo, con su advertencia.
 │   └── pantalla_diagnostico.dart  ¿Esto anda?, los últimos viajes y borrar uno.
 └── main.dart                Abre la base y dibuja.
 
-test/                        644 casos. Corren sin emulador ni teléfono.
+test/                        669 casos. Corren sin emulador ni teléfono.
 firestore.rules              Las reglas de la base remota. PLANTILLA: los
                              UID van como marcadores, este repo es público.
 android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
-                             `GnssStatus`. No lo cubre el banco — ver
+                             `GnssStatus`, el micrófono, el cargador y el
+                             modelo del teléfono. No lo cubre el banco — ver
                              «Verificación previa».
 .github/workflows/apk.yml    Verificación previa + APK + release.
 ```
@@ -643,8 +651,8 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-44` | `lib/core/version.dart` |
-| Esquema de la base | `10` | `lib/core/db/esquema.dart` |
+| Aplicación | `sitd-45` | `lib/core/version.dart` |
+| Esquema de la base | `11` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
 **manda el archivo**: esta tabla se copia a mano y se desactualiza en silencio.

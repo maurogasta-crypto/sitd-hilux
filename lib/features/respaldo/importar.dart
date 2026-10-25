@@ -89,7 +89,13 @@ const List<String> tablasAtadasAlViaje = [
 /// Las que viven por su cuenta: una carga de combustible y un evento del
 /// sistema no pertenecen a ningún viaje. Se reconocen de a una, por su llave
 /// natural.
-const List<String> tablasSueltas = ['cargas', 'eventos', 'pruebas_sensor'];
+const List<String> tablasSueltas = [
+  'cargas',
+  'eventos',
+  'pruebas_sensor',
+  // `sitd-45`: una calibración es de la camioneta, no de un viaje.
+  'calibraciones',
+];
 
 /// Qué tablas viajan, y por qué `ajustes` no.
 ///
@@ -136,6 +142,9 @@ const Map<String, List<String>> llaveNatural = {
      fila repetida se vea repetida con los ojos en la consola, que es la mitad
      del valor de tener una llave natural. */
   'pruebas_sensor': ['t', 'soporte'],
+  // El tipo y el instante: nadie empieza dos calibraciones del mismo tipo en
+  // el mismo milisegundo.
+  'calibraciones': ['tipo', 'inicio'],
 };
 
 /// Cuánto hay de cada cosa. Es lo que se le muestra a Mauro de los dos lados

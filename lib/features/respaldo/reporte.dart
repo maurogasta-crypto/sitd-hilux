@@ -2,6 +2,7 @@ import '../../core/bitacora.dart';
 import '../../core/db/base.dart';
 import '../../core/registro_eventos.dart';
 import '../../core/db/esquema.dart';
+import '../calibracion/calibracion.dart';
 import '../combustible/registro_cargas.dart';
 import '../odometro/registro.dart';
 import '../sensores/satelites.dart';
@@ -11,6 +12,7 @@ import '../vibracion/cobertura.dart';
 import '../vibracion/espectro.dart';
 import '../vibracion/postura.dart';
 import '../vibracion/registro_vibracion.dart';
+import '../vibracion/rueda.dart';
 import '../vibracion/ventana.dart';
 
 /// Cuánto sale del teléfono.
@@ -83,6 +85,10 @@ Map<String, dynamic> _analisis(
       'umbralDeDesvio': umbralDeDesvio,
       'viajesSeguidosParaAvisar': viajesSeguidosParaAvisar,
       'diametroDeRuedaM': diametroDeRuedaM,
+      // `sitd-45`: con qué vuelta de rueda se leyó la frecuencia de la rueda,
+      // y si es la MEDIDA en el garage o la del diámetro de siempre.
+      'circunferenciaM': double.parse(circunferencia.toStringAsFixed(4)),
+      'circunferenciaMedida': circunferenciaEsMedida,
       // Qué se compara. Desde `sitd-33` la línea base y las anomalías son la
       // FORMA del espectro —la parte de la vibración que se lleva cada banda,
       // sumando 1—, no la energía. Va escrito en el reporte porque un reporte
@@ -250,6 +256,12 @@ Map<String, dynamic> armarReporte({
             for (final w in porViaje[v.id] ?? const []) w.aMapa(),
           ],
         },
+    ],
+    // `sitd-45`: las calibraciones del garage —la rueda, el peso, el motor
+    // parado—, para cruzarlas con los viajes. Ninguna lleva una coordenada.
+    'calibraciones': [
+      for (final c in RegistroDeCalibraciones(base).ultimas(cuantas: 100))
+        c.aMapa(),
     ],
     'cargas': [
       for (final c in cargas.todas())

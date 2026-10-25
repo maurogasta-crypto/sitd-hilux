@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sitd_hilux/core/db/base.dart';
+import 'package:sitd_hilux/features/calibracion/calibracion.dart';
 import 'package:sitd_hilux/features/combustible/carga.dart';
 import 'package:sitd_hilux/features/combustible/registro_cargas.dart';
 import 'package:sitd_hilux/features/odometro/integrador.dart';
@@ -107,6 +108,25 @@ void main() {
       mejorCn0: 24,
     ),
   );
+
+  // sitd-45: las calibraciones viajan en el reporte, sin una coordenada.
+  test('el reporte lleva las calibraciones del garage', () {
+    RegistroDeCalibraciones(base).guardar(
+      const Calibracion(
+        tipo: 'peso',
+        inicio: 777,
+        datos: {'rueda': 'trasera derecha', 'gramos': 45},
+      ),
+    );
+    final r = reporte(Alcance.paraDesarrollo);
+    final c = (r['calibraciones'] as List).single as Map;
+    expect(c['tipo'], 'peso');
+    expect(c['inicio'], 777);
+    expect(
+      (r['analisis'] as Map)['parametros']['circunferenciaMedida'],
+      isFalse,
+    );
+  });
 
   setUp(() {
     registro = Bitacora(reloj: () => 5)

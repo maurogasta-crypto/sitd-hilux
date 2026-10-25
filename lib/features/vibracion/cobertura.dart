@@ -1,5 +1,6 @@
 import 'analisis.dart';
 import 'espectro.dart';
+import 'rueda.dart';
 import 'ventana.dart';
 
 /// Cuánto aprendió el sistema de una cubeta de velocidad, y cuánto le falta.
@@ -90,10 +91,10 @@ List<CoberturaDeCubeta> cobertura(Map<int, int> ventanasPorCubeta) => [
 /// leer, no una medición.
 const double diametroDeRuedaM = 0.76;
 
-double vueltasPorSegundo(double kmh) {
-  final circunferencia = 3.141592653589793 * diametroDeRuedaM;
-  return (kmh / 3.6) / circunferencia;
-}
+/// Desde `sitd-45` sale de `rueda.dart` —que puede tener la vuelta MEDIDA en
+/// el garage— y no de una segunda cuenta con el diámetro: eran dos lugares
+/// con el mismo número, y el día que se midiera la rueda uno quedaba viejo.
+double vueltasPorSegundo(double kmh) => frecuenciaDeRueda(kmh);
 
 /// La banda donde caería un defecto de rueda a esa velocidad, o `null` si cae
 /// fuera del rango que se mide.

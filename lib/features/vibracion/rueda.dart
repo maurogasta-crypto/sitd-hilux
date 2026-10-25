@@ -42,7 +42,35 @@ import 'dart:math' as math;
 const double diametroBajoCarga = 0.76;
 
 /// Lo que avanza la camioneta por cada vuelta de rueda, en metros.
-const double circunferencia = math.pi * diametroBajoCarga;
+///
+/// **Desde `sitd-45` puede ser una MEDIDA** (`hilux:D6`): en el garage, tantas
+/// vueltas de rueda rodando en el piso son tantos metros (pantalla de
+/// Calibración). Rodando ya trae el achatamiento por la carga, así que es más
+/// exacto que π × el diámetro medido con cinta. Sin medida, vale el de
+/// siempre. **Sigue sin usarse para medir distancia**: dice a qué frecuencia
+/// gira la rueda, nada más.
+double get circunferencia =>
+    _circunferenciaMedida ?? math.pi * diametroBajoCarga;
+
+double? _circunferenciaMedida;
+
+/// Si [circunferencia] sale de una medida y no del diámetro de siempre.
+bool get circunferenciaEsMedida => _circunferenciaMedida != null;
+
+/// Una 265/70R17 da 2,52 m libre y unos 2,39 cargada; lo que caiga fuera de
+/// 2,2 a 2,6 es un error de tipeo o de cuenta de vueltas, no una rueda. El
+/// margen es justo a propósito: con 10 vueltas, contar una de menos da 2,66 y
+/// una de más 2,17, y las dos quedan afuera.
+bool circunferenciaCreible(double metros) =>
+    metros.isFinite && metros >= 2.2 && metros <= 2.6;
+
+/// La pone `Arranque` con la última medida, y la pantalla al guardar una
+/// nueva. `null` (o una que no es creíble) vuelve al diámetro de siempre.
+void usarCircunferenciaMedida(double? metros) {
+  _circunferenciaMedida = metros != null && circunferenciaCreible(metros)
+      ? metros
+      : null;
+}
 
 /// Cuántas vueltas por segundo da la rueda a [kmh]. Es el **orden 1**: la
 /// frecuencia donde aparece un desbalanceo.
