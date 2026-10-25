@@ -25,6 +25,10 @@ class Viaje {
   final double? odoTableroFin;
   final String? notas;
 
+  /// En qué teléfono se midió («Xiaomi Redmi Note 9», `sitd-44`). `null` en
+  /// los viajes de antes de esa tanda: no se sabe.
+  final String? telefono;
+
   /// Cuántas muestras crudas tiene guardadas. Un viaje con **cero** no es un
   /// viaje de cero kilómetros: es uno donde el GPS nunca entregó nada, y en la
   /// lista se lee distinto.
@@ -56,6 +60,7 @@ class Viaje {
     this.odoTableroIni,
     this.odoTableroFin,
     this.notas,
+    this.telefono,
   });
 
   bool get enMarcha => fin == null;
@@ -85,10 +90,13 @@ class RegistroDeViajes {
   );
 
   /// Abre un viaje y devuelve su identificador.
-  int abrir({required int inicio, double? odoTablero}) {
+  ///
+  /// [telefono] es el del aparato que lo MIDE: el servicio pasa el de este
+  /// teléfono, y un viaje bajado de la nube, el que trajo en su ficha.
+  int abrir({required int inicio, double? odoTablero, String? telefono}) {
     base.db.execute(
-      'INSERT INTO viajes (inicio, odo_tablero_ini) VALUES (?, ?)',
-      [inicio, odoTablero],
+      'INSERT INTO viajes (inicio, odo_tablero_ini, telefono) VALUES (?, ?, ?)',
+      [inicio, odoTablero, telefono],
     );
     return base.db.lastInsertRowId;
   }
@@ -311,5 +319,6 @@ class RegistroDeViajes {
     odoTableroIni: (f['odo_tablero_ini'] as num?)?.toDouble(),
     odoTableroFin: (f['odo_tablero_fin'] as num?)?.toDouble(),
     notas: f['notas'] as String?,
+    telefono: f['telefono'] as String?,
   );
 }

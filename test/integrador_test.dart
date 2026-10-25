@@ -97,6 +97,28 @@ void main() {
       expect(r.muestrasDescartadas, 1);
     });
 
+    // hilux:G2 (sitd-44): el Note 9 informa hasta ~2,5 m/s con una velocidad
+    // buena; con 2,0 cada racha de esas cortaba el tramo.
+    test('un error de velocidad informado de 2,5 m/s se acepta y no corta', () {
+      final r = integrar([
+        for (var i = 0; i <= 10; i++)
+          m(i * 1000, 10, precisionVel: i.isEven ? 0.9 : 2.5),
+      ]);
+      expect(r.muestrasDescartadas, 0);
+      expect(r.cortes, 0);
+      expect(r.metros, closeTo(100, 1e-9));
+    });
+
+    test('el umbral de error de velocidad es 3 m/s', () {
+      expect(const CriteriosGps().precisionVelMaxima, 3.0);
+      final r = integrar([
+        m(0, 20),
+        m(1000, 20, precisionVel: 3.1),
+        m(2000, 20),
+      ]);
+      expect(r.muestrasDescartadas, 1);
+    });
+
     test('sin precision de velocidad la muestra se acepta igual', () {
       // Android no siempre la informa; exigirla dejaria telefonos enteros sin
       // odometria.

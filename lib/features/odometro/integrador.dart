@@ -47,6 +47,17 @@ class CriteriosGps {
   /// Error máximo tolerado de la velocidad, en m/s. Las muestras que no lo
   /// informan se aceptan: Android no siempre lo da y descartarlas dejaría
   /// teléfonos enteros sin odometría.
+  ///
+  /// **Tres, y no dos, desde `sitd-44` (`hilux:G2`).** El Note 9 informa un
+  /// error de velocidad unas tres veces más pesimista que el que tiene: dice
+  /// 0,9–1,4 m/s de mediana, y contra el Redmi 15 en el MISMO viaje del
+  /// 10-oct su velocidad difiere 0,53 m/s (desvío) y sin sesgo (mediana
+  /// +0,02). Con 2,0 le tiraba entre el 1 y el 19 % de las muestras, y cada
+  /// racha de más de [huecoMaximoMs] cortaba el tramo: ese viaje perdió dos
+  /// tramos (18 s, unos 126 m, el 2 %), y los urbanos cortos de septiembre,
+  /// entre el 5 y el 12 %. Un 3,0 informado por el Note 9 es cerca de 1 m/s
+  /// real, ruido que se promedia al integrar; perder el tramo no se promedia.
+  /// El Redmi 15 informa 0,1–0,2 y con él este número no cambia nada.
   final double precisionVelMaxima;
 
   /// Por debajo de esto se considera que el vehículo está detenido y la
@@ -65,7 +76,7 @@ class CriteriosGps {
 
   const CriteriosGps({
     this.precisionMaxima = 50.0,
-    this.precisionVelMaxima = 2.0,
+    this.precisionVelMaxima = 3.0,
     this.velocidadMinima = 0.5,
     this.velocidadMaxima = 60.0,
     this.huecoMaximoMs = 5000,

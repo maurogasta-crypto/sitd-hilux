@@ -618,8 +618,11 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   Y una cosa que se probó y NO pasa, para que nadie la vuelva a suponer: con
   la historia mitad y mitad, una falla verdadera no queda escondida.
 
-- **Una línea base es de UN teléfono… salvo entre los dos Redmi**, y hoy un
-  viaje no guarda en cuál se midió. El 28-sep parecía que el Note 9 veía más
+- **Una línea base es de UN teléfono… salvo entre los dos Redmi**, y desde
+  `sitd-44` cada viaje guarda en cuál se midió (`telefono`, esquema 10,
+  `hilux:D5`: el modelo lo da `MainActivity.kt` al abrir la app y queda en
+  `ajustes`, que no viaja en un respaldo; un viaje bajado de la nube conserva
+  el de su ficha). Los de antes dicen «no se sabe». El 28-sep parecía que el Note 9 veía más
   entre 17 y 25 Hz y menos entre 10 y 13; **el 10-oct los dos midieron el
   MISMO viaje, uno al lado del otro, y dieron lo mismo** —cada banda dentro de
   ±18 %, forma correlacionada 0,98—: aquello era del camino o del soporte
@@ -939,6 +942,19 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   metalizado anda justo en esa zona. Lo único que se degrada con este número
   alto es el haversine de control. **Era 20 m hasta `sitd-6`**, y es una de las
   explicaciones posibles del viaje de siete minutos que dio cero.
+
+- **Y el error de VELOCIDAD tolerado es 3 m/s, no 2, desde `sitd-44`**
+  (`hilux:G2`). El Note 9 informa un error de velocidad unas tres veces más
+  pesimista que el real (0,9–1,4 m/s de mediana), y con 2 le tiraba entre el
+  1 y el 19 % de las muestras; cada racha de más de 5 s corta el tramo, y
+  eso es distancia que no vuelve. **Se midió antes de cambiarlo**: el 10-oct,
+  en el MISMO viaje que el Redmi 15, la velocidad del Note 9 difiere 0,53 m/s
+  de desvío y +0,02 de mediana —ruido sin sesgo, que se promedia al
+  integrar— y los descartes le cortaron dos tramos (18 s, 126 m, el 2 %). El
+  «−0,25 m/s» que se sospechaba en septiembre no apareció. **Las muestras
+  descartadas no llegan a la base**, así que este número no se puede volver a
+  probar sobre viajes viejos: lo dicen los próximos (descartadas y cortes en
+  el reporte).
 
 - **El GPS se puede pedir de tres formas, y eso es una herramienta de
   diagnóstico, no una opción de configuración.** El 2026-09-16 el receptor no

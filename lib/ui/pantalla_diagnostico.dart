@@ -143,7 +143,9 @@ class _PantallaDiagnosticoState extends State<PantallaDiagnostico> {
                 '${_fecha(v.inicio)}'
                 '${v.sinMuestras ? "" : " · ${v.muestras} muestras"}'
                 '${v.cortes > 0 ? " · ${v.cortes} cortes" : ""}'
-                '${v.enMarcha ? " · sin cerrar" : ""}',
+                '${v.enMarcha ? " · sin cerrar" : ""}'
+                // sitd-44: en qué teléfono se midió (los viejos no lo saben).
+                '${v.telefono == null ? "" : "\n📱 ${v.telefono}"}',
               ),
               trailing: v.enMarcha
                   ? null

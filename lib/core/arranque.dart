@@ -24,6 +24,7 @@ import '../features/respaldo/reporte.dart';
 import 'version.dart';
 import '../features/sensores/satelites.dart';
 import '../features/odometro/servicio.dart';
+import 'aparato.dart';
 import 'bitacora.dart';
 import 'db/base.dart';
 import 'registro_eventos.dart';
@@ -118,6 +119,9 @@ class Arranque {
         Origen.sistema,
         'Aplicación abierta. Base en la versión ${base.version}.',
       );
+      // sitd-44: el modelo del teléfono, para que cada viaje diga dónde se
+      // midió. No se espera: si el canal no contesta, abre igual.
+      unawaited(anotarTelefono(base));
       final satelites = Satelites();
       // No se espera: si el canal tarda o no está, la aplicación abre igual.
       unawaited(satelites.arrancar());

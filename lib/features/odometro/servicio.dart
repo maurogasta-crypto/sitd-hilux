@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../core/aparato.dart';
 import '../../core/bitacora.dart';
 import 'fuente.dart';
 import 'integrador.dart';
@@ -268,7 +269,11 @@ class ServicioOdometria {
       final pendiente = retomarPendiente();
       if (pendiente == null) {
         final inicio = ahora();
-        final id = registro.abrir(inicio: inicio, odoTablero: odoTablero);
+        final id = registro.abrir(
+          inicio: inicio,
+          odoTablero: odoTablero,
+          telefono: registro.base.leerAjuste(claveDelTelefono),
+        );
         _acumulador = Acumulador(criterios: criterios);
         estado.value = EstadoViaje(viaje: id, inicio: inicio);
       }

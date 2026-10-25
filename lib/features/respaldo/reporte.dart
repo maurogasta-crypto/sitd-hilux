@@ -224,6 +224,7 @@ Map<String, dynamic> armarReporte({
           'motivos': v.motivos,
           'odoTableroIni': v.odoTableroIni,
           'odoTableroFin': v.odoTableroFin,
+          'telefono': v.telefono,
           // El resumen va SIEMPRE, y es lo que convierte un viaje en cero en
           // algo diagnosticable: qué velocidades y qué precisiones llegaron,
           // sin decir dónde.

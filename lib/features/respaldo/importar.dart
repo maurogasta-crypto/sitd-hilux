@@ -779,6 +779,10 @@ ViajeDeLaNube meterViajeDeLaNube({
     final id = registro.abrir(
       inicio: inicio,
       odoTablero: (datos['odoTableroIni'] as num?)?.toDouble(),
+      // El del teléfono que lo MIDIÓ, no el de éste que lo baja.
+      telefono: datos['telefono'] is String
+          ? datos['telefono'] as String
+          : null,
     );
     for (final m in puntos) {
       registro.guardarPunto(id, m);

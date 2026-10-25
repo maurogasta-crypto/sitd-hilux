@@ -392,6 +392,7 @@ class ServicioNube {
     'odoTableroIni': v.odoTableroIni,
     'odoTableroFin': v.odoTableroFin,
     'notas': v.notas,
+    'telefono': v.telefono,
   };
 
   /// El identificador del documento. Lleva el usuario adelante para que dos

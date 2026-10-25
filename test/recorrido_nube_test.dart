@@ -96,7 +96,11 @@ const credencial = Credencial(
 /// Siembra un viaje con puntos que se mueven de verdad.
 int sembrarViaje(Base base, {required int inicio, int puntos = 40}) {
   final r = RegistroDeViajes(base);
-  final id = r.abrir(inicio: inicio, odoTablero: 405100);
+  final id = r.abrir(
+    inicio: inicio,
+    odoTablero: 405100,
+    telefono: 'Xiaomi Redmi 15',
+  );
   var lat = -34.90;
   var lon = -56.16;
   var alt = 412.0;
@@ -256,8 +260,9 @@ void main() {
       final original = RegistroDeViajes(base).porId(id)!;
       await armarServicio(base, nube).subirRecorridos();
 
-      // Un teléfono nuevo, vacío.
+      // Un teléfono nuevo, vacío, que ya sabe que es otro.
       final otro = Base.abrir(':memory:');
+      otro.escribirAjuste('telefono', 'Xiaomi Redmi Note 9');
       final bajada = await Subida(cliente: nube).bajarRecorrido(
         credencial: credencial,
         id: nube.documentos.keys.first.split('/').last,
@@ -277,6 +282,8 @@ void main() {
       expect(vuelto.fin, original.fin);
       expect(vuelto.odoTableroIni, original.odoTableroIni);
       expect(vuelto.odoTableroFin, original.odoTableroFin);
+      // El teléfono que lo MIDIÓ viaja con él, y no se pisa con el de éste.
+      expect(vuelto.telefono, 'Xiaomi Redmi 15');
       // Los kilómetros se RECALCULAN desde las muestras, no se copian.
       expect(vuelto.metros, closeTo(original.metros, 1.0));
       expect(vuelto.cortes, original.cortes);

@@ -13,7 +13,7 @@
 library;
 
 /// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
-const int versionEsquema = 9;
+const int versionEsquema = 10;
 
 /// Cada elemento son las sentencias que llevan el esquema de la versión
 /// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
@@ -278,6 +278,11 @@ const List<List<String>> migraciones = [
     'ALTER TABLE vibraciones ADD COLUMN movido INTEGER NOT NULL DEFAULT 0',
     "ALTER TABLE vibraciones ADD COLUMN picos TEXT NOT NULL DEFAULT ''",
   ],
+  // 9 → 10 (`sitd-44`, `hilux:D5`): en qué teléfono se midió cada viaje
+  // («Xiaomi Redmi Note 9»). Con dos o tres teléfonos sumando respaldos, un
+  // viaje tiene que poder decir de dónde salió. NULL en los viejos: no se
+  // sabe, y no se inventa.
+  ['ALTER TABLE viajes ADD COLUMN telefono TEXT'],
 ];
 
 /// Comprobaciones del esquema que no dependen de que haya un SQLite cargado,

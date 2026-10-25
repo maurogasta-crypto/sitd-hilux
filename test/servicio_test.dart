@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sitd_hilux/core/aparato.dart';
 import 'package:sitd_hilux/core/db/base.dart';
 import 'package:sitd_hilux/features/odometro/fuente.dart';
 import 'package:sitd_hilux/features/odometro/integrador.dart';
@@ -99,6 +100,21 @@ void main() {
     expect(registro.abierto!.inicio, 100000);
     expect(servicio.estado.value.problema, isNull);
   });
+
+  // hilux:D5 (sitd-44): el viaje guarda el teléfono que lo mide.
+  test('el viaje nuevo lleva el teléfono de este aparato', () async {
+    base.escribirAjuste(claveDelTelefono, 'Xiaomi Redmi Note 9');
+    expect(await servicio.arrancar(), isTrue);
+    expect(registro.abierto!.telefono, 'Xiaomi Redmi Note 9');
+  });
+
+  test(
+    'sin el modelo anotado, el viaje se abre igual y sin teléfono',
+    () async {
+      expect(await servicio.arrancar(), isTrue);
+      expect(registro.abierto!.telefono, isNull);
+    },
+  );
 
   test('cada muestra aceptada se guarda como punto', () async {
     await servicio.arrancar();

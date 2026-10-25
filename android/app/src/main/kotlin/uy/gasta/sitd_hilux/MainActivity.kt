@@ -9,6 +9,7 @@ import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.BatteryManager
+import android.os.Build
 import android.location.GnssStatus
 import android.location.LocationManager
 import android.os.Handler
@@ -85,6 +86,11 @@ class MainActivity : FlutterActivity() {
             }
         EventChannel(engine.dartExecutor.binaryMessenger, "uy.gasta.sitd_hilux/carga")
             .setStreamHandler(Cargador())
+        // sitd-44 (hilux:D5): en qué teléfono se mide cada viaje. Sin permisos.
+        MethodChannel(engine.dartExecutor.binaryMessenger, "uy.gasta.sitd_hilux/aparato")
+            .setMethodCallHandler { llamada, respuesta ->
+                if (llamada.method == "modelo") respuesta.success("${Build.MANUFACTURER} ${Build.MODEL}") else respuesta.notImplemented()
+            }
     }
 
     /**
