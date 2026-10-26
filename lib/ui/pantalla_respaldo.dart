@@ -462,142 +462,310 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
         children: [
-          if (widget.cola != null && widget.guarda != null) ...[
+          // sitd-47 (Mauro: «para simplificar la interfaz y que no haya
+          // tantas opciones… podría llamarse sincronizar»): UN botón arriba;
+          // lo demás sigue, plegado en «Más opciones».
+          if (widget.nube != null && widget.guarda?.credencial != null) ...[
+            _Sincronizar(
+              nube: widget.nube!,
+              base: widget.base,
+              ruta: widget.ruta,
+            ),
+            const SizedBox(height: 12),
+          ] else if (widget.cola != null && widget.guarda != null) ...[
+            // Sin la nube configurada, lo primero es configurarla.
             _Nube(
               cola: widget.cola!,
               nube: widget.nube,
               guarda: widget.guarda!,
             ),
             const SizedBox(height: 12),
-            if (widget.nube != null)
-              _Recorridos(
-                nube: widget.nube!,
-                guarda: widget.guarda!,
-                base: widget.base,
-              ),
-            if (widget.nube != null) const SizedBox(height: 12),
-            if (widget.nube != null)
-              _RespaldoArriba(
-                nube: widget.nube!,
-                guarda: widget.guarda!,
-                base: widget.base,
-                ruta: widget.ruta,
-                meter: _importar,
-              ),
-            if (widget.nube != null) const SizedBox(height: 12),
           ],
-          _Opcion(
-            icono: Icons.bug_report_outlined,
-            titulo: 'Reporte para desarrollo',
-            texto:
-                'Todo lo que hace falta para entender qué pasó y ajustar el '
-                'código: kilómetros, contadores, por qué se descartó cada '
-                'muestra, un resumen estadístico de las velocidades y '
-                'precisiones, los vectores de vibración y las cargas.\n\n'
-                'NO lleva ni una coordenada, y hay una prueba en el banco que '
-                'lo comprueba sobre el texto entero del archivo. Se puede '
-                'mandar por donde sea.',
-            boton: 'Compartir el reporte',
-            onPressed: _trabajando
-                ? null
-                : () => _compartirReporte(Alcance.paraDesarrollo),
-          ),
-          const SizedBox(height: 12),
-          _Opcion(
-            icono: Icons.save_outlined,
-            titulo: 'Respaldo completo',
-            texto:
-                'Una copia del archivo de la base, con los viajes, las '
-                'cargas y las vibraciones. Es el respaldo de verdad: si el '
-                'teléfono se pierde o se rompe, esto es lo único que los '
-                'devuelve.\n\n'
-                'LLEVA EL RECORRIDO: dónde estuvo la camioneta, minuto a '
-                'minuto. Va a Drive, a una computadora o a una tarjeta — no a '
-                'un chat.\n\n'
-                'NO lleva la contraseña de la nube ni la sesión: se sacan de '
-                'la copia antes de compartirla, y si no se pudieran sacar no '
-                'se comparte nada.\n\n'
-                'Queda además una copia en el teléfono, en la carpeta desde '
-                'la que se puede volver a meter.',
-            boton: 'Guardar una copia',
-            peligroso: true,
-            onPressed: _trabajando ? null : _compartirLaBase,
-          ),
-          const SizedBox(height: 12),
-          if (_trabajando) const LinearProgressIndicator(),
-          if (_resultado != null)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(_resultado!, style: t.textTheme.bodyMedium),
-              ),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+            title: const Text('Más opciones'),
+            subtitle: const Text(
+              'Lo pendiente, un viaje suelto, elegir un respaldo de la nube, '
+              'compartir el reporte o una copia, meter un archivo',
             ),
-          const SizedBox(height: 16),
-          const SizedBox(height: 12),
-          _Opcion(
-            icono: Icons.settings_backup_restore,
-            titulo: 'Volver a meter un respaldo',
-            texto:
-                'SUMAR junta los viajes del archivo con los que ya tiene este '
-                'teléfono, sin perder ninguno de los dos lados. Los que ya '
-                'estén no se duplican, así que meter dos veces el mismo '
-                'archivo no rompe nada.\n\n'
-                'REEMPLAZAR deja sólo lo del archivo, y es para un teléfono '
-                'vacío. Antes de tocar nada te dice qué pasa con cada una, con '
-                'los números de los dos lados.\n\n'
-                'La configuración de la nube NO se toca en ninguno de los dos '
-                'casos: la que vale es la que este teléfono tiene ahora.',
-            boton: 'Elegir el archivo',
-            onPressed: _trabajando ? null : _elegirRespaldo,
+            children: _masOpciones(t),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Se abre el selector del teléfono: buscá el .db donde lo tengas — '
-            'Descargas, Drive, una tarjeta. Desde Android 11 ésta es la única '
-            'forma que funciona, porque el sistema no deja que nadie de afuera '
-            'entre a la carpeta de la aplicación.',
-            style: t.textTheme.bodySmall?.copyWith(
-              color: t.colorScheme.outline,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: _trabajando ? null : _buscarRespaldos,
-              child: const Text('o mirar los que guardó esta pantalla'),
-            ),
-          ),
-          if (_carpeta != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                _respaldos.isEmpty
-                    ? 'No hay ninguno guardado todavía. Los respaldos que saca '
-                          'esta pantalla quedan acá y aparecen en esta lista. '
-                          'Para uno que esté en otro lado, usá «Elegir el '
-                          'archivo».'
-                    : 'Guardados en el teléfono:',
-                style: t.textTheme.bodySmall?.copyWith(
-                  color: t.colorScheme.outline,
-                ),
-              ),
-            ),
-          for (final r in _respaldos)
-            Card(
-              child: ListTile(
-                title: Text(p.basename(r.path)),
-                subtitle: Text(
-                  '${(r.statSync().size / 1024 / 1024).toStringAsFixed(1)} MB',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _trabajando ? null : () => _importar(r.path),
-              ),
-            ),
         ],
       ),
     );
   }
+
+  List<Widget> _masOpciones(ThemeData t) => [
+    if (widget.cola != null &&
+        widget.guarda != null &&
+        widget.guarda!.credencial != null) ...[
+      _Nube(cola: widget.cola!, nube: widget.nube, guarda: widget.guarda!),
+      const SizedBox(height: 12),
+    ],
+    if (widget.cola != null && widget.guarda != null) ...[
+      if (widget.nube != null)
+        _Recorridos(
+          nube: widget.nube!,
+          guarda: widget.guarda!,
+          base: widget.base,
+        ),
+      if (widget.nube != null) const SizedBox(height: 12),
+      if (widget.nube != null)
+        _RespaldoArriba(
+          nube: widget.nube!,
+          guarda: widget.guarda!,
+          base: widget.base,
+          ruta: widget.ruta,
+          meter: _importar,
+        ),
+      if (widget.nube != null) const SizedBox(height: 12),
+    ],
+    _Opcion(
+      icono: Icons.bug_report_outlined,
+      titulo: 'Reporte para desarrollo',
+      texto:
+          'Todo lo que hace falta para entender qué pasó y ajustar el '
+          'código: kilómetros, contadores, por qué se descartó cada '
+          'muestra, un resumen estadístico de las velocidades y '
+          'precisiones, los vectores de vibración y las cargas.\n\n'
+          'NO lleva ni una coordenada, y hay una prueba en el banco que '
+          'lo comprueba sobre el texto entero del archivo. Se puede '
+          'mandar por donde sea.',
+      boton: 'Compartir el reporte',
+      onPressed: _trabajando
+          ? null
+          : () => _compartirReporte(Alcance.paraDesarrollo),
+    ),
+    const SizedBox(height: 12),
+    _Opcion(
+      icono: Icons.save_outlined,
+      titulo: 'Respaldo completo',
+      texto:
+          'Una copia del archivo de la base, con los viajes, las '
+          'cargas y las vibraciones. Es el respaldo de verdad: si el '
+          'teléfono se pierde o se rompe, esto es lo único que los '
+          'devuelve.\n\n'
+          'LLEVA EL RECORRIDO: dónde estuvo la camioneta, minuto a '
+          'minuto. Va a Drive, a una computadora o a una tarjeta — no a '
+          'un chat.\n\n'
+          'NO lleva la contraseña de la nube ni la sesión: se sacan de '
+          'la copia antes de compartirla, y si no se pudieran sacar no '
+          'se comparte nada.\n\n'
+          'Queda además una copia en el teléfono, en la carpeta desde '
+          'la que se puede volver a meter.',
+      boton: 'Guardar una copia',
+      peligroso: true,
+      onPressed: _trabajando ? null : _compartirLaBase,
+    ),
+    const SizedBox(height: 12),
+    if (_trabajando) const LinearProgressIndicator(),
+    if (_resultado != null)
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(_resultado!, style: t.textTheme.bodyMedium),
+        ),
+      ),
+    const SizedBox(height: 16),
+    const SizedBox(height: 12),
+    _Opcion(
+      icono: Icons.settings_backup_restore,
+      titulo: 'Volver a meter un respaldo',
+      texto:
+          'SUMAR junta los viajes del archivo con los que ya tiene este '
+          'teléfono, sin perder ninguno de los dos lados. Los que ya '
+          'estén no se duplican, así que meter dos veces el mismo '
+          'archivo no rompe nada.\n\n'
+          'REEMPLAZAR deja sólo lo del archivo, y es para un teléfono '
+          'vacío. Antes de tocar nada te dice qué pasa con cada una, con '
+          'los números de los dos lados.\n\n'
+          'La configuración de la nube NO se toca en ninguno de los dos '
+          'casos: la que vale es la que este teléfono tiene ahora.',
+      boton: 'Elegir el archivo',
+      onPressed: _trabajando ? null : _elegirRespaldo,
+    ),
+    const SizedBox(height: 8),
+    Text(
+      'Se abre el selector del teléfono: buscá el .db donde lo tengas — '
+      'Descargas, Drive, una tarjeta. Desde Android 11 ésta es la única '
+      'forma que funciona, porque el sistema no deja que nadie de afuera '
+      'entre a la carpeta de la aplicación.',
+      style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.outline),
+    ),
+    const SizedBox(height: 8),
+    Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton(
+        onPressed: _trabajando ? null : _buscarRespaldos,
+        child: const Text('o mirar los que guardó esta pantalla'),
+      ),
+    ),
+    if (_carpeta != null)
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text(
+          _respaldos.isEmpty
+              ? 'No hay ninguno guardado todavía. Los respaldos que saca '
+                    'esta pantalla quedan acá y aparecen en esta lista. '
+                    'Para uno que esté en otro lado, usá «Elegir el '
+                    'archivo».'
+              : 'Guardados en el teléfono:',
+          style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.outline),
+        ),
+      ),
+    for (final r in _respaldos)
+      Card(
+        child: ListTile(
+          title: Text(p.basename(r.path)),
+          subtitle: Text(
+            '${(r.statSync().size / 1024 / 1024).toStringAsFixed(1)} MB',
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: _trabajando ? null : () => _importar(r.path),
+        ),
+      ),
+  ];
+}
+
+/// «Sincronizar» (`sitd-47`): sube lo pendiente, trae y suma lo que la nube
+/// tiene y el teléfono no, y deja en la nube una copia entera sólo si el
+/// teléfono tiene algo que la nube no. Ver `ServicioNube.sincronizar`.
+class _Sincronizar extends StatefulWidget {
+  final ServicioNube nube;
+  final Base base;
+  final String ruta;
+
+  const _Sincronizar({
+    required this.nube,
+    required this.base,
+    required this.ruta,
+  });
+
+  @override
+  State<_Sincronizar> createState() => _SincronizarState();
+}
+
+class _SincronizarState extends State<_Sincronizar> {
+  bool _trabajando = false;
+  String? _avance;
+  String? _resultado;
+
+  Future<void> _sincronizar() async {
+    setState(() {
+      _trabajando = true;
+      _resultado = null;
+      _avance = 'Empezando…';
+    });
+    final dir = await getTemporaryDirectory();
+    final r = await widget.nube.sincronizar(
+      base: widget.base,
+      ruta: widget.ruta,
+      carpeta: dir.path,
+      alAvanzar: (que) {
+        if (mounted) setState(() => _avance = que);
+      },
+    );
+    if (!mounted) return;
+    setState(() {
+      _trabajando = false;
+      _avance = null;
+      _resultado = textoDeSincronizado(r);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.sync, color: t.colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text('Sincronizar', style: t.textTheme.titleMedium),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Sube lo que falta subir, trae de la nube lo que este teléfono '
+              'no tiene y lo suma sin borrar nada, y deja en la nube una copia '
+              'completa si hacía falta. Lo mismo en el otro teléfono, y los '
+              'dos quedan con todo.\n\n'
+              'La copia lleva el recorrido; la contraseña de la nube no viaja.',
+              style: t.textTheme.bodySmall,
+            ),
+            if (_avance != null) ...[
+              const SizedBox(height: 10),
+              Text(_avance!, style: t.textTheme.bodyMedium),
+            ],
+            if (_resultado != null) ...[
+              const SizedBox(height: 10),
+              Text(_resultado!, style: t.textTheme.bodyMedium),
+            ],
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 48,
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _trabajando ? null : _sincronizar,
+                icon: _trabajando
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.sync),
+                label: const Text('Sincronizar'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Lo que se le dice a quien tocó Sincronizar: qué subió, qué trajo y si
+/// quedó al día. Aparte para que el banco lo pruebe.
+String textoDeSincronizado(Sincronizado r) {
+  final partes = <String>[];
+  final p = r.pendientes;
+  if (p.subidos > 0) {
+    partes.add(
+      'Subió ${p.subidos} ${p.subidos == 1 ? 'pendiente' : 'pendientes'}.',
+    );
+  }
+  final tr = r.traido;
+  if (tr != null && tr.salioBien && !tr.nadaNuevo) {
+    partes.add('Trajo de la nube: ${tr.resumen}');
+  }
+  if (r.subido != null) {
+    partes.add('Dejó en la nube una copia completa (${r.subido!.resumen}).');
+  } else if (r.alDia) {
+    partes.add(
+      tr == null || tr.nadaNuevo
+          ? 'Ya estaba todo sincronizado.'
+          : 'La nube ya tenía todo lo de este teléfono.',
+    );
+  }
+  if (r.falla != null) partes.add(r.falla!);
+  if (p.fallaron > 0) {
+    partes.add(
+      '${p.fallaron} ${p.fallaron == 1 ? 'pendiente quedó' : 'pendientes quedaron'} esperando'
+      '${p.primeraFalla != null ? ': ${p.primeraFalla}' : '.'}',
+    );
+  }
+  if (tr != null && tr.viajes > 0) {
+    partes.add('Volvé a la pantalla principal para ver los viajes nuevos.');
+  }
+  return partes.isEmpty ? 'Listo.' : partes.join('\n');
 }
 
 class _Opcion extends StatelessWidget {

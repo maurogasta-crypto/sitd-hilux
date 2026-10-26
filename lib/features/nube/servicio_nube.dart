@@ -18,6 +18,36 @@ import 'respaldo_nube.dart';
 import 'sesion.dart';
 import 'subida.dart';
 
+/// Cómo terminó «Sincronizar» (`sitd-47`), paso por paso.
+class Sincronizado {
+  /// Lo pendiente de la cola y las calibraciones.
+  final Tanda pendientes;
+
+  /// El respaldo de la nube con el que se comparó (`null`: no había).
+  final RespaldoEnLaNube? comparado;
+
+  /// Lo que se trajo de la nube y se sumó (`null`: no se bajó nada).
+  final Sumado? traido;
+
+  /// La copia nueva que subió (`null`: no hizo falta, o falló).
+  final RespaldoEnLaNube? subido;
+
+  /// Por qué no se subió la copia, si no hacía falta.
+  final bool alDia;
+
+  /// Lo que salió mal, en una frase. Lo anterior a la falla quedó hecho.
+  final String? falla;
+
+  const Sincronizado({
+    required this.pendientes,
+    this.comparado,
+    this.traido,
+    this.subido,
+    this.alDia = false,
+    this.falla,
+  });
+}
+
 /// Cómo terminó una tanda de subidas.
 class Tanda {
   final int subidos;
@@ -361,6 +391,120 @@ class ServicioNube {
       final f = File(destino);
       if (f.existsSync()) f.deleteSync();
     }
+  }
+
+  /// SINCRONIZAR (`sitd-47`, Mauro: «podría llamarse sincronizar, y al
+  /// mismo tiempo baja lo que falta»). Un botón en vez de cinco:
+  ///
+  /// 1. sube lo pendiente (reportes y calibraciones);
+  /// 2. baja el respaldo completo MÁS NUEVO de la nube y lo SUMA: entra lo
+  ///    que el teléfono no tiene y no se pierde nada (lo repetido gana el del
+  ///    teléfono, como siempre);
+  /// 3. si después de eso el teléfono tiene algo que esa copia no
+  ///    (`loQueFaltaEnElRespaldo`), sube una copia entera nueva. Si no, no
+  ///    sube nada: cada copia es la base entera y gastaría cupo para nada.
+  ///
+  /// Así dos teléfonos con la misma cuenta quedan con lo mismo: el primero
+  /// sube, el segundo baja lo del primero, suma lo suyo y sube la unión.
+  /// Reemplazar NO está acá: es lo único que pierde datos, y queda a mano.
+  Future<Sincronizado> sincronizar({
+    required Base base,
+    required String ruta,
+    required String carpeta,
+    void Function(String que)? alAvanzar,
+    int? ahora,
+    int porParte = bytesPorParte,
+  }) async {
+    alAvanzar?.call('Subiendo lo pendiente…');
+    final pendientes = await subirPendientes();
+    final c = guarda.credencial;
+    if (c == null) {
+      return Sincronizado(
+        pendientes: pendientes,
+        falla: 'La nube no está configurada.',
+      );
+    }
+    alAvanzar?.call('Mirando qué hay en la nube…');
+    final l = await subida.listarRespaldos(
+      credencial: c,
+      sesion: sesion,
+      tope: 5,
+      masNuevosPrimero: true,
+    );
+    if (l.falla != null) {
+      return Sincronizado(pendientes: pendientes, falla: l.falla);
+    }
+    RespaldoEnLaNube? ultimo;
+    for (final r in l.lista) {
+      if (ultimo == null || r.creado > ultimo.creado) ultimo = r;
+    }
+
+    Sumado? traido;
+    var hayQueSubir = true;
+    if (ultimo != null) {
+      final b = await bajarRespaldoCompleto(
+        respaldo: ultimo,
+        carpeta: carpeta,
+        alAvanzar: (h, t) => alAvanzar?.call('Bajando: parte $h de $t'),
+      );
+      if (b.ruta == null) {
+        return Sincronizado(
+          pendientes: pendientes,
+          comparado: ultimo,
+          falla: b.falla,
+        );
+      }
+      try {
+        final rev = revisarRespaldo(viva: base, ruta: b.ruta!);
+        if (rev.sePuede) {
+          alAvanzar?.call('Sumando lo que falta…');
+          traido = sumarRespaldo(
+            viva: base,
+            ruta: b.ruta!,
+            carpetaDeTrabajo: carpeta,
+          );
+          if (!traido.salioBien) {
+            return Sincronizado(
+              pendientes: pendientes,
+              comparado: ultimo,
+              traido: traido,
+              falla: traido.problema,
+            );
+          }
+        }
+        // Un respaldo de una versión más nueva no se suma, pero igual se
+        // compara: si acá hay algo que allá no, se sube.
+        final falta = loQueFaltaEnElRespaldo(viva: base, ruta: b.ruta!);
+        hayQueSubir =
+            falta.problema != null || falta.filas > 0 || falta.puntos > 0;
+      } finally {
+        final f = File(b.ruta!);
+        if (f.existsSync()) f.deleteSync();
+      }
+    }
+    if (!hayQueSubir) {
+      return Sincronizado(
+        pendientes: pendientes,
+        comparado: ultimo,
+        traido: traido,
+        alDia: true,
+      );
+    }
+    final s = await subirRespaldoCompleto(
+      base: base,
+      ruta: ruta,
+      carpeta: carpeta,
+      alAvanzar: (h, t) => alAvanzar?.call('Subiendo la copia: parte $h de $t'),
+      ahora: ahora,
+      porParte: porParte,
+    );
+    return Sincronizado(
+      pendientes: pendientes,
+      comparado: ultimo,
+      traido: traido,
+      subido: s.manifiesto,
+      falla: s.manifiesto == null ? s.resultado.falla : null,
+    );
   }
 
   /// Baja [respaldo] y lo deja como archivo en [carpeta], listo para entrar

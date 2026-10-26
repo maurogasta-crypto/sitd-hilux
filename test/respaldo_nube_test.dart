@@ -459,4 +459,121 @@ void main() {
       },
     );
   });
+
+  group('sincronizar (sitd-47)', () {
+    int cuantos(Base x, String t) =>
+        x.db.select('SELECT COUNT(*) AS n FROM $t').first['n'] as int;
+    Future<int> enLaNube(Base x, NubeFalsa nube) async =>
+        (await servicio(x, nube).subida.listarRespaldos(credencial: credencial))
+            .lista
+            .length;
+
+    test('dos teléfonos quedan con todo, y sin subir copias de más', () async {
+      final nube = NubeFalsa();
+      final a = telefonoConDatos('a');
+      // 1. A, con la nube vacía: sube su copia.
+      var r = await servicio(a.base, nube).sincronizar(
+        base: a.base,
+        ruta: a.ruta,
+        carpeta: dir.path,
+        ahora: 1000,
+        porParte: 4000,
+      );
+      expect(r.falla, isNull);
+      expect(r.comparado, isNull);
+      expect(r.subido, isNotNull);
+      expect(await enLaNube(a.base, nube), 1);
+
+      // 2. A otra vez, sin nada nuevo: no sube otra copia.
+      r = await servicio(a.base, nube).sincronizar(
+        base: a.base,
+        ruta: a.ruta,
+        carpeta: dir.path,
+        ahora: 2000,
+        porParte: 4000,
+      );
+      expect(r.falla, isNull);
+      expect(r.alDia, isTrue);
+      expect(r.subido, isNull);
+      expect(r.traido?.nadaNuevo, isTrue);
+      expect(await enLaNube(a.base, nube), 1);
+
+      // 3. B, con un viaje propio: trae los dos de A, suma el suyo y sube
+      //    la unión.
+      final rutaB = '${dir.path}/b.db';
+      final b = Base.abrir(rutaB);
+      GuardaDeCredencial(b).guardar(credencialPegada);
+      sembrarViaje(b, inicio: 1758661800000, puntos: 150);
+      r = await servicio(b, nube).sincronizar(
+        base: b,
+        ruta: rutaB,
+        carpeta: dir.path,
+        ahora: 3000,
+        porParte: 4000,
+      );
+      expect(r.falla, isNull);
+      expect(r.traido?.viajes, 2);
+      expect(r.subido, isNotNull);
+      expect(cuantos(b, 'viajes'), 3);
+      expect(cuantos(b, 'puntos'), 650);
+      expect(await enLaNube(b, nube), 2);
+
+      // 4. A otra vez: trae el de B y no sube nada (la nube ya tiene todo).
+      r = await servicio(a.base, nube).sincronizar(
+        base: a.base,
+        ruta: a.ruta,
+        carpeta: dir.path,
+        ahora: 4000,
+        porParte: 4000,
+      );
+      expect(r.falla, isNull);
+      expect(r.comparado?.creado, 3000, reason: 'compara con el MÁS NUEVO');
+      expect(r.traido?.viajes, 1);
+      expect(r.alDia, isTrue);
+      expect(cuantos(a.base, 'viajes'), 3);
+      expect(await enLaNube(a.base, nube), 2);
+      // Y la credencial de cada uno sigue siendo la suya.
+      expect(GuardaDeCredencial(b).credencial?.proyecto, credencial.proyecto);
+      a.base.cerrar();
+      b.cerrar();
+    });
+
+    test('un viaje que siguió midiendo después de subir también cuenta', () {
+      final a = telefonoConDatos('a');
+      a.base.db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
+      final copia = '${dir.path}/copia.db';
+      File(a.ruta).copySync(copia);
+      expect(loQueFaltaEnElRespaldo(viva: a.base, ruta: copia).puntos, 0);
+      final id =
+          a.base.db
+                  .select('SELECT id FROM viajes ORDER BY inicio LIMIT 1')
+                  .first['id']
+              as int;
+      a.base.db.execute(
+        'INSERT INTO puntos (viaje, t, lat, lon, velocidad, precision_m) '
+        'SELECT viaje, t + 999999, lat, lon, velocidad, precision_m FROM puntos '
+        'WHERE viaje = ? LIMIT 5',
+        [id],
+      );
+      final f = loQueFaltaEnElRespaldo(viva: a.base, ruta: copia);
+      expect(f.puntos, 5);
+      expect(f.filas, 0);
+      a.base.cerrar();
+    });
+
+    test('sin la nube configurada, lo dice', () async {
+      final rutaC = '${dir.path}/c.db';
+      final c = Base.abrir(rutaC);
+      final s = ServicioNube(
+        cola: ColaDeSubida(c),
+        guarda: GuardaDeCredencial(c),
+        subida: Subida(cliente: NubeFalsa()),
+        armar: (v) => {'viajes': []},
+        viajes: RegistroDeViajes(c),
+      );
+      final r = await s.sincronizar(base: c, ruta: rutaC, carpeta: dir.path);
+      expect(r.falla, contains('configurada'));
+      c.cerrar();
+    });
+  });
 }

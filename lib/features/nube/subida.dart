@@ -409,6 +409,7 @@ class Subida {
     required Credencial credencial,
     GuardaDeSesion? sesion,
     int tope = 50,
+    bool masNuevosPrimero = false,
   }) async {
     final token = await _tokenPara(credencial, sesion);
     if (token.falla != null) {
@@ -419,6 +420,9 @@ class Subida {
           .get(
             Uri.parse(
               '${_documentos(credencial)}respaldos?pageSize=$tope&'
+              // sitd-47: sincronizar quiere el ÚLTIMO; sin orden la lista
+              // viene por nombre y con más de [tope] el último no vendría.
+              '${masNuevosPrimero ? 'orderBy=creado%20desc&' : ''}'
               '${camposDelManifiesto.map((c) => 'mask.fieldPaths=$c').join('&')}',
             ),
             headers: {'Authorization': 'Bearer ${token.valor}'},

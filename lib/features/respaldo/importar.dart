@@ -308,6 +308,74 @@ RevisionRespaldo revisarRespaldo({required Base viva, required String ruta}) {
   }
 }
 
+/// Lo que este teléfono tiene y el respaldo de [ruta] NO (`sitd-47`): la
+/// otra mitad de sincronizar. Si todo da cero, la nube ya tiene lo de acá y
+/// subir otra copia entera sería gastar cupo para nada.
+///
+/// Mira las mismas llaves que la suma (`llaveNatural`), menos la bitácora:
+/// la bitácora escribe todo el tiempo y con ella cada sincronización subiría
+/// otra copia. Y de un viaje que está en los dos, si acá tiene MÁS puntos
+/// (se siguió midiendo después de subirlo), también cuenta.
+({int filas, int puntos, String? problema}) loQueFaltaEnElRespaldo({
+  required Base viva,
+  required String ruta,
+}) {
+  if (!File(ruta).existsSync()) {
+    return (filas: 0, puntos: 0, problema: 'Ese archivo no está.');
+  }
+  Database? db;
+  try {
+    db = sqlite3.open(ruta, mode: OpenMode.readOnly);
+    var filas = 0;
+    for (final tabla in [
+      'viajes',
+      'cargas',
+      'pruebas_sensor',
+      'calibraciones',
+    ]) {
+      final llave = llaveNatural[tabla]!;
+      final campos = llave.join(', ');
+      Set<String> de(Database d) {
+        try {
+          return {
+            for (final f in d.select('SELECT $campos FROM $tabla'))
+              _comoLlave(llave, f),
+          };
+        } on SqliteException {
+          return {}; // una base vieja sin esa tabla: no tiene nada
+        }
+      }
+
+      filas += de(viva.db).difference(de(db)).length;
+    }
+    Map<int, int> puntosPorInicio(Database d) {
+      try {
+        return {
+          for (final f in d.select(
+            'SELECT v.inicio AS i, COUNT(p.id) AS n FROM viajes v '
+            'LEFT JOIN puntos p ON p.viaje = v.id GROUP BY v.id',
+          ))
+            f['i'] as int: f['n'] as int,
+        };
+      } on SqliteException {
+        return {};
+      }
+    }
+
+    final aca = puntosPorInicio(viva.db), alla = puntosPorInicio(db);
+    var puntos = 0;
+    aca.forEach((inicio, n) {
+      final m = alla[inicio];
+      if (m != null && n > m) puntos += n - m;
+    });
+    return (filas: filas, puntos: puntos, problema: null);
+  } on SqliteException catch (e) {
+    return (filas: 0, puntos: 0, problema: 'No se pudo leer (${e.message}).');
+  } finally {
+    db?.close();
+  }
+}
+
 /// Las columnas que tienen las DOS bases, en el orden de la de acá.
 ///
 /// Una que esté acá y no en el respaldo —porque el respaldo es más viejo— se

@@ -499,6 +499,21 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   publicar. Cuando se acerque, lo que sigue no es subir el techo sino dejar de
   subir la historia entera cada vez.
 
+- **«Sincronizar» es UN botón, y lo demás va plegado** (`sitd-48`,
+  26-oct-2026, Mauro: «hay muchos reportes y respaldos diferentes… para
+  simplificar la interfaz… podría llamarse sincronizar, y al mismo tiempo baja
+  lo que falta»). `ServicioNube.sincronizar`: sube lo pendiente, baja el
+  respaldo completo MÁS NUEVO de la nube y lo SUMA (nunca reemplaza: es lo
+  único que pierde datos, y queda en «Más opciones»), y sube una copia entera
+  nueva **sólo si** el teléfono tiene algo que esa copia no
+  (`loQueFaltaEnElRespaldo`: viajes, cargas, pruebas y calibraciones por su
+  llave natural, y puntos de más en un viaje que siguió midiendo; la bitácora
+  no cuenta, porque cambia siempre y cada toque subiría otra copia). Así el
+  Note 9 y el Redmi 15, con la misma cuenta, quedan con lo mismo, y tocar dos
+  veces no gasta cupo. Lo repetido gana el del teléfono, como siempre. La
+  lista se pide por `creado` descendente: por nombre, con más de cinco, el
+  último no vendría. Los botones de antes siguen en «Más opciones».
+
 - **El documento de un viaje se llama por el INSTANTE en que arrancó, no por
   su número local** (`sitd-26`). **Era un error que metí yo con `sitd-25`:**
   al sumar o reemplazar un respaldo los viajes se renumeran, así que un viaje
