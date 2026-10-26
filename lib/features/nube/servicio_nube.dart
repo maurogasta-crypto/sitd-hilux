@@ -38,6 +38,9 @@ class Sincronizado {
   /// Lo que salió mal, en una frase. Lo anterior a la falla quedó hecho.
   final String? falla;
 
+  /// Copias viejas de la nube que se borraron (`sitd-50`).
+  final int borrados;
+
   const Sincronizado({
     required this.pendientes,
     this.comparado,
@@ -45,7 +48,49 @@ class Sincronizado {
     this.subido,
     this.alDia = false,
     this.falla,
+    this.borrados = 0,
   });
+}
+
+/// Lo que se le dice a quien tocó Sincronizar: qué subió, qué trajo y si
+/// quedó al día. Aparte para que el banco lo pruebe.
+String textoDeSincronizado(Sincronizado r) {
+  final partes = <String>[];
+  final p = r.pendientes;
+  if (p.subidos > 0) {
+    partes.add(
+      'Subió ${p.subidos} ${p.subidos == 1 ? 'pendiente' : 'pendientes'}.',
+    );
+  }
+  final tr = r.traido;
+  if (tr != null && tr.salioBien && !tr.nadaNuevo) {
+    partes.add('Trajo de la nube: ${tr.resumen}');
+  }
+  if (r.subido != null) {
+    partes.add('Dejó en la nube una copia completa (${r.subido!.resumen}).');
+  } else if (r.alDia) {
+    partes.add(
+      tr == null || tr.nadaNuevo
+          ? 'Ya estaba todo sincronizado.'
+          : 'La nube ya tenía todo lo de este teléfono.',
+    );
+  }
+  if (r.falla != null) partes.add(r.falla!);
+  if (p.fallaron > 0) {
+    partes.add(
+      '${p.fallaron} ${p.fallaron == 1 ? 'pendiente quedó' : 'pendientes quedaron'} esperando'
+      '${p.primeraFalla != null ? ': ${p.primeraFalla}' : '.'}',
+    );
+  }
+  if (r.borrados > 0) {
+    partes.add(
+      'Borró ${r.borrados} ${r.borrados == 1 ? 'copia vieja' : 'copias viejas'} de la nube.',
+    );
+  }
+  if (tr != null && tr.viajes > 0) {
+    partes.add('Volvé a la pantalla principal para ver los viajes nuevos.');
+  }
+  return partes.isEmpty ? 'Listo.' : partes.join('\n');
 }
 
 /// Cómo terminó una tanda de subidas.
@@ -314,9 +359,10 @@ class ServicioNube {
   /// la nube **no sube**: se saca de la copia y se comprueban los bytes antes
   /// de mandar nada.
   ///
-  /// **Tampoco va en la cola automática**, por el mismo motivo que el
-  /// recorrido y con más razón: esto lleva el recorrido de todos los viajes a
-  /// la vez. Sube cuando alguien toca el botón.
+  /// **No va en la cola de cada viaje**: esto lleva el recorrido de todos
+  /// los viajes a la vez. Lo sube [sincronizar], que desde `sitd-50` corre
+  /// sola al abrir y al cerrar un viaje (Mauro lo decidió el 26-oct), o el
+  /// botón.
   ///
   /// [ruta] es el archivo de la base viva y [carpeta] una carpeta de trabajo;
   /// la copia se borra al terminar, salga como salga. [porParte] existe para
@@ -407,6 +453,11 @@ class ServicioNube {
   /// Así dos teléfonos con la misma cuenta quedan con lo mismo: el primero
   /// sube, el segundo baja lo del primero, suma lo suyo y sube la unión.
   /// Reemplazar NO está acá: es lo único que pierde datos, y queda a mano.
+  ///
+  /// Desde `sitd-50` corre SOLA al abrir la aplicación y al cerrar cada viaje
+  /// (Mauro: «sí, avanzá con las dos»), y una sola a la vez: si ya hay una
+  /// corriendo, la segunda espera la misma. Y al final borra las copias
+  /// viejas: ver [_borrarViejos].
   Future<Sincronizado> sincronizar({
     required Base base,
     required String ruta,
@@ -414,6 +465,36 @@ class ServicioNube {
     void Function(String que)? alAvanzar,
     int? ahora,
     int porParte = bytesPorParte,
+  }) {
+    final enCurso = _sincronizando;
+    if (enCurso != null) return enCurso;
+    final nueva = _sincronizar(
+      base: base,
+      ruta: ruta,
+      carpeta: carpeta,
+      alAvanzar: alAvanzar,
+      ahora: ahora,
+      porParte: porParte,
+    ).whenComplete(() => _sincronizando = null);
+    return _sincronizando = nueva;
+  }
+
+  Future<Sincronizado>? _sincronizando;
+
+  /// Cuántas copias completas quedan siempre en la nube, las más nuevas.
+  static const int respaldosQueQuedan = 3;
+
+  /// Y ninguna se borra antes de esto: es lo mismo que pide la regla, para
+  /// que una credencial filtrada no pueda vaciar la semana.
+  static const int diasAntesDeBorrar = 7;
+
+  Future<Sincronizado> _sincronizar({
+    required Base base,
+    required String ruta,
+    required String carpeta,
+    void Function(String que)? alAvanzar,
+    int? ahora,
+    required int porParte,
   }) async {
     alAvanzar?.call('Subiendo lo pendiente…');
     final pendientes = await subirPendientes();
@@ -517,11 +598,18 @@ class ServicioNube {
       );
     }
     if (!hayQueSubir) {
+      final borrados = await _borrarViejos(
+        c,
+        l.lista,
+        sumados,
+        ahora ?? DateTime.now().millisecondsSinceEpoch,
+      );
       return Sincronizado(
         pendientes: pendientes,
         comparado: ultimo,
         traido: traido,
         alDia: true,
+        borrados: borrados,
       );
     }
     final s = await subirRespaldoCompleto(
@@ -534,17 +622,65 @@ class ServicioNube {
     );
     // La copia propia ya tiene todo lo de acá: no hay que volver a sumarla.
     final propio = s.manifiesto;
+    var borrados = 0;
     if (propio != null) {
       sumados.add(propio.id);
       base.escribirAjuste(claveDeRespaldosSumados, sumados.join(','));
+      borrados = await _borrarViejos(
+        c,
+        [...l.lista, propio],
+        sumados,
+        ahora ?? DateTime.now().millisecondsSinceEpoch,
+      );
     }
     return Sincronizado(
       pendientes: pendientes,
       comparado: ultimo,
       traido: traido,
+      borrados: borrados,
       subido: s.manifiesto,
       falla: s.manifiesto == null ? s.resultado.falla : null,
     );
+  }
+
+  /// Borra las copias de la nube que ya no hacen falta (`sitd-50`). Se llama
+  /// SÓLO cuando la copia más nueva de la nube tiene todo lo de este teléfono
+  /// (recién subida, o comparada y al día), y borra una sólo si:
+  /// · no es de las [respaldosQueQuedan] más nuevas;
+  /// · tiene más de [diasAntesDeBorrar] días;
+  /// · ya se sumó en este teléfono, o sea que lo suyo está acá y por eso en
+  ///   la copia más nueva.
+  /// Si una falla, se deja para la próxima: no frena nada.
+  Future<int> _borrarViejos(
+    Credencial c,
+    List<RespaldoEnLaNube> todos,
+    Set<String> sumados,
+    int ahora,
+  ) async {
+    final orden = [...todos]..sort((a, b) => b.creado.compareTo(a.creado));
+    final limite = ahora - diasAntesDeBorrar * 24 * 3600 * 1000;
+    var borrados = 0;
+    for (final r in orden.skip(respaldosQueQuedan)) {
+      if (r.creado >= limite || !sumados.contains(r.id)) continue;
+      final falla = await subida.borrarRespaldo(
+        credencial: c,
+        respaldo: r,
+        sesion: sesion,
+      );
+      if (falla == null) {
+        borrados++;
+      } else {
+        bitacora.anotar(Origen.sistema, 'No se borró ${r.id}: $falla');
+        break; // si la regla no deja, no deja ninguno
+      }
+    }
+    if (borrados > 0) {
+      bitacora.anotar(
+        Origen.sistema,
+        'Sincronizar borró $borrados ${borrados == 1 ? 'copia vieja' : 'copias viejas'} de la nube.',
+      );
+    }
+    return borrados;
   }
 
   /// Baja [respaldo] y lo deja como archivo en [carpeta], listo para entrar

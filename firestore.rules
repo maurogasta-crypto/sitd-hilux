@@ -23,8 +23,9 @@ rules_version = '2';
 // Hay exactamente tres actores y cada uno puede poco:
 //
 //   el TELÉFONO  crea reportes, recorridos y respaldos, y LEE recorridos y
-//                respaldos —sólo eso—. No lee reportes, no modifica, no
-//                borra.
+//                respaldos —sólo eso—. No lee reportes y no modifica nada.
+//                Lo único que borra son copias de `respaldos/` de más de
+//                siete días (desde `sitd-50`, ver ahí).
 //                Y acá el teléfono entra como MAURO (maurogasta@gmail.com),
 //                porque él decidió no crear un usuario aparte. Ver abajo.
 //   el AGENTE    lee reportes, recorridos y respaldos, y lee y escribe en
@@ -183,10 +184,17 @@ service cloud.firestore {
 
       allow read: if soyYo() || esElAgente() || esElTelefono();
 
-      // Un respaldo es una foto de un momento: no se retoca. Borrar es sólo
-      // de Mauro.
+      // Un respaldo es una foto de un momento: no se retoca.
       allow update: if false;
-      allow delete: if soyYo();
+      // Borrar: Mauro, y desde `sitd-50` el TELÉFONO, que al sincronizar
+      // solo deja las tres copias más nuevas (cada una es la base entera, y
+      // sin borrar se llenaría el gigabyte gratis en meses). Sólo copias de
+      // MÁS DE SIETE DÍAS: aun con la credencial filtrada, la última semana
+      // de copias no se puede borrar. Lo demás (reportes, recorridos) sigue
+      // sin poder borrarlo.
+      allow delete: if soyYo()
+                    || (esElTelefono()
+                        && resource.data.creado < request.time.toMillis() - 604800000);
 
       match /partes/{parte} {
         // **Una parte sólo entra mientras el respaldo NO tiene manifiesto.**
@@ -205,7 +213,12 @@ service cloud.firestore {
 
         allow read: if soyYo() || esElAgente() || esElTelefono();
         allow update: if false;
-        allow delete: if soyYo();
+        // El teléfono borra una parte sólo cuando su manifiesto ya no está:
+        // primero se borra el manifiesto (con su regla de siete días) y
+        // después lo que colgaba de él.
+        allow delete: if soyYo()
+                      || (esElTelefono()
+                          && !exists(/databases/$(database)/documents/respaldos/$(id)));
       }
     }
 

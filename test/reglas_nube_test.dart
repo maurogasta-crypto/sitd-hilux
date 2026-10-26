@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sitd_hilux/features/nube/respaldo_nube.dart';
+import 'package:sitd_hilux/features/nube/servicio_nube.dart';
 
 /// El banco de las reglas de Firestore.
 ///
@@ -201,6 +202,30 @@ void main() {
       // colección `partes/` de la raíz y la ruta real —la subcolección— caería
       // en el cierre por defecto: 403 en la primera parte.
       expect(bloques['respaldos'], contains('match /partes/{parte}'));
+    });
+
+    test('el teléfono borra SÓLO copias de más de 7 días (sitd-50)', () {
+      // Lo mismo que `diasAntesDeBorrar` del código, en milisegundos.
+      final ms = ServicioNube.diasAntesDeBorrar * 24 * 3600 * 1000;
+      expect(
+        bloques['respaldos'],
+        contains('resource.data.creado < request.time.toMillis() - $ms'),
+      );
+      // Y reportes y recorridos el teléfono no los borra.
+      for (final c in ['reportes', 'recorridos']) {
+        expect(
+          RegExp(r'allow delete:[^;]*esElTelefono').hasMatch(bloques[c]!),
+          isFalse,
+          reason: c,
+        );
+      }
+      // Una parte, sólo con el manifiesto ya borrado.
+      expect(
+        RegExp(
+          r'allow delete: if soyYo\(\)\s*\|\|\s*\(esElTelefono\(\)\s*&&\s*!exists',
+        ).hasMatch(bloques['partes']!),
+        isTrue,
+      );
     });
 
     test('a un respaldo terminado no se le agregan partes', () {

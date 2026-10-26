@@ -8,8 +8,10 @@ distancia real por GPS, lleva el registro de combustible y detecta anomalías
 mecánicas por vibración y sonido. **Mide siempre sin conexión**, y desde
 `sitd-17` sube el reporte de cada viaje a una base remota cuando hay señal —
 ver «La nube», más abajo. Lo que sube solo es el reporte SIN coordenadas; el
-**recorrido sube aparte y a mano desde `sitd-26`**, a una colección con su
-propia regla, por pedido explícito de Mauro. Hasta el 2026-09-21 este párrafo
+**recorrido sube aparte desde `sitd-26`**, a una colección con su
+propia regla, por pedido explícito de Mauro; **y desde `sitd-50` la copia
+completa —que lo lleva— sube SOLA** al sincronizar (ver «Sincronizar», más
+abajo). Hasta el 2026-09-21 este párrafo
 decía que el recorrido no salía del teléfono por ningún canal, y era la regla
 de fondo del proyecto: el detalle de qué cambió y qué lo contiene está en «Las
 decisiones de fondo».
@@ -137,7 +139,8 @@ Esa propiedad sigue intacta y hay que cuidarla.
 
 **Lo que cambió el 2026-09-21 es que hay una SEGUNDA colección.** `recorridos/`
 lleva dónde estuvo la camioneta, punto por punto, y sube cuando Mauro toca el
-botón. Hasta ese día la regla era que el recorrido no salía del teléfono por
+botón (la copia completa de `respaldos/`, que también lo lleva, sube sola desde
+`sitd-50`). Hasta ese día la regla era que el recorrido no salía del teléfono por
 ningún canal; la dio vuelta él, a propósito, y el detalle entero —qué cambia,
 qué lo contiene y qué queda pendiente— está más abajo, en «Las decisiones de
 fondo». **Que sean dos colecciones y no una es la contención**: si algo sale
@@ -154,7 +157,8 @@ volver a pegarla.
 
 **Las reglas están escritas suponiendo que la credencial del teléfono se
 conoce.** El teléfono sólo puede **crear** en `reportes/`: no lee, no
-modifica, no borra. Lo peor que puede hacer quien tenga esa credencial es
+modifica, no borra (lo único que borra, desde `sitd-50`, son copias de
+`respaldos/` de más de siete días). Lo peor que puede hacer quien tenga esa credencial es
 escribir reportes de más — molesto y visible, no grave. Si además pudiera
 leer, se llevaría la historia entera. La plantilla está en `firestore.rules`,
 con los tres UID como **marcadores**: un UID real no entra nunca a este
@@ -439,7 +443,9 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   sin una sola coordenada y su prueba siga valiendo; **el teléfono sigue sin
   poder leer `reportes/`**; y **no sube solo** — sube cuando Mauro toca el
   botón, porque el acto deliberado es la contención que le queda a la mitad
-  sensible. El paso que cierra esto del todo es de Mauro y está pendiente:
+  sensible. **Esa tercera la levantó Mauro el 26-oct-2026** («sí, avanzá con
+  las dos»), con la objeción sobre la mesa: desde `sitd-50` la copia completa
+  sube sola al sincronizar. Las otras dos siguen. El paso que cierra esto del todo es de Mauro y está pendiente:
   crear un usuario `telefono@…`, que es una función de una línea en las
   reglas.
 
@@ -481,9 +487,10 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
 
   **Lo que cuesta, a la vista:** es la colección que más lleva —el recorrido
   de TODOS los viajes a la vez—, cada respaldo es una copia entera y no una
-  diferencia, y los viejos se borran a mano desde la consola. Lo contiene lo
-  mismo que a `recorridos/`: no sube solo, no se reescribe, y la lee sólo esta
-  cuenta y el agente. Y **necesita que Mauro publique las reglas nuevas**;
+  diferencia, y los viejos se borraban a mano desde la consola (desde
+  `sitd-50` los borra el teléfono: ver «Sincronizar»). Lo contiene lo
+  mismo que a `recorridos/`: no se reescribe, y la lee sólo esta cuenta y el
+  agente. Y **necesita que Mauro publique las reglas nuevas**;
   hasta entonces la pantalla dice que la base no deja leer `respaldos`, en vez
   de mostrar una lista vacía.
 
@@ -521,6 +528,22 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   `ajustes` (`respaldos_sumados`, la copia propia incluida) y no se vuelven a
   bajar; con el más nuevo se compara para decidir si subir. Un respaldo de
   un esquema más nuevo que la aplicación ni se baja.
+
+  **Desde `sitd-50` corre SOLA**, al abrir la aplicación y al cerrar cada
+  viaje (Mauro, 26-oct: «sincronizar debería lanzarse sola luego de cada
+  recorrido y al inicio de la sesión… sí, avanzá con las dos»). Una a la vez
+  (`_sincronizando`); al abrir con un viaje a medio medir, sólo lo pendiente.
+  Lo que hace queda en la bitácora. **Y borra las copias viejas**, porque cada
+  una es la base entera (1,6 MB el 26-oct) y el gigabyte gratis de Firebase se
+  llenaba en meses: deja las 3 más nuevas, y borra una sólo si tiene más de 7
+  días y ya se sumó acá —su contenido está en este teléfono y por eso en la
+  copia más nueva, que se acaba de comprobar—. Borra primero el manifiesto y
+  después las partes. **La regla pone los 7 días también** (el teléfono sólo
+  borra copias de más de una semana, y partes sin manifiesto): con la
+  credencial filtrada no se puede vaciar la última semana. Cupo: es un solo
+  usuario; con las copias de una semana más 3 (unos 2 MB cada una) y una
+  bajada de unos 2 MB por sincronización, se usa poco del gigabyte guardado y
+  de los 10 GiB por mes de bajada. **Hay que publicar `firestore.rules`.**
 
 - **El documento de un viaje se llama por el INSTANTE en que arrancó, no por
   su número local** (`sitd-26`). **Era un error que metí yo con `sitd-25`:**

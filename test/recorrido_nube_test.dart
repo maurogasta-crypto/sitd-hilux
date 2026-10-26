@@ -59,6 +59,13 @@ class NubeFalsa extends http.BaseClient {
       return _r(200, '{}');
     }
 
+    // sitd-50: el teléfono borra sus copias viejas.
+    if (pedido.method == 'DELETE') {
+      if (negadas.contains(raiz)) return _r(403, '{}');
+      documentos.remove(tras);
+      return _r(200, '{}');
+    }
+
     if (!dejaLeer || negadas.contains(raiz)) return _r(403, '{}');
 
     // Traer uno.

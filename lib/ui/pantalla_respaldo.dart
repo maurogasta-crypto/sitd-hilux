@@ -697,7 +697,8 @@ class _SincronizarState extends State<_Sincronizar> {
               'Sube lo que falta subir, trae de la nube lo que este teléfono '
               'no tiene y lo suma sin borrar nada, y deja en la nube una copia '
               'completa si hacía falta. Lo mismo en el otro teléfono, y los '
-              'dos quedan con todo.\n\n'
+              'dos quedan con todo. Corre sola al abrir la aplicación y al '
+              'cerrar cada viaje; este botón la corre ahora.\n\n'
               'La copia lleva el recorrido; la contraseña de la nube no viaja.',
               style: t.textTheme.bodySmall,
             ),
@@ -730,42 +731,6 @@ class _SincronizarState extends State<_Sincronizar> {
       ),
     );
   }
-}
-
-/// Lo que se le dice a quien tocó Sincronizar: qué subió, qué trajo y si
-/// quedó al día. Aparte para que el banco lo pruebe.
-String textoDeSincronizado(Sincronizado r) {
-  final partes = <String>[];
-  final p = r.pendientes;
-  if (p.subidos > 0) {
-    partes.add(
-      'Subió ${p.subidos} ${p.subidos == 1 ? 'pendiente' : 'pendientes'}.',
-    );
-  }
-  final tr = r.traido;
-  if (tr != null && tr.salioBien && !tr.nadaNuevo) {
-    partes.add('Trajo de la nube: ${tr.resumen}');
-  }
-  if (r.subido != null) {
-    partes.add('Dejó en la nube una copia completa (${r.subido!.resumen}).');
-  } else if (r.alDia) {
-    partes.add(
-      tr == null || tr.nadaNuevo
-          ? 'Ya estaba todo sincronizado.'
-          : 'La nube ya tenía todo lo de este teléfono.',
-    );
-  }
-  if (r.falla != null) partes.add(r.falla!);
-  if (p.fallaron > 0) {
-    partes.add(
-      '${p.fallaron} ${p.fallaron == 1 ? 'pendiente quedó' : 'pendientes quedaron'} esperando'
-      '${p.primeraFalla != null ? ': ${p.primeraFalla}' : '.'}',
-    );
-  }
-  if (tr != null && tr.viajes > 0) {
-    partes.add('Volvé a la pantalla principal para ver los viajes nuevos.');
-  }
-  return partes.isEmpty ? 'Listo.' : partes.join('\n');
 }
 
 class _Opcion extends StatelessWidget {
@@ -1393,8 +1358,9 @@ class _RespaldoArribaState extends State<_RespaldoArriba> {
               'Es lo que deja levantar todo en otro teléfono: configurás la '
               'nube allá, tocás «Ver qué hay» y elegís uno.\n\n'
               'NO sube la contraseña de la nube ni la sesión: se sacan de la '
-              'copia antes, igual que al compartir. No sube solo, y sacarlo '
-              'de la nube se hace desde la consola de Firebase.',
+              'copia antes, igual que al compartir. Desde sitd-50 también la '
+              'sube Sincronizar sola, que además borra las copias de más de '
+              'una semana y deja las tres más nuevas.',
               style: t.textTheme.bodySmall,
             ),
             if (_avance != null) ...[

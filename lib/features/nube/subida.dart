@@ -521,6 +521,46 @@ class Subida {
     }
   }
 
+  /// Borra un respaldo de la nube (`sitd-50`): PRIMERO el manifiesto, así
+  /// desaparece de las listas aunque después se corte la red, y después sus
+  /// partes. La regla deja al teléfono borrar sólo un manifiesto de más de
+  /// siete días, y una parte sólo cuando su manifiesto ya no está. Una parte
+  /// que quede huérfana no hace daño: no la lista nadie.
+  Future<String?> borrarRespaldo({
+    required Credencial credencial,
+    required RespaldoEnLaNube respaldo,
+    GuardaDeSesion? sesion,
+  }) async {
+    final token = await _tokenPara(credencial, sesion);
+    if (token.falla != null) return token.falla;
+    final cabeza = {'Authorization': 'Bearer ${token.valor}'};
+    try {
+      final m = await cliente
+          .delete(
+            Uri.parse('${_documentos(credencial)}respaldos/${respaldo.id}'),
+            headers: cabeza,
+          )
+          .timeout(espera);
+      if (m.statusCode != 200) {
+        return 'La base no dejó borrar ${respaldo.id} (${m.statusCode}).';
+      }
+      for (var i = 0; i < respaldo.partes; i++) {
+        await cliente
+            .delete(
+              Uri.parse(
+                '${_documentos(credencial)}respaldos/${respaldo.id}/'
+                'partes/${nombreDeParte(i)}',
+              ),
+              headers: cabeza,
+            )
+            .timeout(espera);
+      }
+      return null;
+    } catch (e) {
+      return 'No se pudo llegar a la base: $e';
+    }
+  }
+
   String _documentos(Credencial c) =>
       'https://firestore.googleapis.com/v1/projects/'
       '${c.proyecto}/databases/(default)/documents/';

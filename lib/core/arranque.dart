@@ -142,6 +142,32 @@ class Arranque {
       final vibraciones = RegistroDeVibracion(base);
       final audios = RegistroDeAudio(base);
       final cola = ColaDeSubida(base);
+      // sitd-50: Sincronizar corre solo, al abrir y al cerrar cada viaje.
+      // El servicio de la nube se arma más abajo; el cierre lo usa recién
+      // cuando un viaje termina, y para entonces ya existe.
+      late final ServicioNube nube;
+      Future<void> sincronizarSolo(String cuando) async {
+        if (!nube.configurada) return;
+        try {
+          final dir = await getTemporaryDirectory();
+          final r = await nube.sincronizar(
+            base: base,
+            ruta: ruta,
+            carpeta: dir.path,
+          );
+          bitacora.anotar(
+            Origen.sistema,
+            'Sincronizar solo, $cuando: '
+            '${textoDeSincronizado(r).replaceAll('\n', ' ')}',
+          );
+        } catch (e) {
+          bitacora.anotar(
+            Origen.sistema,
+            'Sincronizar solo, $cuando, falló: $e',
+          );
+        }
+      }
+
       // El modo que entregó la última vez va primero: sin esto, en un teléfono
       // donde `normal` no anda, cada viaje empieza perdiendo noventa segundos
       // para volver a descubrir lo mismo.
@@ -164,10 +190,13 @@ class Arranque {
         alTerminar: (viaje) {
           cola.encolar(viaje);
           anotarEncolado(viaje);
+          // sitd-50: y sincroniza solo. Si no hay señal, queda en la cola y
+          // se reintenta al abrir.
+          unawaited(sincronizarSolo('al cerrar un viaje'));
         },
       );
 
-      final nube = ServicioNube(
+      nube = ServicioNube(
         cola: cola,
         guarda: GuardaDeCredencial(base),
         subida: Subida(),
@@ -207,9 +236,15 @@ class Arranque {
         ),
       );
       final microfono = MicrofonoDelTelefono();
-      // Al abrir se intenta lo que quedó esperando. No se espera el resultado:
-      // si no hay señal, la aplicación abre igual y se reintenta después.
-      unawaited(nube.subirPendientes());
+      // Al abrir se SINCRONIZA solo (sitd-50; antes, sólo lo pendiente). No
+      // se espera el resultado: si no hay señal, la aplicación abre igual y
+      // se reintenta después. Con un viaje a medio medir que se va a retomar,
+      // sólo lo pendiente: la copia entera esperará a que el viaje cierre.
+      if (registro.abierto == null) {
+        unawaited(sincronizarSolo('al abrir'));
+      } else {
+        unawaited(nube.subirPendientes());
+      }
       // Si el sistema mató la aplicación en medio de un viaje, acá se retoma.
       servicio.retomarPendiente();
       return Arranque._(

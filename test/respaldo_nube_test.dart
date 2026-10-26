@@ -590,6 +590,79 @@ void main() {
       },
     );
 
+    test(
+      'borra las copias viejas: deja 3 y nada de la última semana (sitd-50)',
+      () async {
+        final nube = NubeFalsa();
+        final a = telefonoConDatos('a');
+        const dia = 24 * 3600 * 1000;
+        const hoy = 1800000000000;
+        // Cinco copias viejas de A, de hace 30 a 26 días, y una de hace 2.
+        for (final hace in [30, 29, 28, 27, 26, 2]) {
+          await servicio(a.base, nube).subirRespaldoCompleto(
+            base: a.base,
+            ruta: a.ruta,
+            carpeta: dir.path,
+            ahora: hoy - hace * dia,
+            porParte: 4000,
+          );
+        }
+        expect(await enLaNube(a.base, nube), 6);
+        final r = await servicio(a.base, nube).sincronizar(
+          base: a.base,
+          ruta: a.ruta,
+          carpeta: dir.path,
+          ahora: hoy,
+          porParte: 4000,
+        );
+        expect(r.falla, isNull);
+        expect(r.alDia, isTrue);
+        // Quedan las 3 más nuevas (hace 2, 26 y 27 días).
+        expect(r.borrados, 3);
+        expect(await enLaNube(a.base, nube), 3);
+        // Y no quedaron partes de las borradas.
+        final partes = nube.documentos.keys.where(
+          (k) => k.contains('/partes/'),
+        );
+        expect(partes.length, greaterThan(0));
+        for (final k in partes) {
+          final id = k.split('/')[1];
+          expect(
+            nube.documentos.containsKey('respaldos/$id'),
+            isTrue,
+            reason: k,
+          );
+        }
+        a.base.cerrar();
+      },
+    );
+
+    test('una copia de la última semana no se borra aunque sobre', () async {
+      final nube = NubeFalsa();
+      final a = telefonoConDatos('a');
+      const dia = 24 * 3600 * 1000;
+      const hoy = 1800000000000;
+      for (final hace in [6, 5, 4, 3, 2]) {
+        await servicio(a.base, nube).subirRespaldoCompleto(
+          base: a.base,
+          ruta: a.ruta,
+          carpeta: dir.path,
+          ahora: hoy - hace * dia,
+          porParte: 4000,
+        );
+      }
+      final r = await servicio(a.base, nube).sincronizar(
+        base: a.base,
+        ruta: a.ruta,
+        carpeta: dir.path,
+        ahora: hoy,
+        porParte: 4000,
+      );
+      expect(r.borrados, 0);
+      expect(await enLaNube(a.base, nube), 5);
+      a.base.cerrar();
+    });
+
     test('un viaje que siguió midiendo después de subir también cuenta', () {
       final a = telefonoConDatos('a');
       a.base.db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
