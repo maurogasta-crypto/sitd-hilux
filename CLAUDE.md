@@ -884,11 +884,19 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   (Mauro: «vamos con el detector de auto encendido»). El cargador del
   encendedor da corriente sólo con el contacto puesto, y ésa es justamente la
   señal que faltaba para distinguir la ruta del taller. Las reglas viven en
-  `DetectorMotor` y el banco las recorre: **sólo un CAMBIO abre** (abrir la
-  aplicación con el teléfono ya cargando no inventa un viaje), **sólo cierra lo
-  que abrió** (un viaje empezado a mano no lo toca el cargador) y **cerrar
-  espera tres minutos sin carga** (un motor que se apaga en un semáforo no
-  corta nada). Empezar por el motor no pide el odómetro, así que esos viajes no
+  `DetectorMotor` y el banco las recorre: **abrir la app con el teléfono ya
+  cargando también abre** (desde `sitd-56`: hasta ahí hacía falta ver el
+  cambio, y el 26-oct el Note 9 se abrió con el motor en marcha y el viaje
+  hubo que empezarlo a mano; el viaje queda a prueba, abajo, así que el
+  escritorio de la casa no inventa nada), **sólo cierra lo que abrió** (un
+  viaje empezado a mano no lo toca el cargador) y **cerrar espera tres minutos
+  sin carga Y QUIETO** (un motor que se apaga en un semáforo no corta nada; y
+  desde `sitd-56`, el cargador que se corta ANDANDO tampoco: en el viaje 23
+  dejó de cargar 3 min 28 s en plena ruta). Mauro, 26-oct: «al estar
+  conectada e iniciada en el dispositivo que va a funcionar como detector,
+  debería funcionar automáticamente los recorridos». **En el Note 9 el
+  interruptor estaba APAGADO** (`viaje_con_el_motor = no` en su respaldo del
+  26-oct): sin prenderlo no hay arranque solo. Empezar por el motor no pide el odómetro, así que esos viajes no
   calibran: está bien. **Anda con la aplicación abierta**: Android no deja
   arrancar el servicio de ubicación desde atrás. Se apaga con el interruptor
   «Empezar y terminar con el motor» de la pantalla del viaje.

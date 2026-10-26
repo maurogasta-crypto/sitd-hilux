@@ -165,6 +165,7 @@ class _PantallaViajeState extends State<PantallaViaje> {
       hayViaje: widget.servicio.estado.value.midiendo,
       t: DateTime.now().millisecondsSinceEpoch,
       metros: widget.servicio.estado.value.odometria.metros,
+      kmh: widget.servicio.estado.value.velocidadKmh,
     );
     if (accion == AccionMotor.terminar) unawaited(_terminarPorElMotor());
     if (accion == AccionMotor.descartar) unawaited(_descartarPorElMotor());

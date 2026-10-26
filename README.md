@@ -563,9 +563,11 @@ velocidad de más de 15 km/h, con RPM imposibles o a los 90 segundos sin oírla.
 
 **El viaje con el motor.** Con el interruptor «Empezar y terminar con el
 motor» encendido —viene encendido— y la aplicación abierta, cuando el cargador
-del encendedor empieza a cargar, empieza el viaje; tres minutos sin carga, lo
-cierra. Sólo cierra los viajes que abrió él, y abrir la aplicación con el
-teléfono ya cargando no inventa un viaje. Esos viajes no piden el odómetro.
+del encendedor empieza a cargar —o si la aplicación se abre con el teléfono
+ya cargando (desde `sitd-56`)—, empieza el viaje; tres minutos sin carga y con
+la camioneta quieta, lo cierra (si el cargador se corta andando, el viaje
+sigue). Sólo cierra los viajes que abrió él, y uno que no anduvo 200 m en 5
+minutos se borra solo. Esos viajes no piden el odómetro.
 
 ## Mapa de archivos
 
@@ -681,7 +683,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-55` | `lib/core/version.dart` |
+| Aplicación | `sitd-56` | `lib/core/version.dart` |
 | Esquema de la base | `11` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

@@ -380,11 +380,79 @@ void main() {
       expect(e.descartaAlCerrarAMano(0), isFalse);
     });
 
-    test('al abrir con el cargador puesto NO inventa un viaje', () {
+    test('al abrir con el cargador puesto empieza, A PRUEBA (sitd-56)', () {
       final d = DetectorMotor();
       expect(
         d.alCambiar(conectado: true, inicial: true, hayViaje: false, t: 0),
+        AccionMotor.empezar,
+      );
+      // Y si no anda —el escritorio de la casa—, se descarta como siempre.
+      d.abrioElMotor(0);
+      expect(
+        d.alLatir(hayViaje: true, t: 5 * 60 * 1000, metros: 0),
+        AccionMotor.descartar,
+      );
+    });
+
+    test('al abrir sin cargar, o con un viaje ya abierto, no hace nada', () {
+      expect(
+        DetectorMotor().alCambiar(
+          conectado: false,
+          inicial: true,
+          hayViaje: false,
+          t: 0,
+        ),
         AccionMotor.nada,
+      );
+      expect(
+        DetectorMotor().alCambiar(
+          conectado: true,
+          inicial: true,
+          hayViaje: true,
+          t: 0,
+        ),
+        AccionMotor.nada,
+      );
+    });
+
+    test('el cargador que se corta ANDANDO no parte el viaje (sitd-56)', () {
+      // El viaje 23 del Note 9: 3 min 28 s sin carga a mitad de ruta.
+      final d = DetectorMotor();
+      d.alCambiar(conectado: false, inicial: true, hayViaje: false, t: 0);
+      d.alCambiar(conectado: true, inicial: false, hayViaje: false, t: 0);
+      d.abrioElMotor(0);
+      d.alLatir(hayViaje: true, t: 60000, metros: 1000, kmh: 80);
+      d.alCambiar(conectado: false, inicial: false, hayViaje: true, t: 120000);
+      for (var t = 121000; t <= 120000 + 208000; t += 1000) {
+        expect(
+          d.alLatir(hayViaje: true, t: t, metros: 5000, kmh: 85),
+          AccionMotor.nada,
+        );
+      }
+      // Se para: los 3 minutos cuentan desde el último segundo andando.
+      const ultimoAndando = 120000 + 208000;
+      const parada = ultimoAndando + 1000;
+      expect(
+        d.alLatir(hayViaje: true, t: parada, metros: 9000, kmh: 0),
+        AccionMotor.nada,
+      );
+      expect(
+        d.alLatir(
+          hayViaje: true,
+          t: ultimoAndando + 179000,
+          metros: 9000,
+          kmh: 0,
+        ),
+        AccionMotor.nada,
+      );
+      expect(
+        d.alLatir(
+          hayViaje: true,
+          t: ultimoAndando + 180000,
+          metros: 9000,
+          kmh: 0,
+        ),
+        AccionMotor.terminar,
       );
     });
 

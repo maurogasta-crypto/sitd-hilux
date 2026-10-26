@@ -9,14 +9,24 @@
 ///
 /// Tres reglas que no se negocian, y el banco las comprueba:
 ///
-///  1. **Sólo un CAMBIO abre un viaje.** Si la aplicación abre con el teléfono
-///     ya cargando —en casa, en el escritorio— no se inventa un viaje: hace
-///     falta ver el paso de «no carga» a «carga».
+///  1. **Abrir la app con el teléfono YA cargando también abre un viaje**
+///     (`sitd-56`, 26-oct-2026, Mauro: «la propia apk, al estar conectada e
+///     iniciada en el dispositivo que va a funcionar como detector, debería
+///     funcionar automáticamente los recorridos para que siga habiendo un
+///     registro»). Hasta `sitd-55` hacía falta ver el paso de «no carga» a
+///     «carga», para no inventar un viaje en el escritorio de la casa; desde
+///     `sitd-40` ese viaje queda A PRUEBA y se borra solo si no anda (regla
+///     4), así que la red ya está. El 26-oct el Note 9 se abrió a las 02:10
+///     con el motor en marcha y el viaje hubo que empezarlo a mano.
 ///  2. **Sólo cierra lo que abrió.** Un viaje que empezó una persona lo
 ///     termina una persona; desenchufar el cargador no lo toca.
-///  3. **Cerrar espera.** Un corte de contacto de un minuto —una parada, el
-///     motor que se apaga en un semáforo— no corta el viaje: hace falta
-///     [gracia] sin carga. Si vuelve antes, no pasó nada.
+///  3. **Cerrar espera, y espera QUIETO.** Un corte de contacto de un minuto
+///     —una parada, el motor que se apaga en un semáforo— no corta el viaje:
+///     hace falta [gracia] sin carga **y con la camioneta parada**
+///     (`sitd-56`). El cargador del encendedor se corta andando: en el viaje
+///     23 del Note 9 dejó de cargar 3 min 28 s a mitad de ruta, y con sólo
+///     la gracia el viaje se habría partido en dos. Si vuelve la carga, o si
+///     la camioneta se mueve, se vuelve a contar.
 ///  4. **Un viaje del cargador está A PRUEBA hasta que la camioneta se mueve**
 ///     (`sitd-40`, 17-oct-2026). Mauro enchufó el teléfono en un cargador de
 ///     la CASA y la app abrió un viaje que duró dos horas con cero metros: el
@@ -91,7 +101,8 @@ class DetectorMotor {
     _conectado = conectado;
     if (inicial || antes == null) {
       _sinCargaDesde = conectado ? null : _sinCargaDesde;
-      return AccionMotor.nada;
+      // Regla 1: la app abrió con el motor en marcha. A prueba, como todos.
+      return conectado && !hayViaje ? AccionMotor.empezar : AccionMotor.nada;
     }
     if (antes == conectado) return AccionMotor.nada;
     if (conectado) {
@@ -102,13 +113,20 @@ class DetectorMotor {
     return AccionMotor.nada;
   }
 
+  /// Abajo de esto, la camioneta está quieta (regla 3).
+  static const double kmhQuieta = 5;
+
   /// Se llama cada tanto (la pantalla late una vez por segundo), con lo que
-  /// lleva andado el viaje ([metros]).
+  /// lleva andado el viaje ([metros]) y la velocidad de ahora ([kmh]; `null`
+  /// si el GPS todavía no la dio, y entonces cuenta como quieta).
   AccionMotor alLatir({
     required bool hayViaje,
     required int t,
     double metros = 0,
+    double? kmh,
   }) {
+    // Regla 3: andando no se cuenta la gracia; se vuelve a contar al parar.
+    if (_sinCargaDesde != null && (kmh ?? 0) >= kmhQuieta) _sinCargaDesde = t;
     // La prueba: anduvo lo suficiente → viaje de verdad; se le acabó el
     // tiempo sin andar → se descarta.
     final abierto = _abiertoT;
