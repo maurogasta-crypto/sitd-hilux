@@ -514,6 +514,14 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   lista se pide por `creado` descendente: por nombre, con más de cinco, el
   último no vendría. Los botones de antes siguen en «Más opciones».
 
+  **Desde `sitd-49` suma TODOS los respaldos que todavía no sumó, no sólo el
+  último.** La primera vez que Mauro sincronizó el Note 9 (26-oct) comparó
+  contra su propia copia —la más nueva— y nunca trajo los 25 viajes que el
+  Redmi 15 había subido esa mañana. Ahora los ya sumados se anotan en
+  `ajustes` (`respaldos_sumados`, la copia propia incluida) y no se vuelven a
+  bajar; con el más nuevo se compara para decidir si subir. Un respaldo de
+  un esquema más nuevo que la aplicación ni se baja.
+
 - **El documento de un viaje se llama por el INSTANTE en que arrancó, no por
   su número local** (`sitd-26`). **Era un error que metí yo con `sitd-25`:**
   al sumar o reemplazar un respaldo los viajes se renumeran, así que un viaje
@@ -908,6 +916,17 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   la velocidad del GPS ya acota el régimen a cinco valores. Si los picos de
   los próximos viajes muestran que hace falta, el lugar es comparar el
   pliegue que predice la marcha elegida contra las bandas de vibración.
+
+- **La 2.ª no creíble cede a la 4.ª** (`sitd-49`, 26-oct-2026, Mauro: «la
+  interpretación del tacómetro tenía una tendencia a interpretar segunda al
+  doble de cuarta; nunca circulé a más de 2.200 vueltas»). La regla de
+  `sitd-40` sólo subía de la 4.ª a la 2.ª; faltaba la vuelta: comparten la
+  serie de armónicos (la fundamental de la 2.ª es el 2.º armónico de la 4.ª)
+  y el sonido no las separa, así que si la elegida pide más de
+  `rpmCreibleArribaDeOctava` gana su compañera de abajo
+  (`corregirOctavaIncreible`, en `leerMotor` y en `decidirMarcha`). Esa vara
+  bajó de 3.000 a 2.500. En el viaje 23 del Note 9 (137 km): 37 «2.ª» a
+  3.400–4.100 RPM pasan a 4.ª, y la mediana queda en unas 2.000 RPM.
 
 - **El tacómetro de la pantalla es la marcha OÍDA y las RPM del GPS**
   (`sitd-39`, 17-oct-2026). Mauro: «no era verdaderamente dinámica la

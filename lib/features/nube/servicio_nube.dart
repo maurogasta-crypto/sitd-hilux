@@ -428,7 +428,6 @@ class ServicioNube {
     final l = await subida.listarRespaldos(
       credencial: c,
       sesion: sesion,
-      tope: 5,
       masNuevosPrimero: true,
     );
     if (l.falla != null) {
@@ -439,11 +438,26 @@ class ServicioNube {
       if (ultimo == null || r.creado > ultimo.creado) ultimo = r;
     }
 
+    // sitd-49: se suman TODOS los que todavía no se sumaron acá, no sólo el
+    // último. Con sólo el último, el Note 9 comparó contra su propia copia y
+    // nunca trajo lo que el Redmi 15 había subido antes (26-oct). Sumar es
+    // idempotente, así que lo ya sumado se anota y no se vuelve a bajar.
+    final sumados = {
+      ...(base.leerAjuste(claveDeRespaldosSumados) ?? '')
+          .split(',')
+          .where((x) => x.isNotEmpty),
+    };
+    final porSumar = [
+      for (final r in l.lista)
+        if (!sumados.contains(r.id) && r.esquema <= versionEsquema) r,
+    ]..sort((a, b) => a.creado.compareTo(b.creado));
     Sumado? traido;
+    var viajes = 0, puntos = 0, cargas = 0, cargasRepetidas = 0;
+    var viajesRepetidos = 0, eventos = 0;
     var hayQueSubir = true;
-    if (ultimo != null) {
+    for (final r in {...porSumar, ?ultimo}) {
       final b = await bajarRespaldoCompleto(
-        respaldo: ultimo,
+        respaldo: r,
         carpeta: carpeta,
         alAvanzar: (h, t) => alAvanzar?.call('Bajando: parte $h de $t'),
       );
@@ -451,36 +465,56 @@ class ServicioNube {
         return Sincronizado(
           pendientes: pendientes,
           comparado: ultimo,
+          traido: traido,
           falla: b.falla,
         );
       }
       try {
-        final rev = revisarRespaldo(viva: base, ruta: b.ruta!);
-        if (rev.sePuede) {
+        if (!sumados.contains(r.id) &&
+            revisarRespaldo(viva: base, ruta: b.ruta!).sePuede) {
           alAvanzar?.call('Sumando lo que falta…');
-          traido = sumarRespaldo(
+          final t = sumarRespaldo(
             viva: base,
             ruta: b.ruta!,
             carpetaDeTrabajo: carpeta,
           );
-          if (!traido.salioBien) {
+          if (!t.salioBien) {
             return Sincronizado(
               pendientes: pendientes,
               comparado: ultimo,
-              traido: traido,
-              falla: traido.problema,
+              traido: t,
+              falla: t.problema,
             );
           }
+          viajes += t.viajes;
+          viajesRepetidos += t.viajesRepetidos;
+          puntos += t.puntos;
+          cargas += t.cargas;
+          cargasRepetidas += t.cargasRepetidas;
+          eventos += t.eventos;
+          sumados.add(r.id);
+          base.escribirAjuste(claveDeRespaldosSumados, sumados.join(','));
         }
-        // Un respaldo de una versión más nueva no se suma, pero igual se
-        // compara: si acá hay algo que allá no, se sube.
-        final falta = loQueFaltaEnElRespaldo(viva: base, ruta: b.ruta!);
-        hayQueSubir =
-            falta.problema != null || falta.filas > 0 || falta.puntos > 0;
+        // Con el más nuevo se compara: si acá hay algo que allá no, se sube.
+        if (r == ultimo) {
+          final falta = loQueFaltaEnElRespaldo(viva: base, ruta: b.ruta!);
+          hayQueSubir =
+              falta.problema != null || falta.filas > 0 || falta.puntos > 0;
+        }
       } finally {
         final f = File(b.ruta!);
         if (f.existsSync()) f.deleteSync();
       }
+    }
+    if (ultimo != null) {
+      traido = Sumado(
+        viajes: viajes,
+        viajesRepetidos: viajesRepetidos,
+        puntos: puntos,
+        cargas: cargas,
+        cargasRepetidas: cargasRepetidas,
+        eventos: eventos,
+      );
     }
     if (!hayQueSubir) {
       return Sincronizado(
@@ -498,6 +532,12 @@ class ServicioNube {
       ahora: ahora,
       porParte: porParte,
     );
+    // La copia propia ya tiene todo lo de acá: no hay que volver a sumarla.
+    final propio = s.manifiesto;
+    if (propio != null) {
+      sumados.add(propio.id);
+      base.escribirAjuste(claveDeRespaldosSumados, sumados.join(','));
+    }
     return Sincronizado(
       pendientes: pendientes,
       comparado: ultimo,
@@ -575,6 +615,10 @@ class ServicioNube {
   /// duplican. Lo nuevo entra con el identificador nuevo.
   /// Dónde se anota qué calibraciones ya subieron (`tipo@inicio`, una lista).
   static const String claveDeCalibracionesSubidas = 'calibraciones_subidas';
+
+  /// Los respaldos de la nube que ya se sumaron en este teléfono (`sitd-49`).
+  /// No empieza con `nube_`: no es un secreto y puede viajar en una copia.
+  static const String claveDeRespaldosSumados = 'respaldos_sumados';
 
   /// Sube cada calibración TERMINADA que no subió, como un documento propio
   /// de `reportes/`: `<quien>-cal-<tipo>-<inicio>`. La regla del teléfono

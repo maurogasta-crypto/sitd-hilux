@@ -538,6 +538,58 @@ void main() {
       b.cerrar();
     });
 
+    test(
+      'trae también lo que subió OTRO teléfono antes del último (sitd-49)',
+      () async {
+        // El caso del 26-oct: el Redmi 15 subió su copia a la mañana, el Note 9
+        // subió después la suya sin esos viajes, y al sincronizar el Note 9
+        // comparaba sólo contra la suya.
+        final nube = NubeFalsa();
+        final rutaR = '${dir.path}/redmi15.db';
+        final redmi = Base.abrir(rutaR);
+        GuardaDeCredencial(redmi).guardar(credencialPegada);
+        sembrarViaje(redmi, inicio: 1758700000000, puntos: 120);
+        await servicio(redmi, nube).subirRespaldoCompleto(
+          base: redmi,
+          ruta: rutaR,
+          carpeta: dir.path,
+          ahora: 1000,
+          porParte: 4000,
+        );
+        final note = telefonoConDatos('note9');
+        await servicio(note.base, nube).subirRespaldoCompleto(
+          base: note.base,
+          ruta: note.ruta,
+          carpeta: dir.path,
+          ahora: 2000,
+          porParte: 4000,
+        );
+        final r = await servicio(note.base, nube).sincronizar(
+          base: note.base,
+          ruta: note.ruta,
+          carpeta: dir.path,
+          ahora: 3000,
+          porParte: 4000,
+        );
+        expect(r.falla, isNull);
+        expect(r.traido?.viajes, 1, reason: 'el viaje del Redmi 15');
+        expect(cuantos(note.base, 'viajes'), 3);
+        expect(r.subido, isNotNull, reason: 'la nube no tenía la unión');
+        // Y otra vez: nada que bajar de nuevo ni que subir.
+        final otra = await servicio(note.base, nube).sincronizar(
+          base: note.base,
+          ruta: note.ruta,
+          carpeta: dir.path,
+          ahora: 4000,
+          porParte: 4000,
+        );
+        expect(otra.alDia, isTrue);
+        expect(otra.traido?.viajes, 0);
+        redmi.cerrar();
+        note.base.cerrar();
+      },
+    );
+
     test('un viaje que siguió midiendo después de subir también cuenta', () {
       final a = telefonoConDatos('a');
       a.base.db.execute('PRAGMA wal_checkpoint(TRUNCATE)');

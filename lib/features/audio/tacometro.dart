@@ -28,6 +28,8 @@
 /// sin oírla— se suelta y la pantalla lo dice, en vez de inventar.
 library;
 
+import 'dart:math' as math;
+
 import 'regimen.dart';
 
 /// Cuántas escuchas recientes se juntan para decidir la marcha.
@@ -179,13 +181,19 @@ int? decidirMarcha(List<List<double?>> escuchas, {double? kmh}) {
       break;
     }
   }
+  // Y al revés (sitd-49): la de arriba, si no es creíble, cede a la de abajo.
+  final elegida = corregirOctavaIncreible(mejor + 1, media, kmh) - 1;
+  final puntaje = media[mejor]!;
+  mejor = elegida;
   var segunda = double.negativeInfinity;
   for (var g = 0; g < n; g++) {
     final m = media[g];
     if (m == null || g == mejor || _aUnaOctava(g, mejor)) continue;
     if (m > segunda) segunda = m;
   }
-  final m = media[mejor]!;
+  // La evidencia es la misma serie de armónicos: vale el puntaje de la que
+  // sonó más, aunque la elegida sea su compañera.
+  final m = math.max(media[mejor]!, puntaje);
   if (m < minimaJuntasDb || m - segunda < margenJuntasDb) return null;
   return mejor + 1;
 }

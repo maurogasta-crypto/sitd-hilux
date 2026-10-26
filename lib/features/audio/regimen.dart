@@ -149,12 +149,34 @@ const double margenDeOctavaDb = 3;
 /// pida más que esto a esa velocidad (`sitd-40`). En el viaje 25 dos escuchas
 /// a 70 y 79 km/h dijeron «2.ª, 3.450 y 3.900 RPM»; el sonido estaba en
 /// 1.730, que es la 4.ª. Nadie va en 2.ª a 3.500 RPM a velocidad pareja.
-const double rpmCreibleArribaDeOctava = 3000;
+/// Bajó de 3.000 a 2.500 en `sitd-49`: en el viaje 23 del Note 9 quedaban
+/// «2.ª» a 51–58 km/h (2.650–2.950 RPM), y Mauro: «nunca circulé a más de
+/// 2.200 vueltas, o casi en ningún momento».
+const double rpmCreibleArribaDeOctava = 2500;
 
 /// Si, entre dos marchas a una octava, la de arriba ([g], la de más RPM)
 /// es creíble a [kmh]. Sin velocidad, como antes: sí.
 bool arribaCreible(int g, double? kmh) =>
     kmh == null || kmh * rpmPorKmh(g) <= rpmCreibleArribaDeOctava;
+
+/// La otra mitad de la octava (`sitd-49`): si la marcha elegida pide más de
+/// [rpmCreibleArribaDeOctava] a [kmh] y su compañera de octava de ABAJO
+/// (la 2.ª → la 4.ª) se probó, gana la compañera. Las dos comparten la serie
+/// de armónicos —la fundamental de la 2.ª es el 2.º armónico de la 4.ª—, así
+/// que el sonido no las separa: las separa lo creíble. En el viaje 23 del
+/// Note 9 (26-oct) salieron 37 «2.ª» entre 42 y 83 km/h, a 3.400–4.100 RPM;
+/// Mauro: «nunca circulé a más de 2.200 vueltas». Devuelve la marcha (1 a 5).
+int corregirOctavaIncreible(int marcha, List<double?> porMarcha, double? kmh) {
+  if (arribaCreible(marcha, kmh)) return marcha;
+  for (var g = 1; g <= relacionesCaja.length; g++) {
+    if (g == marcha || porMarcha.length < g || porMarcha[g - 1] == null) {
+      continue;
+    }
+    final r = relacionesCaja[g - 1] / relacionesCaja[marcha - 1];
+    if (r > 1 / 2.2 && r < 1 / 1.9) return g;
+  }
+  return marcha;
+}
 
 /// Lo que se saca de un segundo de micrófono.
 class LecturaMotor {
@@ -337,6 +359,13 @@ LecturaMotor leerMotorPromediado(
         kMarcha = kPorMarcha[g - 1];
         break;
       }
+    }
+  }
+  if (marcha != null) {
+    final abajo = corregirOctavaIncreible(marcha, porMarcha, kmh);
+    if (abajo != marcha) {
+      marcha = abajo;
+      kMarcha = kPorMarcha[abajo - 1];
     }
   }
   // La segunda, sin contar la compañera de octava: esa no es otra hipótesis

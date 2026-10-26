@@ -42,6 +42,30 @@ const viaje23 = <(int, double, List<double?>)>[
 
 void main() {
   group('la marcha, con las escuchas juntas', () {
+    test('viaje 23 del Note 9 (26-oct): «2.ª» a 70–80 km/h es la 4.ª', () {
+      // Escuchas reales de ese viaje: la 2.ª sonaba más que la 4.ª y pedía
+      // 3.400–3.900 RPM. Mauro: «nunca circulé a más de 2.200 vueltas».
+      final reales = <(double, List<double?>)>[
+        (75, [null, 8.7, 2.7, 4.7, 0.6]),
+        (69, [null, 7.0, 2.1, 6.7, 1.9]),
+        (71, [null, 9.7, 1.8, 9.5, 2.7]),
+        (77, [null, 9.4, 3.8, 6.4, 1.6]),
+        (79, [null, 8.2, 2.0, 8.1, 2.8]),
+      ];
+      for (final (kmh, d) in reales) {
+        expect(
+          decidirMarcha([d, d, d], kmh: kmh),
+          4,
+          reason: '${kmh.round()} km/h: $d',
+        );
+        expect(corregirOctavaIncreible(2, d, kmh), 4);
+      }
+    });
+
+    test('la 2.ª creíble se queda: a 40 km/h son 2.060 RPM', () {
+      expect(corregirOctavaIncreible(2, [null, 8.0, 2.0, 7.0, 1.0], 40), 2);
+    });
+
     test('el viaje 23: de 4 a 12 escuchas con marcha, todas 3.ª', () {
       final tac = Tacometro();
       var conMarcha = 0;
