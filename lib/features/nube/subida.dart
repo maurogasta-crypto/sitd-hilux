@@ -161,6 +161,25 @@ class Subida {
     );
   }
 
+  /// Sube una grabación de 10 s a `grabaciones/` (`sitd-55`). El sonido y
+  /// el acelerómetro van como bytes: 160 KB de sonido y unos 32 KB de
+  /// señal, bien abajo del MB de un documento. **Colección propia** por lo
+  /// mismo que `recorridos/`: el reporte para desarrollo no lleva nada de
+  /// esto, y si algo sale mal sale mal en un lugar.
+  Future<Resultado> subirGrabacion({
+    required Credencial credencial,
+    required String id,
+    required Map<String, dynamic> campos,
+    GuardaDeSesion? sesion,
+  }) => _escribir(
+    credencial: credencial,
+    coleccion: 'grabaciones',
+    id: id,
+    sesion: sesion,
+    que: 'La grabación $id',
+    campos: campos,
+  );
+
   /// Sube el recorrido de un viaje a `recorridos/`.
   ///
   /// **Va a una colección aparte y no adentro del reporte**, y ésa es la

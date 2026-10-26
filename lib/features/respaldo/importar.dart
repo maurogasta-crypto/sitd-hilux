@@ -119,7 +119,13 @@ const List<String> tablasQueSeImportan = [
 
 /// Lo que no se muda, con el motivo al lado para que nadie lo agregue por
 /// prolijidad.
-const List<String> tablasQueNoSeImportan = ['ajustes'];
+const List<String> tablasQueNoSeImportan = [
+  'ajustes',
+  // `sitd-55`: las grabaciones viven en `grabaciones/` de la nube, que es su
+  // archivo; en el teléfono, después de subir, queda sólo la ficha sin el
+  // sonido. Mudarlas a otro teléfono sería mudar fichas vacías.
+  'grabaciones',
+];
 
 /// Por qué campos se reconoce que una fila del respaldo YA ESTÁ en el
 /// teléfono. Sólo lo usa la suma; reemplazar borra todo y no compara nada.

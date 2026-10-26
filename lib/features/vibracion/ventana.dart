@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'espectro.dart';
+import 'lineas.dart';
 
 /// Arriba de esto la ventana es una curva: 0,04 rad/s son 2,3° por segundo.
 /// Una curva de ruta de 500 m de radio a 100 km/h da 0,056; una esquina de
@@ -98,6 +99,10 @@ class VentanaVibracion {
   /// a pares. Vacío si se midió a 50 Hz: ahí no se ve el motor.
   final List<double> picos;
 
+  /// Las líneas que se repiten, medidas en esta ventana (`sitd-55`): vacío
+  /// si se midió a 50 Hz o sin velocidad. Ver `lineas.dart`.
+  final Map<Linea, MedidaDeLinea> lineas;
+
   const VentanaVibracion({
     required this.t,
     required this.cubeta,
@@ -110,6 +115,7 @@ class VentanaVibracion {
     this.angulo,
     this.movido = false,
     this.picos = const [],
+    this.lineas = const {},
   });
 
   bool get enCurva => (giro ?? 0) >= giroDeCurva;
@@ -127,6 +133,7 @@ class VentanaVibracion {
         angulo: angulo ?? this.angulo,
         movido: movido ?? this.movido,
         picos: picos,
+        lineas: lineas,
       );
 
   Map<String, dynamic> aMapa() => {
@@ -141,6 +148,7 @@ class VentanaVibracion {
     if (angulo != null) 'angulo': double.parse(angulo!.toStringAsFixed(1)),
     if (movido) 'movido': true,
     if (picos.isNotEmpty) 'picos': picos,
+    if (lineas.isNotEmpty) 'lineas': lineasAMapa(lineas),
   };
 
   bool get completa => bandas.length == cantidadDeBandas;
@@ -162,6 +170,8 @@ VentanaVibracion? armarVentana({
   required int tFin,
   required int cubeta,
   int minimoDeMuestras = 64,
+  double? kmh,
+  int? marcha,
 }) {
   if (magnitud.length < minimoDeMuestras) return null;
   final duracion = tFin - tInicio;
@@ -183,5 +193,10 @@ VentanaVibracion? armarVentana({
     picos: claseDeMuestreo(hz) == 1
         ? picosDelEspectro(espectro, hz, hastaHz: math.min(100, hz / 2 - 1))
         : const [],
+    // sitd-55: las líneas, con la velocidad media de la ventana y la marcha
+    // oída. A 50 Hz no: el motor se pliega y el cardán se sale del techo.
+    lineas: claseDeMuestreo(hz) == 1
+        ? medirLineas(espectro, hz, kmh: kmh, marcha: marcha)
+        : const {},
   );
 }

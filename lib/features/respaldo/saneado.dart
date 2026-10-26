@@ -96,9 +96,31 @@ List<String> sanearCopia(String ruta) {
       _argumentos,
     );
     final sacadas = [for (final f in filas) f['clave'] as String];
-    if (sacadas.isEmpty) return const [];
+    // `sitd-55`: el sonido de una grabación que todavía no subió tampoco va
+    // en la copia. Su archivo es `grabaciones/` de la nube, que el teléfono
+    // no lee; una copia completa sí la lee, y además pesaría de más.
+    final hayGrabaciones = db
+        .select(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+          "AND name = 'grabaciones'",
+        )
+        .isNotEmpty;
+    final conSonido =
+        hayGrabaciones &&
+        db
+            .select(
+              'SELECT 1 FROM grabaciones WHERE audio IS NOT NULL '
+              'OR vibracion IS NOT NULL LIMIT 1',
+            )
+            .isNotEmpty;
+    if (sacadas.isEmpty && !conSonido) return const [];
 
-    db.execute('DELETE FROM ajustes WHERE $_condicion', _argumentos);
+    if (sacadas.isNotEmpty) {
+      db.execute('DELETE FROM ajustes WHERE $_condicion', _argumentos);
+    }
+    if (conSonido) {
+      db.execute('UPDATE grabaciones SET audio = NULL, vibracion = NULL');
+    }
     // Lo que de verdad saca el texto del archivo.
     db.execute('VACUUM');
     return sacadas;

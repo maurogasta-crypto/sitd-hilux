@@ -7,6 +7,7 @@ import '../features/calibracion/calibracion.dart';
 import '../core/bitacora.dart';
 import '../features/audio/servicio_audio.dart';
 import '../features/combustible/registro_cargas.dart';
+import '../features/grabacion/grabacion.dart';
 import '../features/motor/cargador.dart';
 import '../features/motor/detector_motor.dart';
 import '../features/motor/preferencia_motor.dart';
@@ -630,6 +631,23 @@ class _PantallaViajeState extends State<PantallaViaje> {
                 },
               ),
               const SizedBox(height: 12),
+              // sitd-55: grabar 10 s de sonido y acelerómetro, para revisar
+              // un ruido o una lectura rara. Sólo con el micrófono andando.
+              if (e.midiendo && widget.audio?.grabador != null) ...[
+                _Grabar(
+                  grabador: widget.audio!.grabador!,
+                  alTocar: () {
+                    final no = widget.audio!.grabador!.pedirAMano();
+                    _contar(
+                      no ??
+                          'Grabando los próximos 10 s (sin llamada ni música). '
+                              'Suben solos a la nube.',
+                    );
+                    setState(() {});
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
               if (problema != null) ...[
                 _Aviso(problema: problema),
                 const SizedBox(height: 12),
@@ -717,6 +735,44 @@ class _PantallaViajeState extends State<PantallaViaje> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// «Grabar 10 s» (`sitd-55`): lo que dice al lado es lo que se graba y
+/// adónde va, porque da vuelta la regla de que el micrófono no guardaba
+/// sonido.
+class _Grabar extends StatelessWidget {
+  final Grabador grabador;
+  final VoidCallback alTocar;
+
+  const _Grabar({required this.grabador, required this.alTocar});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final p = grabador.pedido;
+    final texto = p == null
+        ? 'Graba 10 s de sonido y del acelerómetro para revisar un ruido o '
+              'una lectura rara. Nunca con una llamada ni con música.'
+        : p.aMano
+        ? 'Grabando: ${grabador.juntados} de $segundosDeGrabacion s.'
+        : 'Pendiente: grabar 10 s cuando se ande a la velocidad de la línea '
+              'marcada (${p.motivo}).';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OutlinedButton.icon(
+          onPressed: p?.aMano ?? false ? null : alTocar,
+          icon: const Icon(Icons.mic),
+          label: const Text('Grabar 10 s'),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          texto,
+          style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.outline),
+        ),
+      ],
     );
   }
 }

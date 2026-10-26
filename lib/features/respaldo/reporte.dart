@@ -6,10 +6,12 @@ import '../calibracion/calibracion.dart';
 import '../combustible/registro_cargas.dart';
 import '../odometro/registro.dart';
 import '../sensores/satelites.dart';
+import '../audio/regimen.dart' show relacionesCaja;
 import '../audio/registro_audio.dart';
 import '../vibracion/analisis.dart';
 import '../vibracion/cobertura.dart';
 import '../vibracion/espectro.dart';
+import '../vibracion/lineas.dart';
 import '../vibracion/postura.dart';
 import '../vibracion/registro_vibracion.dart';
 import '../vibracion/rueda.dart';
@@ -63,6 +65,9 @@ Map<String, dynamic> _analisis(
     }
   }
   final encontradas = anomalias(porViaje, ultimosViajes);
+  // sitd-55: las líneas que se repiten, con su base y lo que se repitió.
+  final baseLineas = baseDeLineas(porViaje);
+  final encontradasLineas = anomaliasDeLineas(porViaje, ultimosViajes);
 
   return {
     // Las reglas con las que se calculó todo lo de abajo. Van en el reporte y
@@ -97,6 +102,16 @@ Map<String, dynamic> _analisis(
       'comparaLa': 'forma',
       // Desde `sitd-35`: una ventana medida más lento que esto no se compara.
       'hzMinimoParaComparar': hzMinimoParaComparar,
+      // `sitd-55`: las líneas. Con qué relaciones se calcula dónde cae cada
+      // una, y cuánto tiene que crecer o correrse para contar.
+      'lineas': {
+        'relacionDiferencial': relacionDiferencial,
+        'relacionesCaja': relacionesCaja,
+        'holgura': holguraDeLinea,
+        'entornoHz': entornoDeLineaHz,
+        'crecimientoMinimo': crecimientoMinimo,
+        'corrimientoMinimoPct': corrimientoMinimo,
+      },
     },
     // Las ventanas guardadas que NO entraron a nada por haberse medido a baja
     // frecuencia. Si crece, el teléfono está recortando el acelerómetro.
@@ -132,6 +147,19 @@ Map<String, dynamic> _analisis(
           'mad': b.mad,
         },
     ],
+    // `sitd-55`: lo normal de cada línea, por cubeta («r2:5» es la rueda 2×
+    // a 70–80 km/h): cuántas veces sobresale y cuánto se corre, en %.
+    'baseDeLineas': {
+      for (final e in baseLineas.entries)
+        e.key: {
+          'ventanas': e.value.ventanas,
+          'veces': e.value.veces,
+          'madVeces': e.value.madVeces,
+          'corrimiento': e.value.corrimiento,
+          'madCorrimiento': e.value.madCorrimiento,
+        },
+    },
+    'anomaliasDeLineas': [for (final a in encontradasLineas) a.aMapa()],
     // Lo que concluyó: sólo lo que se repitió lo suficiente como para decirlo.
     'anomalias': [
       for (final a in encontradas)

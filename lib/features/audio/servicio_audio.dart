@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../core/bitacora.dart';
+import '../grabacion/grabacion.dart';
 import 'compuerta.dart';
 import 'regimen.dart';
 import 'registro_audio.dart';
@@ -25,7 +26,8 @@ typedef Ocupado = ({bool musica, bool llamada});
 ///    juntas; lo que se guarda en la base no cambia. Un segundo de FFT en el
 ///    Helio G85 son milisegundos.
 ///
-/// El sonido nunca sale de la memoria: cada trozo se resume y se suelta.
+/// El sonido no sale de la memoria —cada trozo se resume y se suelta— salvo
+/// los 10 s de una grabación pedida (`sitd-55`, ver `grabacion.dart`).
 class ServicioAudio {
   final RegistroDeAudio registro;
 
@@ -38,6 +40,10 @@ class ServicioAudio {
 
   final double? Function() velocidadKmh;
   final int cadaCuantos;
+
+  /// Las grabaciones de 10 s (`sitd-55`): cada segundo que se escucha pasa
+  /// por acá, y junta sólo si hay una pedida. Opcional: sin él, nada cambia.
+  final Grabador? grabador;
   final int Function() ahora;
 
   int guardadas = 0;
@@ -57,12 +63,18 @@ class ServicioAudio {
   StreamSubscription<List<int>>? _suscripcion;
   bool _ocupadoProcesando = false;
 
+  /// Lo último que dijo el sistema de música y llamadas: una grabación se
+  /// junta con cada trozo aunque el procesado esté ocupado, y no puede
+  /// esperar la pregunta.
+  Ocupado _ultimoOcupado = (musica: true, llamada: true);
+
   ServicioAudio({
     required this.registro,
     required this.abrir,
     required this.ocupado,
     required this.velocidadKmh,
     this.cadaCuantos = 5,
+    this.grabador,
     int Function()? reloj,
   }) : ahora = reloj ?? (() => DateTime.now().millisecondsSinceEpoch);
 
@@ -72,6 +84,8 @@ class ServicioAudio {
     if (escuchando) return;
     _viaje = viaje;
     _trozos = 0;
+    _ultimoOcupado = (musica: true, llamada: true);
+    grabador?.empezarViaje(viaje);
     _kmhAnterior = null;
     tacometro.olvidar();
     guardadas = 0;
@@ -101,6 +115,7 @@ class ServicioAudio {
     final s = _suscripcion;
     _suscripcion = null;
     _viaje = null;
+    grabador?.terminarViaje();
     await s?.cancel();
   }
 
@@ -112,6 +127,14 @@ class ServicioAudio {
     _kmhAnterior = kmh;
     _trozos++;
     final toca = (_trozos - 1) % cadaCuantos == 0;
+    grabador?.trozo(
+      pcm,
+      t: ahora(),
+      kmh: kmh,
+      marcha: tacometro.marcha,
+      musica: _ultimoOcupado.musica,
+      llamada: _ultimoOcupado.llamada,
+    );
     if (_ocupadoProcesando) return;
     _ocupadoProcesando = true;
     try {
@@ -121,6 +144,7 @@ class ServicioAudio {
       } catch (_) {
         o = (musica: true, llamada: true);
       }
+      _ultimoOcupado = o;
       final lectura = leerMotor(pcm, kmh: kmh);
       final t = ahora();
       // El tacómetro escucha todos los segundos, salvo con música o llamada:

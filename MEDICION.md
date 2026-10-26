@@ -454,7 +454,7 @@ manchón entre 0,86 y 0,95 en 5.ª, que puede ser una resonancia fija.
 Que la rueda 2× sea la línea más fuerte no es una falla por sí sola: es la
 referencia. Lo que serviría es seguir CADA línea por su orden, con su propia
 línea de base, y avisar si crece o si se corre de su orden. Eso es una tanda
-aparte (`hilux:D7`).
+aparte (`hilux:D7`), **y se hizo en `sitd-55`**: `lineas.dart`.
 
 Y de paso, las RPM que OYE el micrófono en 5.ª dan 20,68 por km/h (mediana de
 606 escuchas): es la vuelta de rueda MEDIDA (20,6) y no la de cinta (21,0).

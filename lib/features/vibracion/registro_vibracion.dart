@@ -1,5 +1,6 @@
 import '../../core/db/base.dart';
 import 'analisis.dart';
+import 'lineas.dart';
 import 'ventana.dart';
 
 /// Los vectores de vibración en la base.
@@ -11,8 +12,8 @@ class RegistroDeVibracion {
   void guardar(int viaje, VentanaVibracion v) {
     base.db.execute(
       'INSERT INTO vibraciones (viaje, t, cubeta, hz, muestras, rms, pico, '
-      'bandas, giro, angulo, movido, picos) '
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'bandas, giro, angulo, movido, picos, lineas) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         viaje,
         v.t,
@@ -26,6 +27,7 @@ class RegistroDeVibracion {
         v.angulo,
         v.movido ? 1 : 0,
         v.picos.join(','),
+        v.lineas.isEmpty ? null : lineasATexto(v.lineas),
       ],
     );
   }
@@ -103,5 +105,6 @@ class RegistroDeVibracion {
       for (final x in ((f['picos'] as String?) ?? '').split(','))
         ?double.tryParse(x),
     ],
+    lineas: lineasDeTexto(f['lineas'] as String?),
   );
 }

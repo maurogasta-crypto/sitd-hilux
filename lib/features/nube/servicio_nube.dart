@@ -6,6 +6,7 @@ import '../../core/db/base.dart';
 import '../../core/db/esquema.dart';
 import '../../core/version.dart';
 import '../calibracion/calibracion.dart';
+import '../grabacion/grabacion.dart';
 import '../odometro/registro.dart';
 import '../respaldo/importar.dart';
 import '../respaldo/reporte.dart';
@@ -158,6 +159,9 @@ class ServicioNube {
   /// esto no suben y todo lo demás sigue igual.
   final RegistroDeCalibraciones? calibraciones;
 
+  /// Las grabaciones de 10 s (`sitd-55`). Opcional como las demás.
+  final RegistroDeGrabaciones? grabaciones;
+
   ServicioNube({
     required this.cola,
     required this.guarda,
@@ -166,6 +170,7 @@ class ServicioNube {
     this.sesion,
     this.viajes,
     this.calibraciones,
+    this.grabaciones,
   });
 
   bool get configurada => guarda.configurada;
@@ -196,6 +201,11 @@ class ServicioNube {
     var subidos = cal.subidas;
     var fallaron = cal.fallaron;
     String? primera = cal.falla;
+    // sitd-55: y las grabaciones, que pesan poco y son evidencia.
+    final gra = await _subirGrabaciones(c);
+    subidos += gra.subidas;
+    fallaron += gra.fallaron;
+    primera ??= gra.falla;
 
     final faltan = cola.pendientes(tope);
     if (faltan.isEmpty) {
@@ -465,21 +475,57 @@ class ServicioNube {
     void Function(String que)? alAvanzar,
     int? ahora,
     int porParte = bytesPorParte,
+    Duration limite = limiteDeSincronizar,
   }) {
     final enCurso = _sincronizando;
     if (enCurso != null) return enCurso;
-    final nueva = _sincronizar(
-      base: base,
-      ruta: ruta,
-      carpeta: carpeta,
-      alAvanzar: alAvanzar,
-      ahora: ahora,
-      porParte: porParte,
-    ).whenComplete(() => _sincronizando = null);
+    ultimoPaso = 'Empezando…';
+    late final Future<Sincronizado> nueva;
+    nueva =
+        _sincronizar(
+              base: base,
+              ruta: ruta,
+              carpeta: carpeta,
+              alAvanzar: (que) {
+                ultimoPaso = que;
+                alAvanzar?.call(que);
+              },
+              ahora: ahora,
+              porParte: porParte,
+            )
+            .timeout(
+              limite,
+              onTimeout: () => Sincronizado(
+                pendientes: const Tanda(),
+                falla:
+                    'Sincronizar no terminó en ${limite.inMinutes} min '
+                    '(quedó en «$ultimoPaso»). Se vuelve a intentar solo.',
+              ),
+            )
+            .whenComplete(() {
+              // Sólo si sigue siendo la misma: una colgada que termina tarde
+              // no puede soltar a la que vino después.
+              if (identical(_sincronizando, nueva)) _sincronizando = null;
+            });
     return _sincronizando = nueva;
   }
 
   Future<Sincronizado>? _sincronizando;
+
+  /// Si hay una sincronización corriendo ahora.
+  bool get sincronizando => _sincronizando != null;
+
+  /// En qué paso va (o quedó) la última sincronización: lo anota la
+  /// bitácora si se corta (`sitd-55`).
+  String ultimoPaso = '';
+
+  /// Cuánto puede tardar una sincronización entera (`sitd-55`). «Una a la
+  /// vez» hace que, si una se cuelga, todas las que vienen la esperen: el
+  /// 26-oct el Note 9 abrió a las 02:10, la sincronización de al abrir nunca
+  /// anotó que terminó, y la de al cerrar el viaje 24 (04:52) la esperó — el
+  /// reporte subió recién al reabrir. Un cuarto de hora alcanza para bajar
+  /// varias copias por datos móviles; pasado eso, se suelta y se reintenta.
+  static const Duration limiteDeSincronizar = Duration(minutes: 15);
 
   /// Cuántas copias completas quedan siempre en la nube, las más nuevas.
   static const int respaldosQueQuedan = 3;
@@ -805,6 +851,39 @@ class ServicioNube {
     }
     if (subidas > 0) {
       bitacora.anotar(Origen.sistema, 'Subieron $subidas calibraciones.');
+    }
+    return (subidas: subidas, fallaron: fallaron, falla: falla);
+  }
+
+  /// Sube cada grabación que no subió, a `grabaciones/<quien>-g<t>`, y
+  /// cuando subió le borra el sonido y la señal en el teléfono.
+  Future<({int subidas, int fallaron, String? falla})> _subirGrabaciones(
+    Credencial c,
+  ) async {
+    final reg = grabaciones;
+    if (reg == null) return (subidas: 0, fallaron: 0, falla: null);
+    var subidas = 0;
+    var fallaron = 0;
+    String? falla;
+    for (final g in reg.sinSubir()) {
+      final r = await subida.subirGrabacion(
+        credencial: c,
+        id: '${_quien(c)}-g${g.t}',
+        campos: camposDeGrabacion(
+          g,
+          sello: selloApp,
+          telefono: reg.base.leerAjuste(claveDelTelefono),
+        ),
+        sesion: sesion,
+      );
+      if (r.ok) {
+        reg.marcarSubida(g.id!);
+        subidas++;
+      } else {
+        fallaron++;
+        falla ??= r.falla;
+        if (r.esCulpaNuestra) break;
+      }
     }
     return (subidas: subidas, fallaron: fallaron, falla: falla);
   }

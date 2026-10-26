@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import '../../core/bitacora.dart';
 import 'analisis.dart';
@@ -29,6 +30,10 @@ class ServicioVibracion {
   /// De dónde sale la velocidad. Devuelve `null` si todavía no se sabe.
   final double? Function() velocidadKmh;
 
+  /// La marcha que se OYE, si hay una tomada (`sitd-55`): con ella se miden
+  /// las líneas del motor. Sin ella, sólo las de la rueda y el cardán.
+  final int? Function()? marcha;
+
   /// Cuánto dura una ventana. Cinco segundos a 50 Hz son 250 muestras: una
   /// resolución de 0,2 Hz, que separa de sobra lo que hay que separar, y un
   /// tramo lo bastante corto como para que la velocidad no cambie de cubeta
@@ -44,6 +49,12 @@ class ServicioVibracion {
   final List<double> _magnitud = [];
   int _tInicio = 0;
   int? _cubetaInicial;
+  double? _kmhInicial;
+
+  /// Los últimos segundos del acelerómetro tal cual llegaron (`sitd-55`),
+  /// para una grabación. A 200 Hz, 15 s son 3.000 sacudones: nada.
+  final ListQueue<Sacudon> _crudo = ListQueue();
+  static const int _msDeCrudo = 15000;
   int? _viaje;
   StreamSubscription<Sacudon>? _suscripcion;
   StreamSubscription<Giro>? _suscripcionGiro;
@@ -56,6 +67,7 @@ class ServicioVibracion {
     required this.registro,
     required this.fuente,
     required this.velocidadKmh,
+    this.marcha,
     this.giroscopo,
     this.duracionDeVentana = const Duration(seconds: 5),
     int Function()? reloj,
@@ -115,7 +127,15 @@ class ServicioVibracion {
     _magnitud.clear();
     _tInicio = ahora();
     _cubetaInicial = _cubetaActual();
+    _kmhInicial = velocidadKmh();
   }
+
+  /// El acelerómetro crudo entre [desde] y [hasta] (ms), de lo que queda en
+  /// memoria (los últimos 15 s).
+  List<Sacudon> crudo(int desde, int hasta) => [
+    for (final s in _crudo)
+      if (s.t >= desde && s.t <= hasta) s,
+  ];
 
   int? _cubetaActual() {
     final v = velocidadKmh();
@@ -129,8 +149,13 @@ class ServicioVibracion {
     if (_magnitud.isEmpty) {
       _tInicio = s.t;
       _cubetaInicial = _cubetaActual();
+      _kmhInicial = velocidadKmh();
     }
     _magnitud.add(s.magnitud);
+    _crudo.addLast(s);
+    while (_crudo.isNotEmpty && s.t - _crudo.first.t > _msDeCrudo) {
+      _crudo.removeFirst();
+    }
     postura.aceleracion(s);
 
     if (s.t - _tInicio < duracionDeVentana.inMilliseconds) return;
@@ -152,11 +177,16 @@ class ServicioVibracion {
     // punta. Una ventana que empieza a 58 y termina a 72 km/h mezcla dos
     // espectros distintos, y mezclados no se parecen a ninguno de los dos.
     if (cubeta != null && alCerrar == cubeta) {
+      final kmhFin = velocidadKmh();
       final armada = armarVentana(
         magnitud: List<double>.from(_magnitud),
         tInicio: _tInicio,
         tFin: s.t,
         cubeta: cubeta,
+        kmh: _kmhInicial != null && kmhFin != null
+            ? (_kmhInicial! + kmhFin) / 2
+            : kmhFin,
+        marcha: marcha?.call(),
       );
       final v = armada?.con(giro: p.giro, angulo: p.angulo, movido: p.movido);
       if (v != null) {

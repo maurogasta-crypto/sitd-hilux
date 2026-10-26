@@ -22,14 +22,15 @@ rules_version = '2';
 //
 // Hay exactamente tres actores y cada uno puede poco:
 //
-//   el TELÉFONO  crea reportes, recorridos y respaldos, y LEE recorridos y
-//                respaldos —sólo eso—. No lee reportes y no modifica nada.
+//   el TELÉFONO  crea reportes, recorridos, respaldos y grabaciones (desde
+//                `sitd-55`), y LEE recorridos y respaldos —sólo eso—. No
+//                lee reportes ni grabaciones y no modifica nada.
 //                Lo único que borra son copias de `respaldos/` de más de
 //                siete días (desde `sitd-50`, ver ahí).
 //                Y acá el teléfono entra como MAURO (maurogasta@gmail.com),
 //                porque él decidió no crear un usuario aparte. Ver abajo.
-//   el AGENTE    lee reportes, recorridos y respaldos, y lee y escribe en
-//                `analisis/`.
+//   el AGENTE    lee reportes, recorridos, respaldos y grabaciones, y lee
+//                y escribe en `analisis/`.
 //   Mauro        todo.
 //
 // **Por qué el teléfono no puede leer REPORTES, y no es exceso de celo.** El
@@ -220,6 +221,35 @@ service cloud.firestore {
                       || (esElTelefono()
                           && !exists(/databases/$(database)/documents/respaldos/$(id)));
       }
+    }
+
+    // Las GRABACIONES: 10 s de sonido y de acelerómetro crudo (`sitd-55`,
+    // `hilux:D7`). Da vuelta la regla de que el micrófono no guarda sonido,
+    // a pedido de Mauro (26-oct: «tener registro del audio sirve como
+    // respaldo para analizar el fallo»). Lo que la contiene, acá:
+    // · el teléfono sólo CREA, con la forma fija y con techo de tamaño (10 s
+    //   a 8 kHz son 160 KB; el acelerómetro, unos 32 KB);
+    // · lo LEEN sólo Mauro y el agente: el teléfono no, como `reportes/`;
+    // · no se reescribe, y borrar es de Mauro.
+    // En el teléfono: sólo sin llamada ni música, una automática por viaje y
+    // a más de 30 km/h, y hasta diez a mano por día. Ver `grabacion.dart`.
+    match /grabaciones/{id} {
+      allow create: if esElTelefono()
+                    && request.resource.data.keys().hasOnly(
+                         ['t', 'viaje', 'motivo', 'kmh', 'marcha', 'hzAudio',
+                          'hzVib', 'audio', 'vibracion', 'sello', 'telefono'])
+                    && request.resource.data.t is int
+                    && request.resource.data.motivo is string
+                    && request.resource.data.hzAudio is int
+                    && (!('audio' in request.resource.data)
+                        || (request.resource.data.audio is bytes
+                            && request.resource.data.audio.size() <= 400000))
+                    && (!('vibracion' in request.resource.data)
+                        || (request.resource.data.vibracion is bytes
+                            && request.resource.data.vibracion.size() <= 200000));
+      allow read: if soyYo() || esElAgente();
+      allow update: if false;
+      allow delete: if soyYo();
     }
 
     // Lo que el agente CONCLUYE de esos reportes: umbrales que habría que

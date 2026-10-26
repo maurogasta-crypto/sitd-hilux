@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sitd_hilux/features/grabacion/grabacion.dart';
 import 'package:sitd_hilux/features/nube/respaldo_nube.dart';
 import 'package:sitd_hilux/features/nube/servicio_nube.dart';
 
@@ -63,7 +65,13 @@ void main() {
   });
 
   test('el teléfono escribe en las colecciones suyas', () {
-    for (final c in ['reportes', 'recorridos', 'respaldos', 'partes']) {
+    for (final c in [
+      'reportes',
+      'recorridos',
+      'respaldos',
+      'partes',
+      'grabaciones',
+    ]) {
       expect(
         bloques[c],
         contains('allow create: if esElTelefono()'),
@@ -117,7 +125,13 @@ void main() {
   });
 
   test('el agente lee reportes, recorridos y respaldos, y no los pisa', () {
-    for (final c in ['reportes', 'recorridos', 'respaldos', 'partes']) {
+    for (final c in [
+      'reportes',
+      'recorridos',
+      'respaldos',
+      'partes',
+      'grabaciones',
+    ]) {
       expect(
         leenDe(bloques[c]!),
         contains('esElAgente'),
@@ -131,6 +145,35 @@ void main() {
   // Lo que el agente concluye va en una colección APARTE, no adentro del
   // reporte: si mañana me equivoco en un análisis, se reescribe ése y el dato
   // medido sigue intacto.
+  test('una grabación lleva exactamente los campos que manda el código '
+      '(sitd-55)', () {
+    final campos = camposDeGrabacion(
+      Grabacion(
+        viaje: 3,
+        t: 1,
+        motivo: 'a mano',
+        kmh: 80,
+        marcha: 5,
+        hzAudio: 8000,
+        audio: Uint8List(4),
+        hzVib: 200,
+        vibracion: Uint8List(16),
+      ),
+      sello: 'sitd-55',
+      telefono: 'Xiaomi',
+    ).keys.toSet();
+    final permitidos = RegExp(r"hasOnly\(\s*\[([^\]]*)\]")
+        .firstMatch(bloques['grabaciones']!)!
+        .group(1)!
+        .split(',')
+        .map((x) => x.trim().replaceAll("'", ''))
+        .where((x) => x.isNotEmpty)
+        .toSet();
+    expect(permitidos, campos);
+    // El teléfono crea y no lee: lo que grabó no lo trae de vuelta.
+    expect(leenDe(bloques['grabaciones']!), isNot(contains('esElTelefono')));
+  });
+
   test('el agente escribe sus conclusiones en analisis/, no en reportes/', () {
     expect(reglas, contains('match /analisis/{id}'));
     expect(

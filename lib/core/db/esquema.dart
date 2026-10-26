@@ -13,7 +13,7 @@
 library;
 
 /// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
-const int versionEsquema = 12;
+const int versionEsquema = 13;
 
 /// Cada elemento son las sentencias que llevan el esquema de la versión
 /// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
@@ -312,6 +312,36 @@ const List<List<String>> migraciones = [
     'ALTER TABLE cargas ADD COLUMN lat REAL',
     'ALTER TABLE cargas ADD COLUMN lon REAL',
     'ALTER TABLE cargas ADD COLUMN precision_m REAL',
+  ],
+  // 12 → 13 (`sitd-55`, `hilux:D7`, Mauro: «detectar pequeñas variaciones en
+  // las frecuencias que se repiten… y tener registro del audio sirve como
+  // respaldo para analizar el fallo»). Dos cosas:
+  // · `lineas` en cada ventana de vibración: las líneas que se repiten
+  //   (rueda, cardán, motor), ver `lineas.dart`. NULL en las viejas.
+  // · `grabaciones`: 10 s de sonido y de acelerómetro crudo, cuando una
+  //   línea se sale o cuando alguien toca «Grabar». El sonido y la vibración
+  //   van como BLOB y se BORRAN de acá cuando subieron (`subida` = 1): el
+  //   archivo es la nube, y una copia completa de la base no tiene por qué
+  //   llevarlos.
+  [
+    'ALTER TABLE vibraciones ADD COLUMN lineas TEXT',
+    '''
+    CREATE TABLE grabaciones (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      viaje     INTEGER REFERENCES viajes (id) ON DELETE SET NULL,
+      t         INTEGER NOT NULL,
+      motivo    TEXT    NOT NULL,
+      kmh       REAL,
+      marcha    INTEGER,
+      hz_audio  INTEGER NOT NULL,
+      audio     BLOB,
+      hz_vib    REAL,
+      vibracion BLOB,
+      subida    INTEGER NOT NULL DEFAULT 0
+    )
+    ''',
+    // Lo que se busca es «las que no subieron», en orden.
+    'CREATE INDEX idx_grabaciones_subida ON grabaciones (subida, t)',
   ],
 ];
 

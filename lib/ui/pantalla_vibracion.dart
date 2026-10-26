@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/vibracion/analisis.dart';
+import '../features/vibracion/lineas.dart';
 import '../features/vibracion/cobertura.dart';
 import '../features/vibracion/espectro.dart';
 import '../features/vibracion/registro_vibracion.dart';
@@ -31,13 +32,17 @@ class PantallaVibracion extends StatelessWidget {
     final base = lineaBase(porViaje);
     final avisos = anomalias(porViaje, ultimos);
     final cubetas = base.keys.toList()..sort();
+    // sitd-55: las líneas que se repiten.
+    final avisosLineas = anomaliasDeLineas(porViaje, ultimos);
+    final lineas = baseDeLineas(porViaje);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Vibración')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
         children: [
-          if (avisos.isEmpty)
+          for (final a in avisosLineas) _AvisoDeLinea(anomalia: a),
+          if (avisos.isEmpty && avisosLineas.isEmpty)
             _SinAvisos(
               hayBase: base.values.any((b) => b.suficiente),
               viajes: porViaje.length,
@@ -84,6 +89,8 @@ class PantallaVibracion extends StatelessWidget {
               style: t.textTheme.bodySmall,
             ),
           for (final c in cubetas) _Cubeta(base: base[c]!),
+          const SizedBox(height: 16),
+          _Lineas(base: lineas),
         ],
       ),
     );
@@ -139,6 +146,104 @@ class _SinAvisos extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Una línea que se salió tres viajes seguidos (`sitd-55`).
+class _AvisoDeLinea extends StatelessWidget {
+  final AnomaliaDeLinea anomalia;
+
+  const _AvisoDeLinea({required this.anomalia});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final d = anomalia.ultimo;
+    return Card(
+      color: t.colorScheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              d.que == QueCambio.crece
+                  ? '${d.linea.nombre}: vibra más'
+                  : '${d.linea.nombre}: se corrió',
+              style: t.textTheme.titleMedium?.copyWith(
+                color: t.colorScheme.onErrorContainer,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${d.texto} Pasó ${anomalia.viajes} viajes seguidos. '
+              '${d.que == QueCambio.seCorre && !d.linea.delMotor ? "Si es la rueda, mirá la presión de las cubiertas. " : ""}'
+              'Si se puede, la próxima vez a esa velocidad se graban 10 s '
+              'para revisarlo.',
+              style: t.textTheme.bodySmall?.copyWith(
+                color: t.colorScheme.onErrorContainer,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Lo normal de cada línea, por velocidad (`sitd-55`).
+class _Lineas extends StatelessWidget {
+  final Map<String, BaseDeLinea> base;
+
+  const _Lineas({required this.base});
+
+  /// Las cubetas que tiene [l], de la más lenta a la más rápida.
+  List<(int, BaseDeLinea)> _porCubeta(Linea l) => [
+    for (final e in base.entries)
+      if (e.key.startsWith('${l.clave}:'))
+        (int.parse(e.key.split(':')[1]), e.value),
+  ]..sort((a, b) => a.$1.compareTo(b.$1));
+
+  /// «Rueda, 2 veces por vuelta: 60-70 km/h 5,1× · 70-80 km/h 4,8×».
+  String _renglon(Linea l, String Function(double) d) {
+    final partes = [
+      for (final (cubeta, b) in _porCubeta(l))
+        '${nombreDeCubeta(cubeta)} ${d(b.veces)}×'
+            '${b.suficiente ? '' : ' (aprendiendo)'}',
+    ];
+    return '${l.nombre}: ${partes.join(' · ')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    String d(double x) => x.toStringAsFixed(1).replaceAll('.', ',');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Las líneas que se repiten', style: t.textTheme.titleMedium),
+        const SizedBox(height: 4),
+        Text(
+          'Frecuencias que produce algo que gira: la rueda, el cardán, el '
+          'motor. Cada una se sigue por separado: si sobresale más que antes, '
+          'o si aparece corrida de donde tiene que estar, se marca. Las del '
+          'motor se miden sólo con la marcha oída.',
+          style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.outline),
+        ),
+        const SizedBox(height: 8),
+        if (base.isEmpty)
+          Text(
+            'Todavía no hay: se miden desde sitd-55, a 200 Hz y andando.',
+            style: t.textTheme.bodySmall,
+          ),
+        for (final l in Linea.values)
+          if (_porCubeta(l).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(_renglon(l, d), style: t.textTheme.bodySmall),
+            ),
+      ],
     );
   }
 }

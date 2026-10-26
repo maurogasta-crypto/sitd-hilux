@@ -8,15 +8,19 @@ import '../features/audio/registro_audio.dart';
 import '../features/audio/servicio_audio.dart';
 import '../features/calibracion/calibracion.dart';
 import '../features/combustible/registro_cargas.dart';
+import '../features/grabacion/grabacion.dart';
 import '../features/motor/cargador.dart';
 import '../features/odometro/cascada.dart';
 import '../features/odometro/modo_recordado.dart';
 import '../features/odometro/pantalla_despierta.dart';
 import '../features/vibracion/fuente_vibracion.dart';
+import '../features/vibracion/analisis.dart' show deLaClaseVigente;
+import '../features/vibracion/lineas.dart';
 import '../features/vibracion/registro_vibracion.dart';
 import '../features/vibracion/servicio_vibracion.dart';
 import '../features/nube/cola.dart';
 import '../features/nube/credencial.dart';
+import '../features/nube/reintento.dart';
 import '../features/nube/servicio_nube.dart';
 import '../features/nube/sesion.dart';
 import '../features/nube/subida.dart';
@@ -80,6 +84,9 @@ class Arranque {
   final ColaDeSubida? cola;
   final ServicioNube? nube;
 
+  /// Las grabaciones de 10 s (`sitd-55`): el botón «Grabar 10 s» lo usa.
+  final Grabador? grabador;
+
   const Arranque._({
     required this.ruta,
     this.base,
@@ -99,6 +106,7 @@ class Arranque {
     this.modoRecordado,
     this.cola,
     this.nube,
+    this.grabador,
   });
 
   bool get anduvo => base != null;
@@ -141,13 +149,19 @@ class Arranque {
       final cargas = RegistroDeCargas(base);
       final vibraciones = RegistroDeVibracion(base);
       final audios = RegistroDeAudio(base);
+      final grabaciones = RegistroDeGrabaciones(base);
       final cola = ColaDeSubida(base);
       // sitd-50: Sincronizar corre solo, al abrir y al cerrar cada viaje.
       // El servicio de la nube se arma más abajo; el cierre lo usa recién
       // cuando un viaje termina, y para entonces ya existe.
       late final ServicioNube nube;
+      // sitd-55: si no terminó bien, se reintenta cuando vuelve la señal.
+      final reintento = Reintento();
       Future<void> sincronizarSolo(String cuando) async {
-        if (!nube.configurada) return;
+        if (!nube.configurada || nube.sincronizando) return;
+        // El arranque se anota: si nunca aparece el final, se sabe que
+        // empezó (el 26-oct no quedó ni una línea de la de las 02:10).
+        bitacora.anotar(Origen.sistema, 'Sincronizar solo, $cuando: empieza.');
         try {
           final dir = await getTemporaryDirectory();
           final r = await nube.sincronizar(
@@ -155,15 +169,17 @@ class Arranque {
             ruta: ruta,
             carpeta: dir.path,
           );
+          reintento.resultado(salioBien: r.falla == null);
           bitacora.anotar(
             Origen.sistema,
             'Sincronizar solo, $cuando: '
             '${textoDeSincronizado(r).replaceAll('\n', ' ')}',
           );
         } catch (e) {
+          reintento.resultado(salioBien: false);
           bitacora.anotar(
             Origen.sistema,
-            'Sincronizar solo, $cuando, falló: $e',
+            'Sincronizar solo, $cuando, falló en «${nube.ultimoPaso}»: $e',
           );
         }
       }
@@ -190,6 +206,9 @@ class Arranque {
         alTerminar: (viaje) {
           cola.encolar(viaje);
           anotarEncolado(viaje);
+          // sitd-55: si una línea que se repite se salió en este viaje, la
+          // próxima vez que se ande a esa velocidad se graban 10 s.
+          marcarParaGrabar(vibraciones, grabaciones, viaje);
           // sitd-50: y sincroniza solo. Si no hay señal, queda en la cola y
           // se reintenta al abrir.
           unawaited(sincronizarSolo('al cerrar un viaje'));
@@ -212,6 +231,7 @@ class Arranque {
         // sitd-46: las calibraciones del garage suben solas, cada una en su
         // documento, sin esperar al próximo viaje.
         calibraciones: RegistroDeCalibraciones(base),
+        grabaciones: grabaciones,
         // Un documento POR VIAJE y no el reporte entero: así cada documento
         // queda chico —bien abajo del límite de 1 MB de Firestore— y la
         // colección acumulada ES la historia.
@@ -245,8 +265,64 @@ class Arranque {
       } else {
         unawaited(nube.subirPendientes());
       }
+      // sitd-55: y cuando vuelve la señal. Cada minuto se mira si toca (una
+      // falla, o viajes en la cola) y si hay red; con un viaje midiendo, sólo
+      // lo pendiente, como al abrir.
+      var reintentando = false;
+      Timer.periodic(Reintento.cadaCuanto, (_) async {
+        if (reintentando || !nube.configurada) return;
+        if (!reintento.toca(
+          enCola: cola.cuantosFaltan,
+          corriendo: nube.sincronizando,
+        )) {
+          return;
+        }
+        reintentando = true;
+        try {
+          if (!await hayRed()) return;
+          if (registro.abierto == null) {
+            await sincronizarSolo('al volver la señal');
+          } else {
+            final t = await nube.subirPendientes();
+            reintento.resultado(salioBien: t.fallaron == 0);
+          }
+        } catch (_) {
+          reintento.resultado(salioBien: false);
+        } finally {
+          reintentando = false;
+        }
+      });
       // Si el sistema mató la aplicación en medio de un viaje, acá se retoma.
       servicio.retomarPendiente();
+      // sitd-55: la marcha OÍDA mide las líneas del motor en la vibración, y
+      // el acelerómetro crudo va con cada grabación. Se arman acá porque se
+      // necesitan entre ellos.
+      late final ServicioAudio audio;
+      final vibracion = ServicioVibracion(
+        registro: vibraciones,
+        fuente: Acelerometro(),
+        // `sitd-42`: curvas y posición del teléfono. El Redmi 15 no tiene
+        // giróscopo; ahí el stream no emite y la vibración sigue igual.
+        giroscopo: Giroscopo(),
+        velocidadKmh: () => servicio.estado.value.velocidadKmh,
+        marcha: () => audio.tacometro
+            .leer(
+              DateTime.now().millisecondsSinceEpoch,
+              servicio.estado.value.velocidadKmh,
+            )
+            ?.marcha,
+      );
+      final grabador = Grabador(
+        registro: grabaciones,
+        acelerometro: vibracion.crudo,
+      );
+      audio = ServicioAudio(
+        registro: audios,
+        abrir: microfono.trozos,
+        ocupado: microfono.ocupado,
+        velocidadKmh: () => servicio.estado.value.velocidadKmh,
+        grabador: grabador,
+      );
       return Arranque._(
         ruta: ruta,
         base: base,
@@ -263,27 +339,48 @@ class Arranque {
         nube: nube,
         // La velocidad sale del servicio de odometría y no de una segunda
         // suscripción al GPS: el receptor se le pide una sola vez al teléfono.
-        vibracion: ServicioVibracion(
-          registro: vibraciones,
-          fuente: Acelerometro(),
-          // `sitd-42`: curvas y posición del teléfono. El Redmi 15 no tiene
-          // giróscopo; ahí el stream no emite y la vibración sigue igual.
-          giroscopo: Giroscopo(),
-          velocidadKmh: () => servicio.estado.value.velocidadKmh,
-        ),
+        vibracion: vibracion,
         audios: audios,
         // Lo mismo para el micrófono: la velocidad sale de la odometría.
-        audio: ServicioAudio(
-          registro: audios,
-          abrir: microfono.trozos,
-          ocupado: microfono.ocupado,
-          velocidadKmh: () => servicio.estado.value.velocidadKmh,
-        ),
+        audio: audio,
+        grabador: grabador,
         cargador: CargadorDelTelefono().avisos(),
       );
     } catch (e) {
       bitacora.anotar(Origen.sistema, 'La base NO abrió: $e');
       return Arranque._(ruta: ruta, error: '$e');
     }
+  }
+}
+
+/// Al cerrar un viaje (`sitd-55`): si alguna línea que se repite se salió de
+/// lo normal en ESTE viaje, se pide una grabación para la próxima vez que se
+/// ande a esa velocidad. Para grabar alcanza con un viaje —es juntar
+/// evidencia—; para AVISAR siguen haciendo falta tres seguidos. Nunca tira:
+/// esto no puede impedir que un viaje se cierre.
+void marcarParaGrabar(
+  RegistroDeVibracion vibraciones,
+  RegistroDeGrabaciones grabaciones,
+  int viaje,
+) {
+  try {
+    final porViaje = deLaClaseVigente(vibraciones.porViaje());
+    final base = baseDeLineas(porViaje, excepto: {viaje});
+    final desvios = compararLineas(porViaje[viaje] ?? const [], base);
+    if (desvios.isEmpty) return;
+    for (final d in desvios.take(3)) {
+      bitacora.anotar(Origen.sistema, 'Línea fuera de lo normal: ${d.texto}');
+    }
+    final d = desvios.first;
+    if (grabaciones.pendiente == null) {
+      grabaciones.pedir(
+        PedidoDeGrabar(
+          motivoDeLinea(d.linea.clave, d.cubeta, d.que.name),
+          cubeta: d.cubeta,
+        ),
+      );
+    }
+  } catch (e) {
+    bitacora.anotar(Origen.sistema, 'No se pudieron revisar las líneas: $e');
   }
 }

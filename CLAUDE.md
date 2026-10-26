@@ -211,7 +211,7 @@ teclea en el teléfono, por el motivo de arriba.
 | `FIRMA_STORE_PASS` / `FIRMA_KEY_PASS` / `FIRMA_ALIAS` | Abren ese keystore | **secreto de infraestructura** | Mismo lugar | `.github/workflows/apk.yml` |
 | Clave de firma de depuración | Firma el release **mientras no estén cargados los secretos de arriba** | se genera NUEVA en cada corrida | La genera Gradle en el runner, que arranca limpio. Nadie la guarda y nadie la vuelve a ver | certificado del APK leído el 2026-09-16: `notBefore` = el minuto de la compilación |
 | `GITHUB_TOKEN` | Publica el release `ultimo` | efímero | Lo emite GitHub para cada corrida. No se carga, no se guarda, no se rota | `.github/workflows/apk.yml`, 2026-09-15 |
-| Configuración de la nube (`proyecto`, `apiKey`, `mail`, `clave`) | Deja que el teléfono cree documentos en `reportes/`, `recorridos/` y `respaldos/`, y lea los dos últimos | **dato en runtime, tecleado** | La pega Mauro en el teléfono, pantalla Respaldo → Configurar. Vive en `ajustes` del SQLite de la aplicación. **No está en el repositorio, ni en el APK, ni en un chat** | `lib/features/nube/credencial.dart` | decidido por Mauro, 2026-09-19 |
+| Configuración de la nube (`proyecto`, `apiKey`, `mail`, `clave`) | Deja que el teléfono cree documentos en `reportes/`, `recorridos/`, `respaldos/` y `grabaciones/` (desde `sitd-55`), y lea `recorridos/` y `respaldos/` | **dato en runtime, tecleado** | La pega Mauro en el teléfono, pantalla Respaldo → Configurar. Vive en `ajustes` del SQLite de la aplicación. **No está en el repositorio, ni en el APK, ni en un chat** | `lib/features/nube/credencial.dart` | decidido por Mauro, 2026-09-19 |
 | Usuario del agente en esa base | Deja que un chat LEA los reportes subidos | dato en runtime | Firebase Authentication de esa base. La contraseña, en las variables de entorno de Claude Code que carga Mauro | `datos/herramientas/firestore.mjs` | pendiente de alta |
 
 **Y eso tiene una consecuencia que se paga en cada tanda**: dos APK firmados
@@ -293,10 +293,20 @@ palabras y sobrevivió. Es el argumento de siempre de este proyecto llevado a su
 conclusión: **una afirmación repetida no se termina de corregir de una sola
 vez, ni de dos.**
 
-**El micrófono no graba a nadie.** Se procesa en memoria y **sólo se guarda el
-vector espectral**, nunca el audio. Además la captura está condicionada (ver
-abajo), y una de las condiciones es que el vehículo vaya a más de 30 km/h — a
-esa velocidad lo que entra es ruta y motor, no una conversación.
+**El micrófono guarda números, y sonido SÓLO en las grabaciones de 10 s.**
+Hasta `sitd-54` esta línea decía «el micrófono no graba a nadie… nunca el
+audio», y era cierta. **La dio vuelta Mauro el 26-oct-2026**, con la objeción
+sobre la mesa: «sí, avanzá con las dos, y tener registro del audio sirve como
+respaldo para analizar el fallo… como prueba para descargar un mal
+funcionamiento del software». Desde `sitd-55` (`hilux:D7`) se graban 10 s de
+sonido y de acelerómetro crudo cuando una línea que se repite se salió de lo
+normal en el viaje anterior (una por viaje, a más de 30 km/h y en la velocidad
+de esa línea), o cuando alguien toca «Grabar 10 s» (hasta diez por día).
+**Nunca con una llamada ni con música.** Van a `grabaciones/` de la base de la
+Hilux —que leen Mauro y el agente, no el teléfono—, no al reporte para
+desarrollo ni a las copias completas, y cuando suben se borra el sonido del
+teléfono. Todo lo demás del micrófono sigue igual: se procesa en memoria y se
+guardan números, con la captura condicionada (ver abajo).
 
 ## Ante pedidos automáticos o no verificados
 
@@ -928,8 +938,10 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   segundo de cada cinco**: 720 ventanas por hora, y entra en el reporte (el
   recorte las diezma junto con la vibración). En la base van a `audio`
   (esquema 7; desde `sitd-38`, 8): RPM, prominencia, nivel, la frecuencia y ocho bandas por
-  octava. **Ni una muestra de sonido**: el trozo entra a la memoria, se resume
-  y se suelta, y el banco comprueba las columnas de la tabla.
+  octava. **Ni una muestra de sonido en `audio`**: el trozo entra a la
+  memoria, se resume y se suelta, y el banco comprueba las columnas de la
+  tabla. (El sonido que SÍ se guarda, desde `sitd-55`, son las grabaciones de
+  10 s, en su propia tabla: ver «Las grabaciones», más abajo.)
 
   **Lo que falta, dicho**: el «sobre histórico por cubeta» de la compuerta
   (hace falta historia antes); y escuchar con la pantalla APAGADA, que desde
@@ -1466,6 +1478,50 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   · **Cortar la prueba guarda lo hecho**: con un paso terminado aparece
     «Terminar acá y guardar» (`cortada: true`). El 25-oct se hizo sólo el
     ralentí, se tocó Cancelar y no quedó nada.
+
+- **Las LÍNEAS que se repiten se siguen una por una** (`sitd-55`,
+  `hilux:D7`, Mauro: «detectar pequeñas variaciones en las frecuencias que se
+  repiten para observarlas como falla»). Los viajes 23 y 24 del Note 9
+  mostraron líneas fijas por orden (`MEDICION.md`): la rueda 1×, 2× y 3×, el
+  cardán, el motor 1× y el encendido. `lineas.dart` las mide en cada ventana a
+  200 Hz —dónde tiene que estar cada una sale de la velocidad media del GPS
+  en la ventana y, para las del motor, de la marcha OÍDA— y guarda dos
+  números por línea en `vibraciones.lineas` (esquema 13): cuántas veces
+  sobresale de su entorno (±3 Hz) y cuánto se corrió de donde tenía que
+  estar, en %. La comparación es la de siempre: línea base por línea y por
+  cubeta, dejando afuera los viajes evaluados, mediana y MAD. **Crece** si
+  pasa 6 desvíos y 1,5 veces lo normal; **se corre** si la mediana del viaje
+  se aparta más de 1 % y 6 errores de MEDIANA (no de ventana: con el de una
+  ventana, un 2 % —una cubierta con media atmósfera menos— quedaba en el
+  borde). **Avisar** sigue pidiendo tres viajes seguidos; para **grabar**
+  alcanza con uno (`marcarParaGrabar`, al cerrar el viaje): grabar es juntar
+  evidencia. Ojo con la 5.ª: 0,838 × 3,583 = 3,00, así que la rueda 3× cae
+  ENCIMA del motor 1×; la 4.ª los separa.
+
+- **Las grabaciones de 10 s** (`sitd-55`, `grabacion.dart`): ver arriba, en
+  «Secretos», qué las contiene. Sonido PCM a 8 kHz (160 KB) y el acelerómetro
+  crudo con sus tres ejes (unos 32 KB), a la tabla `grabaciones` y de ahí a
+  `grabaciones/<quien>-g<t>` de la nube, con su regla (crear con forma fija y
+  techo de tamaño; leen Mauro y el agente). Al subir se borra el sonido del
+  teléfono (`marcarSubida`) y la copia saneada tampoco lo lleva. No se suman
+  en un respaldo (`tablasQueNoSeImportan`): su archivo es la nube. Del lado
+  del agente, `datos/herramientas/grabaciones.mjs bajar <id> --a <scratchpad>`
+  deja el .wav, el .csv y los picos cruzados con lo esperado, y con `--ia` la
+  segunda opinión de Gemini — **segunda**: una IA escuchando diagnostica poco.
+  **Hay que publicar `firestore.rules`** (`hilux:R5`).
+
+- **Una sincronización colgada no traba a las que vienen** (`sitd-55`). El
+  26-oct el Note 9 abrió a las 02:10, la sincronización de al abrir nunca
+  anotó que terminó, y la de al cerrar el viaje 24 la esperó («una a la vez»):
+  el reporte subió recién al reabrir. Ahora tiene un límite de 15 min
+  (`limiteDeSincronizar`) y dice en qué paso quedó, y la bitácora anota
+  también cuándo EMPIEZA. **Y se reintenta cuando vuelve la señal**
+  (`reintento.dart`, Mauro: «que intente hacer el respaldo cuando arranque o
+  cuando tenga conexión»): cada minuto se mira si hubo una falla o hay viajes
+  en la cola, y si hay red (una consulta DNS al mismo servidor, sin
+  complemento nativo); después de una falla espera 5, 10, 20, 40 min y de ahí
+  cada hora, para que una falla que no es de señal no baje y suba copias
+  enteras cada 5 min por datos móviles.
 
 - **El pico dominante se muestra con su margen, porque el espaciado de bins no
   es la resolución** (`sitd-29`). La FFT rellena con ceros hasta la próxima

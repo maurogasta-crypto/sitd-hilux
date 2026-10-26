@@ -518,13 +518,33 @@ cuando esté a mano.
 nada:** cada muestra se guardó apenas llegó, y al volver a abrir el viaje se
 retoma con sus kilómetros. Está probado en el banco (`servicio_test.dart`).
 
+## Las líneas que se repiten y las grabaciones de 10 s (`sitd-55`)
+
+**Las líneas.** En **Vibración**, abajo, «Las líneas que se repiten»: la rueda
+(1, 2 y 3 veces por vuelta), el cardán, el motor y el encendido, cada una con
+cuánto sobresale a cada velocidad. Si una crece o se corre de su lugar tres
+viajes seguidos, sale un aviso rojo arriba, igual que los de las bandas.
+
+**Grabar 10 s.** En la pantalla del viaje, mientras se mide, el botón
+«Grabar 10 s» graba sonido y acelerómetro para revisar un ruido o una lectura
+rara (hasta diez por día). Y la app graba sola una vez cuando una línea se
+salió en el viaje anterior, la próxima vez que se ande a esa velocidad.
+**Nunca con una llamada ni con música.** Suben solas a `grabaciones/` de la
+base de la Hilux y en el teléfono se borra el sonido. Hay que publicar
+`firestore.rules`.
+
+**Sincronizar cuando vuelve la señal.** Además de al abrir y al cerrar cada
+viaje, si una sincronización falló o quedan viajes en la cola, la app vuelve a
+intentar cuando hay red (mira cada minuto; después de una falla espera cada
+vez el doble, hasta una hora).
+
 ## El motor: las RPM y el viaje que empieza solo (`sitd-37`)
 
 **Las RPM por el micrófono.** Al empezar un viaje, la aplicación pide el
 permiso del micrófono. Con la camioneta a más de 30 km/h estables, sin música
 ni llamada, escucha un segundo de cada cinco y saca las RPM del sonido del
 encendido. Se ven en el viaje («Motor») y quedan en la base y en el reporte.
-Del sonido no se guarda nada, sólo números. **Hoy escucha con la aplicación a
+Del sonido se guardan números, salvo las grabaciones de 10 s (abajo). **Hoy escucha con la aplicación a
 la vista**: con la pantalla apagada, Android no se lo deja. El permiso se pide
 al empezar un viaje A MANO; un viaje que abre el cargador usa el que haya.
 
@@ -586,6 +606,8 @@ lib/
 │   │   ├── carga.dart       Una carga, tal como se teclea en la estación.
 │   │   ├── consumo.dart     Consumo de lleno a lleno, calculado al leer.
 │   │   └── registro_cargas.dart  Cargas y el ajuste del tanque.
+│   ├── grabacion/
+│   │   └── grabacion.dart   Las grabaciones de 10 s: cuándo, qué y adónde.
 │   ├── respaldo/
 │   │   ├── reporte.dart     Qué sale del teléfono, y qué no.
 │   │   ├── saneado.dart     Le saca a la copia lo que abre algo, y lo
@@ -610,6 +632,7 @@ lib/
 │   │   │                    sacando primero lo que se puede reconstruir.
 │   │   ├── respaldo_nube.dart  La base entera, comprimida y partida en
 │   │   │                    documentos; y al volver, cada falla con su frase.
+│   │   ├── reintento.dart   Volver a sincronizar cuando vuelve la señal.
 │   │   ├── subida.dart      Firestore por REST. Sin SDK: el SDK pediría un
 │   │   │                    google-services.json en un repo público.
 │   │   └── servicio_nube.dart  Junta las tres, y clava el alcance.
@@ -624,6 +647,8 @@ lib/
 │       ├── espectro.dart    FFT propia, ventana de Hann y energía por banda.
 │       ├── ventana.dart     Las cubetas de velocidad y el vector que se guarda.
 │       ├── analisis.dart    Línea base robusta, desvíos e histéresis.
+│       ├── lineas.dart      Las líneas que se repiten (rueda, cardán,
+│       │                    motor), y cuándo crecen o se corren.
 │       ├── cobertura.dart   Cuánto aprendió de cada velocidad y cuánto
 │       │                    falta, en tiempo. Y en qué banda cae la rueda.
 │       ├── fuente_vibracion.dart  El acelerómetro, detrás de una interfaz.
@@ -656,7 +681,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-54` | `lib/core/version.dart` |
+| Aplicación | `sitd-55` | `lib/core/version.dart` |
 | Esquema de la base | `11` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,
