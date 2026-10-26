@@ -1506,6 +1506,21 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   evidencia. Ojo con la 5.ª: 0,838 × 3,583 = 3,00, así que la rueda 3× cae
   ENCIMA del motor 1×; la 4.ª los separa.
 
+- **El viaje sale a la Pizarra del MISMO teléfono, y de ahí a la cercana sin
+  datos** (`sitd-57`, `general:C4` paso 1, 26-oct-2026, Mauro: «que se pueda
+  utilizar sin consumir datos… dentro del mismo auto o dentro de la misma
+  casa, y que pueda despertar al teléfono»). `enlace.dart` arma los mensajes
+  —el vivo cada 2 s (km/h, km, RPM y marcha oídas) y los eventos: empezó,
+  terminó, una línea fuera de lo normal (`marcarParaGrabar` devuelve su texto)—
+  y el canal `uy.gasta.sitd_hilux/enlace` de `MainActivity.kt` los inserta en
+  la puerta local de la Pizarra (`content://com.maurogasta.pizarra.enlace`),
+  que atiende SÓLO a esta app por paquete y por la huella de su firma. **Si
+  cambia la clave de firma, cambia `HUELLA_HILUX` de la Pizarra en la misma
+  tanda.** **Ninguna coordenada sale por acá**: los mensajes se arman sólo con
+  los constructores de `enlace.dart` y el banco revisa sus claves y su texto;
+  la Pizarra los filtra de nuevo. Nunca tira: sin Pizarra contesta «no», y a
+  los tres seguidos descansa un minuto. Cupo: cero, no toca la red.
+
 - **Las grabaciones de 10 s** (`sitd-55`, `grabacion.dart`): ver arriba, en
   «Secretos», qué las contiene. Sonido PCM a 8 kHz (160 KB) y el acelerómetro
   crudo con sus tres ejes (unos 32 KB), a la tabla `grabaciones` y de ahí a

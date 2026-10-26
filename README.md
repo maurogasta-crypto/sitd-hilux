@@ -569,6 +569,15 @@ la camioneta quieta, lo cierra (si el cargador se corta andando, el viaje
 sigue). Sólo cierra los viajes que abrió él, y uno que no anduvo 200 m en 5
 minutos se borra solo. Esos viajes no piden el odómetro.
 
+**El viaje a la Pizarra cerca, sin datos** (desde `sitd-57`). Si en el mismo
+teléfono está la Pizarra (`pizarra-70` o más nueva) con «📡 Enlace cerca»
+prendido, la aplicación le pasa cada 2 s el viaje en vivo —velocidad, km, y
+RPM y marcha si se oyen— y avisa cuando un viaje empieza, cuando termina (km y
+duración) y cuando una línea que se repite se salió de lo normal. La Pizarra lo
+manda por Bluetooth (en el auto) o por el wi-fi de la casa a la Pizarra del
+otro teléfono, sin internet. **Ninguna coordenada sale por acá.** Sin Pizarra
+no pasa nada: el viaje mide igual. Código: `lib/features/enlace/enlace.dart`.
+
 ## Mapa de archivos
 
 ```
@@ -683,7 +692,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-56` | `lib/core/version.dart` |
+| Aplicación | `sitd-57` | `lib/core/version.dart` |
 | Esquema de la base | `11` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

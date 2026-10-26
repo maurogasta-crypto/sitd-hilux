@@ -95,6 +95,20 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { llamada, respuesta ->
                 if (llamada.method == "modelo") respuesta.success("${Build.MANUFACTURER} ${Build.MODEL}") else respuesta.notImplemented()
             }
+        // sitd-57 (general:C4): le pasa a la Pizarra de ESTE teléfono el viaje en
+        // vivo y lo que pasa, para que ella lo mande a la Pizarra cerca sin datos.
+        // Una línea a su puerta local; si la Pizarra no está o no la deja, false.
+        MethodChannel(engine.dartExecutor.binaryMessenger, "uy.gasta.sitd_hilux/enlace")
+            .setMethodCallHandler { llamada, respuesta ->
+                if (llamada.method != "enviar") { respuesta.notImplemented(); return@setMethodCallHandler }
+                val json = llamada.argument<String>("mensaje")
+                respuesta.success(try {
+                    json != null && contentResolver.insert(
+                        android.net.Uri.parse("content://com.maurogasta.pizarra.enlace/mensajes"),
+                        android.content.ContentValues().apply { put("mensaje", json) },
+                    ) != null
+                } catch (e: Throwable) { false })
+            }
     }
 
     /**

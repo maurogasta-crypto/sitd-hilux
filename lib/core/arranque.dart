@@ -8,6 +8,7 @@ import '../features/audio/registro_audio.dart';
 import '../features/audio/servicio_audio.dart';
 import '../features/calibracion/calibracion.dart';
 import '../features/combustible/registro_cargas.dart';
+import '../features/enlace/enlace.dart';
 import '../features/grabacion/grabacion.dart';
 import '../features/motor/cargador.dart';
 import '../features/odometro/cascada.dart';
@@ -198,6 +199,9 @@ class Arranque {
         // 2026-09-20, pagando los noventa segundos dos veces seguidas.
         modoPreferido: () => recordado.modo,
       );
+      // sitd-57 (general:C4): el viaje, a la Pizarra de este teléfono, que lo
+      // manda sin datos a la Pizarra cerca. Sin Pizarra, no hace nada.
+      final enlace = EnlaceConPizarra();
       final servicio = ServicioOdometria(
         registro: registro,
         fuente: cascada,
@@ -208,7 +212,20 @@ class Arranque {
           anotarEncolado(viaje);
           // sitd-55: si una línea que se repite se salió en este viaje, la
           // próxima vez que se ande a esa velocidad se graban 10 s.
-          marcarParaGrabar(vibraciones, grabaciones, viaje);
+          final linea = marcarParaGrabar(vibraciones, grabaciones, viaje);
+          // sitd-57: y lo cuenta a la Pizarra cerca. Sin coordenadas.
+          final v = registro.porId(viaje);
+          if (v != null) {
+            unawaited(
+              enlace.enviar(
+                eventoTermino(
+                  km: v.kilometros,
+                  ms: v.duracionMs(DateTime.now().millisecondsSinceEpoch),
+                ),
+              ),
+            );
+          }
+          if (linea != null) unawaited(enlace.enviar(eventoLinea(linea)));
           // sitd-50: y sincroniza solo. Si no hay señal, queda en la cola y
           // se reintenta al abrir.
           unawaited(sincronizarSolo('al cerrar un viaje'));
@@ -323,6 +340,35 @@ class Arranque {
         velocidadKmh: () => servicio.estado.value.velocidadKmh,
         grabador: grabador,
       );
+      // sitd-57: cada 2 s, mientras se mide, el viaje en vivo a la Pizarra; y
+      // cuando empieza uno, un aviso. El viaje que ya estaba abierto al abrir
+      // la aplicación (retomado) no se anuncia como nuevo.
+      int? viajeAnunciado = servicio.estado.value.viaje;
+      Timer.periodic(const Duration(seconds: 2), (_) {
+        try {
+          final e = servicio.estado.value;
+          if (!e.midiendo || e.viaje == null) return;
+          if (e.viaje != viajeAnunciado) {
+            viajeAnunciado = e.viaje;
+            unawaited(enlace.enviar(eventoEmpezo()));
+          }
+          final t = DateTime.now().millisecondsSinceEpoch;
+          final kmh = e.velocidadKmh;
+          final oido = audio.tacometro.leer(t, kmh);
+          unawaited(
+            enlace.enviar(
+              mensajeVivo(
+                kmh: kmh,
+                km: e.kilometros,
+                rpm: oido?.rpm,
+                marcha: oido?.marcha,
+              ),
+            ),
+          );
+        } catch (_) {
+          // El enlace describe, no mide: nunca puede trabar un viaje.
+        }
+      });
       return Arranque._(
         ruta: ruta,
         base: base,
@@ -357,8 +403,9 @@ class Arranque {
 /// lo normal en ESTE viaje, se pide una grabación para la próxima vez que se
 /// ande a esa velocidad. Para grabar alcanza con un viaje —es juntar
 /// evidencia—; para AVISAR siguen haciendo falta tres seguidos. Nunca tira:
-/// esto no puede impedir que un viaje se cierre.
-void marcarParaGrabar(
+/// esto no puede impedir que un viaje se cierre. Devuelve el texto de la
+/// línea más salida, para contárselo a la Pizarra cerca (`sitd-57`), o `null`.
+String? marcarParaGrabar(
   RegistroDeVibracion vibraciones,
   RegistroDeGrabaciones grabaciones,
   int viaje,
@@ -367,7 +414,7 @@ void marcarParaGrabar(
     final porViaje = deLaClaseVigente(vibraciones.porViaje());
     final base = baseDeLineas(porViaje, excepto: {viaje});
     final desvios = compararLineas(porViaje[viaje] ?? const [], base);
-    if (desvios.isEmpty) return;
+    if (desvios.isEmpty) return null;
     for (final d in desvios.take(3)) {
       bitacora.anotar(Origen.sistema, 'Línea fuera de lo normal: ${d.texto}');
     }
@@ -380,7 +427,9 @@ void marcarParaGrabar(
         ),
       );
     }
+    return d.texto;
   } catch (e) {
     bitacora.anotar(Origen.sistema, 'No se pudieron revisar las líneas: $e');
+    return null;
   }
 }
