@@ -1338,6 +1338,27 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   pedido (`enElRango`; a ralentí, 600 a 1100). Se guardan las dos medianas,
   `rpmOida` y `rpmOidaCruda`.
 
+  **Desde `sitd-47` (26-oct) el Note 9 tiene con qué oír el ralentí**
+  (Mauro, 25-oct: «no distingue el motor el Redmi Note 9… está faltando
+  sensibilidad al micrófono»; el Redmi 15 lo había oído en un garaje cerrado,
+  el Note 9 en un estacionamiento abierto no). Tres cosas:
+  · **El micrófono se abre SIN PROCESAR** (`AudioSource.UNPROCESSED`) si el
+    teléfono lo declara; si no, el de voz de antes. El de voz está hecho para
+    la voz y el encendido a ralentí suena a 30 Hz. Con qué modo abrió queda en
+    la calibración (`microfono`), así se sabe en cuál se midió. Vale también
+    para los viajes.
+  · **Parado se promedian 8 segundos** (`leerMotorPromediado`): el motor quieto
+    cae siempre en el mismo casillero y el ruido no. Con 4 o más, la vara baja
+    de 10 a 6 dB, medido con el banco: el ruido solo promediado no pasa de
+    2,2 dB y un ralentí con la mitad del volumen que hacía falta da de 6 a 10.
+    Andando NO se promedia (el régimen se mueve: eso lo hace el tacómetro).
+    Bajito puede salir la octava de abajo; la corrige `enElRango`, y la
+    pantalla muestra el corregido. Si no lo distingue, dice cuánto sobresale
+    y cuánto hace falta.
+  · **Cortar la prueba guarda lo hecho**: con un paso terminado aparece
+    «Terminar acá y guardar» (`cortada: true`). El 25-oct se hizo sólo el
+    ralentí, se tocó Cancelar y no quedó nada.
+
 - **El pico dominante se muestra con su margen, porque el espaciado de bins no
   es la resolución** (`sitd-29`). La FFT rellena con ceros hasta la próxima
   potencia de dos —251 muestras pasan a 256— y eso junta los bins, pero

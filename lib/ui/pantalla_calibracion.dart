@@ -438,6 +438,9 @@ class _PantallaPruebaMotorState extends State<PantallaPruebaMotor> {
   int _desde = 0;
   final List<VentanaVibracion> _ventanas = [];
   final List<LecturaMotor> _escuchas = [];
+  // Los últimos segundos de micrófono del régimen de ahora: se promedian
+  // (`sitd-47`), porque parado el motor suena quieto y el ruido no.
+  final List<List<int>> _trozos = [];
   LecturaMotor? _ultimaEscucha;
   VentanaVibracion? _ultimaVentana;
   final List<Map<String, dynamic>> _resumenes = [];
@@ -480,6 +483,7 @@ class _PantallaPruebaMotorState extends State<PantallaPruebaMotor> {
     _magnitud.clear();
     _ventanas.clear();
     _escuchas.clear();
+    _trozos.clear();
     _fase = _Fase.acomodo;
     _quedan = pasosDelMotor[i].acomodo;
     _reloj?.cancel();
@@ -495,6 +499,7 @@ class _PantallaPruebaMotorState extends State<PantallaPruebaMotor> {
       _fase = _Fase.midiendo;
       _quedan = pasosDelMotor[_paso].segundos;
       _magnitud.clear();
+      _trozos.clear();
       _desde = DateTime.now().millisecondsSinceEpoch;
     } else if (_fase == _Fase.midiendo) {
       _cerrarVentana(DateTime.now().millisecondsSinceEpoch);
@@ -504,7 +509,7 @@ class _PantallaPruebaMotorState extends State<PantallaPruebaMotor> {
       if (_paso + 1 < pasosDelMotor.length) {
         _arrancarPaso(_paso + 1);
       } else {
-        _terminar();
+        unawaited(_terminar());
       }
     }
   }
@@ -531,12 +536,15 @@ class _PantallaPruebaMotorState extends State<PantallaPruebaMotor> {
   }
 
   void _alTrozo(List<int> pcm) {
-    final l = leerMotor(pcm);
+    _trozos.add(pcm);
+    if (_trozos.length > trozosParaPromediar) _trozos.removeAt(0);
+    final l = leerMotorPromediado(_trozos);
     _ultimaEscucha = l;
     if (_fase == _Fase.midiendo) _escuchas.add(l);
   }
 
-  void _terminar() {
+  Future<void> _terminar() async {
+    final fuente = _sinMicrofono ? null : await MicrofonoDelTelefono().fuente();
     _soltar();
     widget.registro.guardar(
       Calibracion(
@@ -546,11 +554,13 @@ class _PantallaPruebaMotorState extends State<PantallaPruebaMotor> {
         datos: {
           if (widget.variante != null) 'variante': widget.variante,
           'pasos': _resumenes,
+          if (_resumenes.length < pasosDelMotor.length) 'cortada': true,
+          'microfono': ?fuente,
           if (_sinMicrofono) 'sinMicrofono': true,
         },
       ),
     );
-    setState(() => _fase = _Fase.terminada);
+    if (mounted) setState(() => _fase = _Fase.terminada);
   }
 
   void _cancelar() {
@@ -658,8 +668,12 @@ class _PantallaPruebaMotorState extends State<PantallaPruebaMotor> {
                 _sinMicrofono
                     ? 'Sin micrófono: sólo vibración.'
                     : _ultimaEscucha?.rpm != null
-                    ? 'La app oye unas ${_ultimaEscucha!.rpm!.round()} RPM'
-                    : 'La app todavía no distingue el motor',
+                    ? 'La app oye unas ${(enElRango(_ultimaEscucha!.rpm!, paso.rpm) ?? _ultimaEscucha!.rpm!).round()} RPM'
+                    : _ultimaEscucha == null
+                    ? 'La app todavía no distingue el motor'
+                    : 'La app todavía no distingue el motor (sobresale '
+                          '${_coma(_ultimaEscucha!.prominenciaDb, 1)} dB; hacen '
+                          'falta ${_trozos.length >= trozosParaVaraBaja ? prominenciaMinimaPromediadaDb.round() : prominenciaMinimaDb.round()})',
                 textAlign: TextAlign.center,
               ),
               if (_ultimaVentana != null)
@@ -670,9 +684,24 @@ class _PantallaPruebaMotorState extends State<PantallaPruebaMotor> {
                   textAlign: TextAlign.center,
                 ),
               const Spacer(),
+              // Con un paso hecho, cortar GUARDA lo hecho (`sitd-47`: el
+              // 25-oct se hizo sólo el ralentí, se tocó Cancelar y se perdió).
+              if (_resumenes.isNotEmpty)
+                FilledButton.tonal(
+                  onPressed: _terminar,
+                  child: Text(
+                    'Terminar acá y guardar ${_resumenes.length} '
+                    'paso${_resumenes.length == 1 ? '' : 's'}',
+                  ),
+                ),
+              const SizedBox(height: 8),
               OutlinedButton(
                 onPressed: _cancelar,
-                child: const Text('Cancelar (no guarda nada)'),
+                child: Text(
+                  _resumenes.isEmpty
+                      ? 'Cancelar (no guarda nada)'
+                      : 'Cancelar (no guarda nada, tampoco lo hecho)',
+                ),
               ),
             ],
           ),

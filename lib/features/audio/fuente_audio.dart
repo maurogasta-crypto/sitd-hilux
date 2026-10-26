@@ -18,6 +18,16 @@ class MicrofonoDelTelefono {
       .receiveBroadcastStream({'hz': hzAudio})
       .map((e) => aMuestras(e as Uint8List));
 
+  /// Con qué modo abrió el micrófono (`sitd-47`): «sin procesar» o «voz
+  /// (…)». `null` si todavía no se abrió o el canal no contesta.
+  Future<String?> fuente() async {
+    try {
+      return await _metodos.invokeMethod<String>('fuenteMicrofono');
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Si hay música o una llamada. Si el canal no contesta, tira: el servicio
   /// lo toma como «no escuchar».
   Future<Ocupado> ocupado() async {

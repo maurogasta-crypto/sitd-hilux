@@ -70,6 +70,18 @@ const int armonicos = 4;
 /// mirarlo con ventanas reales.
 const double prominenciaMinimaDb = 10;
 
+/// Con [trozosParaPromediar] o más segundos promediados (`sitd-47`), la vara
+/// baja a 6 dB. Medido con el banco: el ruido solo, promediado de a 8, no
+/// pasa de 2,2 dB (de a uno llegaba a 5,2), y un ralentí con la mitad de
+/// volumen del que hacía falta da de 6 a 10. Sólo para la prueba parado.
+const double prominenciaMinimaPromediadaDb = 6;
+
+/// Cuántos segundos promedia la prueba del motor parado.
+const int trozosParaPromediar = 8;
+
+/// Desde cuántos trozos vale la vara más baja: con 4 el ruido llega a 3 dB.
+const int trozosParaVaraBaja = 4;
+
 /// Bordes de las bandas de audio, en Hz. Por octavas desde 20: el encendido
 /// vive en las dos primeras, sus armónicos en las siguientes, y arriba de
 /// 1.280 Hz está la ruta y el viento.
@@ -190,9 +202,26 @@ class LecturaMotor {
 
 /// Estima el régimen de [pcm] (muestras de 16 bits) tomadas a [hz]. Con
 /// [kmh] (la velocidad del GPS) prueba las marchas; sin ella, busca libre.
-LecturaMotor leerMotor(List<int> pcm, {int hz = hzAudio, double? kmh}) {
-  final n = pcm.length;
-  if (n < 256) {
+LecturaMotor leerMotor(List<int> pcm, {int hz = hzAudio, double? kmh}) =>
+    leerMotorPromediado([pcm], hz: hz, kmh: kmh);
+
+/// Lo mismo, con VARIOS trozos seguidos del mismo régimen (`sitd-47`): se
+/// promedia la potencia de sus espectros antes de buscar. El tono del motor
+/// cae siempre en el mismo casillero y el ruido no, así que promediar baja
+/// las agujas del ruido y deja al motor solo arriba: es sensibilidad que no
+/// depende del micrófono. Sirve parado, con el régimen quieto (la prueba del
+/// motor); andando el régimen se mueve y eso lo hace el tacómetro.
+/// El nivel, la saturación y las bandas son del último trozo.
+LecturaMotor leerMotorPromediado(
+  List<List<int>> trozos, {
+  int hz = hzAudio,
+  double? kmh,
+}) {
+  final validos = [
+    for (final t in trozos)
+      if (t.length >= 256) t,
+  ];
+  if (validos.isEmpty) {
     return LecturaMotor(
       rpm: null,
       prominenciaDb: 0,
@@ -201,6 +230,13 @@ LecturaMotor leerMotor(List<int> pcm, {int hz = hzAudio, double? kmh}) {
       bandas: List<double>.filled(bandasDeAudio, 0),
     );
   }
+  // Todos del largo del último: si no, los casilleros no coinciden.
+  final pcm = validos.last;
+  final n = pcm.length;
+  final iguales = [
+    for (final t in validos)
+      if (t.length == n) t,
+  ];
   var media = 0.0;
   var techo = 0;
   for (final m in pcm) {
@@ -217,9 +253,15 @@ LecturaMotor leerMotor(List<int> pcm, {int hz = hzAudio, double? kmh}) {
   final nivel = rmsTotal <= 1e-9 ? -90.0 : 20 * math.log(rmsTotal) / math.ln10;
   final saturadas = techo / n;
 
-  final espectro = magnitudes(x);
+  final ultimo = magnitudes(x);
+  final bandas = _bandas(ultimo, hz / (ultimo.length * 2));
+  final espectro = iguales.length == 1
+      ? ultimo
+      : _promedio([
+          for (final t in iguales.take(iguales.length - 1)) _espectroDe(t),
+          ultimo,
+        ]);
   final porCasillero = hz / (espectro.length * 2);
-  final bandas = _bandas(espectro, porCasillero);
   LecturaMotor sinRpm([double prom = 0]) => LecturaMotor(
     rpm: null,
     prominenciaDb: prom,
@@ -347,8 +389,10 @@ LecturaMotor leerMotor(List<int> pcm, {int hz = hzAudio, double? kmh}) {
     s = sDoble;
   }
   final prominencia = enDb(s);
-  final vale =
-      prominencia >= prominenciaMinimaDb && !(enElBorde && k == mejor + kMin);
+  final vara = iguales.length >= trozosParaVaraBaja
+      ? prominenciaMinimaPromediadaDb
+      : prominenciaMinimaDb;
+  final vale = prominencia >= vara && !(enElBorde && k == mejor + kMin);
   return LecturaMotor(
     rpm: vale ? a.afinar(k) * porCasillero * 30 : null,
     prominenciaDb: prominencia,
@@ -358,6 +402,24 @@ LecturaMotor leerMotor(List<int> pcm, {int hz = hzAudio, double? kmh}) {
     porMarcha: porMarcha,
     picos: picos,
   );
+}
+
+/// El espectro de un trozo, sin la media (la componente continua).
+List<double> _espectroDe(List<int> pcm) {
+  final media = pcm.fold<int>(0, (s, m) => s + m) / pcm.length;
+  return magnitudes([for (final m in pcm) (m - media) / 32768.0]);
+}
+
+/// La raíz de la potencia media, casillero a casillero.
+List<double> _promedio(List<List<double>> espectros) {
+  final n = espectros.first.length;
+  return List<double>.generate(n, (k) {
+    var p = 0.0;
+    for (final e in espectros) {
+      p += e[k] * e[k];
+    }
+    return math.sqrt(p / espectros.length);
+  });
 }
 
 bool _aUnaOctava(int g, int? h) {

@@ -82,7 +82,11 @@ class MainActivity : FlutterActivity() {
             .setStreamHandler(Microfono())
         MethodChannel(engine.dartExecutor.binaryMessenger, "uy.gasta.sitd_hilux/audio_estado")
             .setMethodCallHandler { llamada, respuesta ->
-                if (llamada.method == "ocupado") respuesta.success(ocupado()) else respuesta.notImplemented()
+                when (llamada.method) {
+                    "ocupado" -> respuesta.success(ocupado())
+                    "fuenteMicrofono" -> respuesta.success(fuenteMicrofono)
+                    else -> respuesta.notImplemented()
+                }
             }
         EventChannel(engine.dartExecutor.binaryMessenger, "uy.gasta.sitd_hilux/carga")
             .setStreamHandler(Cargador())
@@ -118,6 +122,36 @@ class MainActivity : FlutterActivity() {
      * números (`regimen.dart`). Si falta el permiso o el micrófono está
      * tomado, se avisa con un error y el viaje sigue sin audio.
      */
+    /** Con qué modo quedó abierto el micrófono la última vez (`sitd-47`). */
+    @Volatile private var fuenteMicrofono: String? = null
+
+    /**
+     * Abre el micrófono con el modo SIN PROCESAR si el teléfono lo tiene
+     * (`sitd-47`): VOICE_RECOGNITION está pensado para la voz y en el Note 9
+     * no dejaba oír el ralentí (el encendido suena a 30 Hz, debajo de la voz).
+     * Si el teléfono no lo declara o no abre, vuelve a VOICE_RECOGNITION.
+     */
+    private fun abrirGrabador(hz: Int, buffer: Int): AudioRecord {
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val sinProcesar = try {
+            am.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED) == "true"
+        } catch (e: Exception) { false }
+        if (sinProcesar) {
+            try {
+                val g = AudioRecord(MediaRecorder.AudioSource.UNPROCESSED, hz,
+                    AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, buffer)
+                if (g.state == AudioRecord.STATE_INITIALIZED) { fuenteMicrofono = "sin procesar"; return g }
+                g.release()
+            } catch (e: IllegalArgumentException) { }
+        }
+        // VOICE_RECOGNITION trae el procesado mínimo de los demás (sin el
+        // supresor de ruido de una llamada, que se comería el motor).
+        val g = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, hz,
+            AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, buffer)
+        fuenteMicrofono = if (sinProcesar) "voz (el sin procesar no abrió)" else "voz (no tiene sin procesar)"
+        return g
+    }
+
     private inner class Microfono : EventChannel.StreamHandler {
         @Volatile private var corriendo = false
         private var hilo: Thread? = null
@@ -131,10 +165,7 @@ class MainActivity : FlutterActivity() {
                 var grabador: AudioRecord? = null
                 try {
                     val minimo = AudioRecord.getMinBufferSize(hz, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-                    // VOICE_RECOGNITION trae el procesado mínimo (sin el
-                    // supresor de ruido de una llamada, que se comería el motor).
-                    grabador = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, hz,
-                        AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(minimo, hz * 2))
+                    grabador = abrirGrabador(hz, maxOf(minimo, hz * 2))
                     if (grabador.state != AudioRecord.STATE_INITIALIZED) throw IllegalStateException("el micrófono no se pudo abrir")
                     grabador.startRecording()
                     val trozo = ShortArray(hz)

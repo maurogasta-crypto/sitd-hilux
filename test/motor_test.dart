@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sitd_hilux/core/db/base.dart';
 import 'package:sitd_hilux/features/audio/compuerta.dart';
+import 'package:sitd_hilux/features/calibracion/prueba_motor.dart';
 import 'package:sitd_hilux/features/audio/regimen.dart';
 import 'package:sitd_hilux/features/audio/registro_audio.dart';
 import 'package:sitd_hilux/features/audio/servicio_audio.dart';
@@ -84,6 +85,83 @@ List<int> retumbo(int semilla) {
 }
 
 void main() {
+  group('parado, promediando (sitd-47)', () {
+    // El ralentí del 25-oct en el Note 9: el micrófono lo oía bajito y la
+    // app no daba RPM. Parado, sin retumbo de ruta, con poco volumen.
+    List<List<int>> segundos(
+      double rpm,
+      double volumen,
+      int semilla,
+      int n,
+    ) => [
+      for (var j = 0; j < n; j++)
+        diesel(rpm, semilla: semilla * 100 + j, volumen: volumen, retumbo: 0.1),
+    ];
+
+    test('un ralentí bajito: de a uno no se oye, promediando 8 sí', () {
+      var uno = 0, ocho = 0;
+      for (var s = 1; s <= 10; s++) {
+        final tr = segundos(1000, 0.03, s, trozosParaPromediar);
+        final a = leerMotor(tr.last);
+        final b = leerMotorPromediado(tr);
+        if (a.rpm != null) uno++;
+        if (b.rpm != null) {
+          ocho++;
+          expect((b.rpm! - 1000).abs(), lessThan(30), reason: 'leyó ${b.rpm}');
+        }
+      }
+      expect(
+        uno,
+        lessThan(5),
+        reason: 'de a uno ya se oía: la prueba no prueba',
+      );
+      expect(ocho, greaterThanOrEqualTo(9));
+    });
+
+    test(
+      'a 1500 RPM bajito, promediando: sale la octava, y el rango la corrige',
+      () {
+        // Bajito, la vuelta del cigüeñal (el orden ½) puede ganar y dar la
+        // mitad. La prueba parado ya lo corrige con el régimen pedido
+        // (`enElRango`, sitd-46), y la pantalla muestra el corregido.
+        for (var s = 1; s <= 5; s++) {
+          final b = leerMotorPromediado(
+            segundos(1500, 0.03, s, trozosParaPromediar),
+          );
+          expect(b.rpm, isNotNull);
+          final r = enElRango(b.rpm!, 1500);
+          expect(r, isNotNull, reason: 'leyó ${b.rpm}');
+          expect((r! - 1500).abs(), lessThan(40), reason: 'leyó ${b.rpm}');
+        }
+      },
+    );
+
+    test('ruido solo, promediado: la vara más baja no inventa RPM', () {
+      for (var s = 1; s <= 20; s++) {
+        for (final ret in [0.1, 0.6]) {
+          final b = leerMotorPromediado([
+            for (var j = 0; j < trozosParaPromediar; j++)
+              diesel(1000, semilla: s * 100 + j, volumen: 0, retumbo: ret),
+          ]);
+          expect(b.rpm, isNull, reason: 'semilla $s: ${b.prominenciaDb} dB');
+          expect(b.prominenciaDb, lessThan(prominenciaMinimaPromediadaDb - 2));
+        }
+      }
+    });
+
+    test('con menos de 4 trozos la vara sigue siendo la de siempre', () {
+      final b = leerMotorPromediado(segundos(1000, 0.03, 1, 3));
+      if (b.rpm != null) {
+        expect(b.prominenciaDb, greaterThanOrEqualTo(prominenciaMinimaDb));
+      }
+    });
+
+    test('un trozo es lo mismo que leerMotor', () {
+      final x = diesel(1800, semilla: 4);
+      expect(leerMotorPromediado([x]).rpm, leerMotor(x).rpm);
+    });
+  });
+
   group('las RPM con la velocidad del GPS (sitd-38)', () {
     test('las marchas: rpm por km/h de la R150F con diferencial 3,583', () {
       // Los números que cerraron 215 de 251 lecturas del viaje 19, a mano.
