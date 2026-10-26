@@ -194,6 +194,21 @@ class RegistroDeViajes {
     return (f.first['m'] as num).toDouble();
   }
 
+  /// Lo que marcó el tablero al empezar y al terminar cada viaje desde [t]
+  /// (`sitd-52`): las lecturas que se anotaron fuera de una carga.
+  List<({int t, double odo})> lecturasDeTableroDesde(int t) => [
+    for (final f in base.db.select(
+      'SELECT inicio, fin, odo_tablero_ini, odo_tablero_fin FROM viajes '
+      'WHERE inicio >= ?',
+      [t],
+    )) ...[
+      if (f['odo_tablero_ini'] != null)
+        (t: f['inicio'] as int, odo: (f['odo_tablero_ini'] as num).toDouble()),
+      if (f['odo_tablero_fin'] != null && f['fin'] != null)
+        (t: f['fin'] as int, odo: (f['odo_tablero_fin'] as num).toDouble()),
+    ],
+  ];
+
   Viaje? get abierto {
     final f = base.db.select(
       '$_seleccion WHERE fin IS NULL ORDER BY inicio DESC LIMIT 1',

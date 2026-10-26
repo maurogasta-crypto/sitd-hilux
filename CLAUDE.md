@@ -601,6 +601,16 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   marca), pero en el OTRO teléfono gana su copia, como siempre: se corrige en
   el que va a bordo.
 
+  **Y los km del tramo son del TABLERO por el factor, no del GPS** (`sitd-52`,
+  Mauro: «el cálculo de kilómetros tiene que ser en base al tacómetro del auto,
+  corregido por la corrección que hace el sistema en base al GPS»). Es la misma
+  cuenta que el consumo de lleno a lleno: `kmDelTramo` toma la lectura del
+  tablero más nueva desde el lleno —una parcial, o el odómetro anotado al
+  empezar o terminar un viaje (`lecturasDeTableroDesde`)— y la multiplica por
+  `k`; el GPS pone sólo lo que falta desde esa lectura hasta ahora, porque el
+  tablero no se lee solo. Una lectura que retrocede no resta. La pantalla dice
+  qué parte es de cada uno.
+
 - **El promedio de consumo pesa por kilómetro, no por tramo.** El promedio de
   los promedios haría que una carga corta en ciudad valiera lo mismo que una
   tirada de 600 km.

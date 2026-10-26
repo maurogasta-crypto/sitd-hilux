@@ -125,6 +125,44 @@ class TramoEnCurso {
       : parciales.map((c) => c.odoTablero).reduce((a, b) => a > b ? a : b);
 }
 
+/// Una lectura del odómetro del tablero: en una carga, o al empezar o
+/// terminar un viaje.
+typedef LecturaTablero = ({int t, double odo});
+
+/// Los kilómetros del tramo en curso (`sitd-52`, Mauro: «el cálculo de
+/// kilómetros tiene que ser en base al tacómetro del auto, corregido por la
+/// corrección que hace el sistema en base al GPS»). Es la misma cuenta que el
+/// consumo: el TABLERO por el factor [k]. Del tablero se usa la lectura más
+/// nueva que se anotó después del lleno (una parcial, o el odómetro de un
+/// viaje); el GPS sólo pone lo que falta desde esa lectura hasta ahora
+/// ([kmGpsDesde]), porque el tablero no se puede leer solo.
+({double kmTablero, double kmCorregidos, double kmGps, LecturaTablero ultima})
+kmDelTramo(
+  TramoEnCurso tramo, {
+  required List<LecturaTablero> otras,
+  required double k,
+  required double Function(int t) kmGpsDesde,
+}) {
+  LecturaTablero ultima = (t: tramo.apertura.t, odo: tramo.apertura.odoTablero);
+  for (final l in [
+    for (final c in tramo.parciales) (t: c.t, odo: c.odoTablero),
+    ...otras,
+  ]) {
+    // Sólo lo posterior al lleno y que no retrocede: un odómetro mal
+    // tecleado no puede restar kilómetros.
+    if (l.t < tramo.apertura.t || l.odo < ultima.odo) continue;
+    if (l.t >= ultima.t) ultima = l;
+  }
+  final kmTablero = ultima.odo - tramo.apertura.odoTablero;
+  final kmGps = kmGpsDesde(ultima.t);
+  return (
+    kmTablero: kmTablero,
+    kmCorregidos: kmTablero * k,
+    kmGps: kmGps,
+    ultima: ultima,
+  );
+}
+
 /// El tramo abierto, o `null` si todavía no hubo un tanque lleno.
 TramoEnCurso? tramoEnCurso(List<Carga> cargas) {
   final orden = [...cargas]..sort((a, b) => a.t.compareTo(b.t));

@@ -20,6 +20,49 @@ Carga carga(
 
 void main() {
   group('el tramo en curso (sitd-51)', () {
+    test(
+      'los km son del tablero por el factor, y el GPS sólo completa (sitd-52)',
+      () {
+        final tramo = tramoEnCurso([
+          carga(1, 60, 1000),
+          carga(5, 20, 1300, lleno: false),
+        ])!;
+        // Un viaje con odómetro al terminar, después de la parcial.
+        final r = kmDelTramo(
+          tramo,
+          otras: [(t: 6 * 86400000, odo: 1500)],
+          k: 1.05,
+          kmGpsDesde: (t) => t == 6 * 86400000 ? 40 : 999,
+        );
+        expect(r.kmTablero, 500);
+        expect(r.kmCorregidos, closeTo(525, 1e-9));
+        expect(r.kmGps, 40, reason: 'el GPS cuenta desde la última lectura');
+      },
+    );
+
+    test('sin otra lectura del tablero, todo es GPS desde el lleno', () {
+      final tramo = tramoEnCurso([carga(1, 60, 1000)])!;
+      final r = kmDelTramo(
+        tramo,
+        otras: const [],
+        k: 1.05,
+        kmGpsDesde: (t) => t == 86400000 ? 120 : 0,
+      );
+      expect(r.kmTablero, 0);
+      expect(r.kmGps, 120);
+    });
+
+    test('una lectura de antes del lleno o que retrocede no cuenta', () {
+      final tramo = tramoEnCurso([carga(5, 60, 1000)])!;
+      final r = kmDelTramo(
+        tramo,
+        otras: [(t: 86400000, odo: 5000), (t: 6 * 86400000, odo: 900)],
+        k: 1,
+        kmGpsDesde: (_) => 0,
+      );
+      expect(r.kmTablero, 0);
+    });
+
     test('sin un lleno no hay tramo', () {
       expect(tramoEnCurso([]), isNull);
       expect(tramoEnCurso([carga(1, 30, 1000, lleno: false)]), isNull);

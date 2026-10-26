@@ -87,7 +87,13 @@ class _PantallaCombustibleState extends State<PantallaCombustible> {
           if (tramoEnCurso(cargas) case final tramo?) ...[
             _TramoEnCurso(
               tramo: tramo,
-              kmGps: widget.viajes.metrosDesde(tramo.apertura.t) / 1000,
+              km: kmDelTramo(
+                tramo,
+                otras: widget.viajes.lecturasDeTableroDesde(tramo.apertura.t),
+                k: factor?.k ?? 1.0,
+                kmGpsDesde: (t) => widget.viajes.metrosDesde(t) / 1000,
+              ),
+              conFactor: factor != null,
               promedio: consumo.litrosCada100,
             ),
             const SizedBox(height: 12),
@@ -310,12 +316,20 @@ class _FilaCarga extends StatelessWidget {
 /// tanto, con lo que se sabe y lo estimado dicho como estimado.
 class _TramoEnCurso extends StatelessWidget {
   final TramoEnCurso tramo;
-  final double kmGps;
+  final ({
+    double kmTablero,
+    double kmCorregidos,
+    double kmGps,
+    LecturaTablero ultima,
+  })
+  km;
+  final bool conFactor;
   final double? promedio;
 
   const _TramoEnCurso({
     required this.tramo,
-    required this.kmGps,
+    required this.km,
+    required this.conFactor,
     required this.promedio,
   });
 
@@ -324,6 +338,7 @@ class _TramoEnCurso extends StatelessWidget {
     final t = Theme.of(context);
     final n = tramo.parciales.length;
     final p = promedio;
+    final total = km.kmCorregidos + km.kmGps;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -343,7 +358,7 @@ class _TramoEnCurso extends StatelessWidget {
               spacing: 24,
               runSpacing: 12,
               children: [
-                _Dato(titulo: 'Andado (GPS)', valor: formatearKm(kmGps)),
+                _Dato(titulo: 'Andado', valor: formatearKm(total)),
                 _Dato(
                   titulo: n == 0
                       ? 'Cargas parciales'
@@ -352,12 +367,27 @@ class _TramoEnCurso extends StatelessWidget {
                       ? 'ninguna'
                       : formatearLitros(tramo.litrosParciales),
                 ),
-                if (p != null && kmGps > 0)
+                if (p != null && total > 0)
                   _Dato(
                     titulo: 'Gastado, a tu promedio',
-                    valor: '≈ ${formatearLitros(p * kmGps / 100)}',
+                    valor: '≈ ${formatearLitros(p * total / 100)}',
                   ),
               ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              km.kmTablero > 0
+                  ? 'Tablero: ${formatearKm(km.kmTablero)} hasta el '
+                        '${formatearFecha(km.ultima.t)}'
+                        '${conFactor ? ", corregidos por el factor: ${formatearKm(km.kmCorregidos)}" : " (todavía sin factor de corrección)"}'
+                        '${km.kmGps > 0 ? "; más ${formatearKm(km.kmGps)} de GPS desde entonces" : ""}.'
+                  : 'Desde el lleno no se anotó otra lectura del tablero: '
+                        '${formatearKm(km.kmGps)} son de GPS. Anotá el '
+                        'odómetro al empezar o terminar un viaje y pasa a '
+                        'contar el tablero corregido.',
+              style: t.textTheme.bodySmall?.copyWith(
+                color: t.colorScheme.outline,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
