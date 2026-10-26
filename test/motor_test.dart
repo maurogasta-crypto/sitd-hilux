@@ -218,6 +218,25 @@ void main() {
       }
     });
 
+    test('andando, la búsqueda libre no pasa de 2.500 RPM (sitd-54)', () {
+      // 3.400 a 40 o 60 km/h no es ninguna marcha: sin tope, la libre lo
+      // daba tal cual, como en el viaje 24 del Note 9. Con el tope baja a
+      // la octava de abajo, que es lo que sonaba.
+      for (final kmh in [40.0, 60.0]) {
+        for (final semilla in [1, 2, 3]) {
+          final l = leerMotor(diesel(3400, semilla: semilla), kmh: kmh);
+          expect(l.marcha, isNull, reason: 'por marcha ${l.porMarcha}');
+          expect(l.rpm, isNotNull);
+          expect((l.rpm! - 1700).abs() / 1700, lessThan(0.02));
+        }
+      }
+      // Parado (sin velocidad) no se toca: la calibración pide hasta 2.000
+      // y el motor puede ir más arriba a propósito.
+      final parado = leerMotor(diesel(3400));
+      expect(parado.rpm, isNotNull);
+      expect((parado.rpm! - 3400).abs() / 3400, lessThan(0.02));
+    });
+
     test('con el embrague apretado (motor a ralentí andando a 80) no inventa marcha', () {
       final l = leerMotor(diesel(780), kmh: 80);
       expect(l.marcha, isNull, reason: 'por marcha ${l.porMarcha}');

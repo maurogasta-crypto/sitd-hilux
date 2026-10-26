@@ -417,6 +417,26 @@ LecturaMotor leerMotorPromediado(
     k = kDoble;
     s = sDoble;
   }
+  // Andando, la libre tampoco pasa de lo creíble (`sitd-54`): en el viaje 24
+  // del Note 9 tres escuchas sin marcha dieron 3.461 a 3.543 RPM a 50 y
+  // 82 km/h, la octava de arriba de lo que sonaba. Se baja de octava; si
+  // abajo no suena, la prominencia lo dice y la lectura sale sin RPM.
+  if (kmh != null && kmh > 0) {
+    while (k * porCasillero * 30 > rpmCreibleArribaDeOctava && k / 2 >= kMin) {
+      final mitad = k / 2;
+      var kMitad = mitad;
+      var sMitad = double.negativeInfinity;
+      for (var j = mitad.round() - 1; j <= mitad.round() + 1; j++) {
+        final sj = a.puntaje(j * 1.0);
+        if (sj > sMitad) {
+          sMitad = sj;
+          kMitad = j * 1.0;
+        }
+      }
+      k = kMitad;
+      s = sMitad;
+    }
+  }
   final prominencia = enDb(s);
   final vara = iguales.length >= trozosParaVaraBaja
       ? prominenciaMinimaPromediadaDb

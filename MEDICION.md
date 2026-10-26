@@ -433,6 +433,33 @@ solo no recibía la cuenta, y durante el viaje nadie la leía. Arreglado en
 
 ---
 
+## Las líneas que se repiten, a 200 Hz (viajes 23 y 24 del Note 9, 2026-10-26)
+
+Los picos de 15 a 100 Hz que guarda cada ventana desde `sitd-42`, divididos
+por la vuelta del motor (las RPM de la escucha más cercana), dan las MISMAS
+líneas en los dos viajes (137 y 240 km), y cada una tiene dueño:
+
+| Orden del motor en 5.ª | En 4.ª | Qué es |
+|---|---|---|
+| 0,67 (la más saliente, 16–18 dB) | 0,56 | la **rueda, 2 veces por vuelta** |
+| 1,00 | 0,83 | la rueda 3× en 5.ª; en 4.ª, 0,83 es la rueda 3× y 1,00 el motor/cardán |
+| 1,19 | 1,00 | el **cardán**, 1 vez por vuelta (5.ª 0,838: 1/0,838) |
+| 2,00 | 2,00 | el **encendido** (RPM/30) |
+
+**Ojo con la 5.ª:** 0,838 × 3,583 = 3,003, así que el motor da justo tres
+vueltas por vuelta de rueda y la rueda 3× cae ENCIMA del motor 1×. Para
+separarlos hace falta la 4.ª (o la 3.ª). Lo que no tiene dueño todavía es un
+manchón entre 0,86 y 0,95 en 5.ª, que puede ser una resonancia fija.
+
+Que la rueda 2× sea la línea más fuerte no es una falla por sí sola: es la
+referencia. Lo que serviría es seguir CADA línea por su orden, con su propia
+línea de base, y avisar si crece o si se corre de su orden. Eso es una tanda
+aparte (`hilux:D7`).
+
+Y de paso, las RPM que OYE el micrófono en 5.ª dan 20,68 por km/h (mediana de
+606 escuchas): es la vuelta de rueda MEDIDA (20,6) y no la de cinta (21,0).
+El sonido confirma la medición del garage por un camino independiente.
+
 ## Lo que este panel NO contesta
 
 **Dónde conviene poner el teléfono.** No hay un mejor soporte: hay uno mejor

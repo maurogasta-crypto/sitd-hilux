@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sitd_hilux/core/db/base.dart';
+import 'package:sitd_hilux/features/calibracion/calibracion.dart';
 import 'package:sitd_hilux/features/combustible/carga.dart';
 import 'package:sitd_hilux/features/combustible/registro_cargas.dart';
 import 'package:sitd_hilux/features/nube/cola.dart';
@@ -14,6 +15,7 @@ import 'package:sitd_hilux/features/nube/sesion.dart';
 import 'package:sitd_hilux/features/nube/subida.dart';
 import 'package:sitd_hilux/features/odometro/registro.dart';
 import 'package:sitd_hilux/features/respaldo/importar.dart';
+import 'package:sitd_hilux/features/vibracion/rueda.dart';
 
 import 'recorrido_nube_test.dart'
     show NubeFalsa, credencial, credencialPegada, sembrarViaje;
@@ -469,6 +471,47 @@ void main() {
         (await servicio(x, nube).subida.listarRespaldos(credencial: credencial))
             .lista
             .length;
+
+    test('la rueda medida en el otro teléfono vale al sumar, sin reabrir '
+        '(sitd-54)', () async {
+      usarCircunferenciaMedida(null);
+      final nube = NubeFalsa();
+      final a = telefonoConDatos('a');
+      RegistroDeCalibraciones(a.base).guardar(
+        Calibracion(
+          tipo: 'rueda',
+          inicio: 1000,
+          fin: 1000,
+          datos: medidaDeRueda(vueltas: 5, metros: 12.142).datos!,
+        ),
+      );
+      await servicio(a.base, nube).sincronizar(
+        base: a.base,
+        ruta: a.ruta,
+        carpeta: dir.path,
+        ahora: 1000,
+        porParte: 4000,
+      );
+      // B arrancó sin medida (la de cinta), y suma la copia de A.
+      usarCircunferenciaMedida(null);
+      final rutaB = '${dir.path}/b.db';
+      final b = Base.abrir(rutaB);
+      GuardaDeCredencial(b).guardar(credencialPegada);
+      expect(circunferenciaEsMedida, isFalse);
+      final r = await servicio(b, nube).sincronizar(
+        base: b,
+        ruta: rutaB,
+        carpeta: dir.path,
+        ahora: 2000,
+        porParte: 4000,
+      );
+      expect(r.falla, isNull);
+      expect(circunferenciaEsMedida, isTrue);
+      expect(circunferencia, closeTo(2.4284, 1e-4));
+      usarCircunferenciaMedida(null);
+      a.base.cerrar();
+      b.cerrar();
+    });
 
     test('dos teléfonos quedan con todo, y sin subir copias de más', () async {
       final nube = NubeFalsa();

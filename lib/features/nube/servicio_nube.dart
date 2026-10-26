@@ -575,6 +575,10 @@ class ServicioNube {
           eventos += t.eventos;
           sumados.add(r.id);
           base.escribirAjuste(claveDeRespaldosSumados, sumados.join(','));
+          // Una vuelta de rueda medida en el OTRO teléfono vale desde ya, no
+          // desde el próximo arranque (`sitd-54`): el viaje 24 del Note 9
+          // midió con la de cinta teniendo la medida en su base.
+          RegistroDeCalibraciones(base).aplicarRueda();
         }
         // Con el más nuevo se compara: si acá hay algo que allá no, se sube.
         if (r == ultimo) {

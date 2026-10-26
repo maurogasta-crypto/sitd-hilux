@@ -17,6 +17,7 @@ import '../features/nube/respaldo_nube.dart';
 import '../features/nube/servicio_nube.dart';
 import '../features/nube/subida.dart';
 import '../core/version.dart';
+import '../features/calibracion/calibracion.dart';
 import '../features/combustible/registro_cargas.dart';
 import '../features/odometro/registro.dart';
 import '../features/respaldo/reporte.dart';
@@ -365,6 +366,8 @@ class _PantallaRespaldoState extends State<PantallaRespaldo> {
             'Listo: quedaron ${ahora.resumen}. Volvé a la pantalla '
                 'principal para verlos.';
       }
+      // Lo que entró puede traer una vuelta de rueda medida (`sitd-54`).
+      RegistroDeCalibraciones(widget.base).aplicarRueda();
       if (mounted) setState(() => _resultado = texto);
       return texto;
     } catch (e) {

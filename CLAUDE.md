@@ -990,6 +990,17 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   (`corregirOctavaIncreible`, en `leerMotor` y en `decidirMarcha`). Esa vara
   bajó de 3.000 a 2.500. En el viaje 23 del Note 9 (137 km): 37 «2.ª» a
   3.400–4.100 RPM pasan a 4.ª, y la mediana queda en unas 2.000 RPM.
+  **Y desde `sitd-54` tampoco la búsqueda LIBRE pasa de esa vara andando**: en
+  el viaje 24 (240 km, sitd-51) tres escuchas sin marcha dieron 3.461–3.543 RPM
+  a 50 y 82 km/h; ahora bajan de octava. Parado (sin velocidad) no se toca.
+
+- **Lo que se aprende sumando un respaldo vale EN EL ACTO** (`sitd-54`). La
+  vuelta de rueda medida se aplicaba sólo al abrir la app, y el Note 9 la
+  recibió del Redmi 15 al sincronizar: el viaje 24 midió con la de cinta
+  (`circunferenciaMedida: false` en su reporte) teniendo la medida en su
+  base. Es la cuarta vez de la regla «un dato que se aprende con la app
+  abierta no se lee una sola vez al arrancar»: ahora `sincronizar` y la
+  pantalla de Respaldo llaman a `aplicarRueda()` después de sumar.
 
 - **El tacómetro de la pantalla es la marcha OÍDA y las RPM del GPS**
   (`sitd-39`, 17-oct-2026). Mauro: «no era verdaderamente dinámica la
