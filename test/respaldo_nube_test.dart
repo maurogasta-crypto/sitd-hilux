@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sitd_hilux/core/db/base.dart';
+import 'package:sitd_hilux/features/combustible/carga.dart';
+import 'package:sitd_hilux/features/combustible/registro_cargas.dart';
 import 'package:sitd_hilux/features/nube/cola.dart';
 import 'package:sitd_hilux/features/nube/credencial.dart';
 import 'package:sitd_hilux/features/nube/respaldo_nube.dart';
@@ -660,6 +662,19 @@ void main() {
       );
       expect(r.borrados, 0);
       expect(await enLaNube(a.base, nube), 5);
+      a.base.cerrar();
+    });
+
+    test('corregir lleno/parcial también hace subir otra copia (sitd-51)', () {
+      final a = telefonoConDatos('a');
+      final id = RegistroDeCargas(a.base)
+          .guardar(const Carga(t: 1758500000000, litros: 20, odoTablero: 5000));
+      a.base.db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
+      final copia = '${dir.path}/copia-cargas.db';
+      File(a.ruta).copySync(copia);
+      expect(loQueFaltaEnElRespaldo(viva: a.base, ruta: copia).filas, 0);
+      RegistroDeCargas(a.base).marcarLleno(id, false);
+      expect(loQueFaltaEnElRespaldo(viva: a.base, ruta: copia).filas, 1);
       a.base.cerrar();
     });
 

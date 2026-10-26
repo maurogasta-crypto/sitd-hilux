@@ -184,6 +184,16 @@ class RegistroDeViajes {
   /// mató la aplicación en medio de un viaje —y MIUI lo hace—, al volver a
   /// abrir queda una fila con `fin` en nulo y sus puntos guardados. No se
   /// pierde nada: se retoma ese viaje y se sigue.
+  /// Los metros que midió el GPS en los viajes que empezaron desde [t]
+  /// (`sitd-51`: lo andado desde el último tanque lleno).
+  double metrosDesde(int t) {
+    final f = base.db.select(
+      'SELECT COALESCE(SUM(metros), 0) AS m FROM viajes WHERE inicio >= ?',
+      [t],
+    );
+    return (f.first['m'] as num).toDouble();
+  }
+
   Viaje? get abierto {
     final f = base.db.select(
       '$_seleccion WHERE fin IS NULL ORDER BY inicio DESC LIMIT 1',

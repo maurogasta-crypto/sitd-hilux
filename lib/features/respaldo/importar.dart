@@ -333,7 +333,12 @@ RevisionRespaldo revisarRespaldo({required Base viva, required String ruta}) {
       'pruebas_sensor',
       'calibraciones',
     ]) {
-      final llave = llaveNatural[tabla]!;
+      // sitd-51: de una carga cuenta también la marca de lleno o parcial,
+      // que se puede corregir después: corregida acá, la nube tiene que
+      // enterarse.
+      final llave = tabla == 'cargas'
+          ? [...llaveNatural[tabla]!, 'tanque_lleno']
+          : llaveNatural[tabla]!;
       final campos = llave.join(', ');
       Set<String> de(Database d) {
         try {

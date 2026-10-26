@@ -19,6 +19,45 @@ Carga carga(
 );
 
 void main() {
+  group('el tramo en curso (sitd-51)', () {
+    test('sin un lleno no hay tramo', () {
+      expect(tramoEnCurso([]), isNull);
+      expect(tramoEnCurso([carga(1, 30, 1000, lleno: false)]), isNull);
+    });
+
+    test('desde el último lleno, con sus parciales', () {
+      final t = tramoEnCurso([
+        carga(1, 60, 1000),
+        carga(5, 70, 1700),
+        carga(8, 20, 1900, lleno: false),
+        carga(9, 15, 2050, lleno: false),
+      ])!;
+      expect(t.apertura.odoTablero, 1700);
+      expect(t.parciales, hasLength(2));
+      expect(t.litrosParciales, 35);
+      expect(t.ultimoOdometro, 2050);
+    });
+
+    test('recién llenado: el tramo arranca sin parciales', () {
+      final t = tramoEnCurso([carga(1, 60, 1000), carga(5, 70, 1700)])!;
+      expect(t.parciales, isEmpty);
+      expect(t.ultimoOdometro, 1700);
+    });
+
+    test('marcar las dos últimas como parciales cambia dónde se cierra', () {
+      // El caso del 26-oct: dos parciales quedaron como llenas.
+      final mal = [carga(1, 60, 1000), carga(5, 20, 1300), carga(8, 25, 1600)];
+      expect(calcularConsumo(mal).ventanas, hasLength(2));
+      final bien = [
+        carga(1, 60, 1000),
+        carga(5, 20, 1300, lleno: false),
+        carga(8, 25, 1600, lleno: false),
+      ];
+      expect(calcularConsumo(bien).ventanas, isEmpty);
+      expect(tramoEnCurso(bien)!.litrosParciales, 45);
+    });
+  });
+
   group('calcularConsumo', () {
     test('sin cargas no hay nada, y eso no es un cero', () {
       final c = calcularConsumo([]);

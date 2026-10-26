@@ -102,6 +102,37 @@ class Consumo {
   }
 }
 
+/// Lo que va desde el último tanque lleno (`sitd-51`, Mauro: «un control
+/// para tener la actualización en tiempo real del consumo»). El consumo de
+/// verdad recién se sabe en el próximo lleno; mientras tanto se muestra lo
+/// que hay: desde cuándo, desde qué odómetro, y cuántas cargas PARCIALES
+/// entraron en el medio, con sus litros.
+class TramoEnCurso {
+  /// La carga que lo abrió: el último tanque lleno.
+  final Carga apertura;
+
+  /// Las cargas parciales que vinieron después, de la más vieja a la nueva.
+  final List<Carga> parciales;
+
+  const TramoEnCurso({required this.apertura, required this.parciales});
+
+  double get litrosParciales => parciales.fold(0.0, (s, c) => s + c.litros);
+
+  /// El último odómetro anotado en el tramo (el de la apertura o el de la
+  /// última parcial).
+  double get ultimoOdometro => parciales.isEmpty
+      ? apertura.odoTablero
+      : parciales.map((c) => c.odoTablero).reduce((a, b) => a > b ? a : b);
+}
+
+/// El tramo abierto, o `null` si todavía no hubo un tanque lleno.
+TramoEnCurso? tramoEnCurso(List<Carga> cargas) {
+  final orden = [...cargas]..sort((a, b) => a.t.compareTo(b.t));
+  var i = orden.lastIndexWhere((c) => c.tanqueLleno);
+  if (i < 0) return null;
+  return TramoEnCurso(apertura: orden[i], parciales: orden.sublist(i + 1));
+}
+
 /// Calcula el consumo de lleno a lleno.
 ///
 /// **Por qué de lleno a lleno y no carga a carga.** La única vez que se sabe

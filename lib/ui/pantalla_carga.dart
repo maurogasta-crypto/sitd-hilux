@@ -28,7 +28,9 @@ class _PantallaCargaState extends State<PantallaCarga> {
   final _notas = TextEditingController();
 
   String _moneda = 'UYU';
-  bool _lleno = true;
+  // sitd-51: sin valor de entrada. Venía prendido y dos cargas parciales
+  // quedaron como llenas sin que nadie lo eligiera.
+  bool? _lleno;
   String? _problema;
 
   @override
@@ -54,12 +56,15 @@ class _PantallaCargaState extends State<PantallaCarga> {
       costo: _costo.text.trim().isEmpty ? null : _numero(_costo.text),
       moneda: _moneda,
       odoTablero: odometro ?? 0,
-      tanqueLleno: _lleno,
+      tanqueLleno: _lleno ?? true,
       estacion: _estacion.text.trim().isEmpty ? null : _estacion.text.trim(),
       notas: _notas.text.trim().isEmpty ? null : _notas.text.trim(),
     );
 
     var problema = carga.problema;
+    if (problema == null && _lleno == null) {
+      problema = 'Elegí si cargaste hasta el corte o fue una carga parcial.';
+    }
     // El odómetro no retrocede. Si retrocedió, casi siempre es que se
     // tecleó el cuentakilómetros parcial en vez del total.
     final previo = widget.odometroPrevio;
@@ -159,15 +164,31 @@ class _PantallaCargaState extends State<PantallaCarga> {
             ],
           ),
           const SizedBox(height: 8),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: _lleno,
-            onChanged: (v) => setState(() => _lleno = v),
-            title: const Text('Tanque lleno'),
-            subtitle: const Text(
-              'El consumo se calcula de un tanque lleno al siguiente. Una '
-              'carga parcial no cierra el tramo, pero sus litros cuentan.',
-            ),
+          Text('¿Hasta dónde cargaste?'),
+          const SizedBox(height: 6),
+          SegmentedButton<bool>(
+            emptySelectionAllowed: true,
+            segments: const [
+              ButtonSegment(
+                value: true,
+                label: Text('Hasta el corte'),
+                icon: Icon(Icons.local_gas_station),
+              ),
+              ButtonSegment(
+                value: false,
+                label: Text('Parcial'),
+                icon: Icon(Icons.opacity),
+              ),
+            ],
+            selected: {?_lleno},
+            onSelectionChanged: (s) =>
+                setState(() => _lleno = s.isEmpty ? null : s.first),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'El consumo se calcula de un llenado hasta el corte al siguiente. '
+            'Una parcial no cierra el tramo, pero sus litros cuentan.',
+            style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 8),
           TextField(

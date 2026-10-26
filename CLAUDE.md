@@ -585,6 +585,22 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   Cualquier otra cuenta depende de adivinar cuánto quedaba, y ese error se
   arrastra a todas las cargas siguientes.
 
+- **Hasta el corte o parcial se ELIGE, no viene puesto** (`sitd-51`,
+  26-oct-2026, Mauro: «las últimas dos cargas fueron parciales; quiero que
+  quede anotado cuando se hace el llenado hasta el corte y cuando es una carga
+  parcial… es un control para tener la actualización en tiempo real del
+  consumo»). La marca existía desde la etapa C, pero como un interruptor
+  PRENDIDO por defecto: sin tocarlo, una parcial quedaba como llena y cerraba
+  un tramo que no era. Ahora son dos botones y sin elegir uno no se guarda; una
+  carga ya guardada se corrige tocándola en la lista (`marcarLleno`: es lo
+  único que se corrige de una carga). Y arriba de la lista va **el tramo en
+  curso** (`tramoEnCurso`): desde el último lleno, lo andado por GPS, las
+  parciales con sus litros y lo gastado **a tu promedio**, dicho como
+  estimado; el consumo de verdad sigue saliendo en el próximo llenado. Una
+  corrección cuenta para sincronizar (`loQueFaltaEnElRespaldo` mira también la
+  marca), pero en el OTRO teléfono gana su copia, como siempre: se corrige en
+  el que va a bordo.
+
 - **El promedio de consumo pesa por kilómetro, no por tramo.** El promedio de
   los promedios haría que una carga corta en ciudad valiera lo mismo que una
   tirada de 600 km.

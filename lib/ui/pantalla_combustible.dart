@@ -40,6 +40,35 @@ class _PantallaCombustibleState extends State<PantallaCombustible> {
     if (mounted) setState(() {});
   }
 
+  /// Corregir la marca de una carga ya guardada (`sitd-51`).
+  Future<void> _corregir(Carga c) async {
+    final id = c.id;
+    if (id == null) return;
+    final lleno = await showDialog<bool>(
+      context: context,
+      builder: (d) => SimpleDialog(
+        title: Text('${formatearLitros(c.litros)} · ${formatearFecha(c.t)}'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(d, true),
+            child: Text(
+              '${c.tanqueLleno ? "✓ " : ""}Hasta el corte (cierra el tramo)',
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(d, false),
+            child: Text(
+              '${c.tanqueLleno ? "" : "✓ "}Parcial (sus litros cuentan en el tramo)',
+            ),
+          ),
+        ],
+      ),
+    );
+    if (lleno == null || lleno == c.tanqueLleno) return;
+    widget.cargas.marcarLleno(id, lleno);
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
@@ -55,6 +84,14 @@ class _PantallaCombustibleState extends State<PantallaCombustible> {
         children: [
           _Consumo(consumo: consumo, tanque: tanque),
           const SizedBox(height: 12),
+          if (tramoEnCurso(cargas) case final tramo?) ...[
+            _TramoEnCurso(
+              tramo: tramo,
+              kmGps: widget.viajes.metrosDesde(tramo.apertura.t) / 1000,
+              promedio: consumo.litrosCada100,
+            ),
+            const SizedBox(height: 12),
+          ],
           _Factor(factor: factor),
           const SizedBox(height: 16),
           Text('Cargas', style: t.textTheme.titleMedium),
@@ -66,7 +103,15 @@ class _PantallaCombustibleState extends State<PantallaCombustible> {
               'que lo empieza a contar.',
               style: t.textTheme.bodySmall,
             ),
-          for (final c in cargas.reversed) _FilaCarga(carga: c),
+          if (cargas.isNotEmpty)
+            Text(
+              'Tocá una carga para corregir si fue hasta el corte o parcial.',
+              style: t.textTheme.bodySmall?.copyWith(
+                color: t.colorScheme.outline,
+              ),
+            ),
+          for (final c in cargas.reversed)
+            _FilaCarga(carga: c, alTocar: () => _corregir(c)),
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -230,8 +275,9 @@ class _Factor extends StatelessWidget {
 
 class _FilaCarga extends StatelessWidget {
   final Carga carga;
+  final VoidCallback? alTocar;
 
-  const _FilaCarga({required this.carga});
+  const _FilaCarga({required this.carga, this.alTocar});
 
   @override
   Widget build(BuildContext context) {
@@ -239,6 +285,7 @@ class _FilaCarga extends StatelessWidget {
     final precio = carga.precioPorLitro;
     return ListTile(
       contentPadding: EdgeInsets.zero,
+      onTap: alTocar,
       leading: Icon(
         carga.tanqueLleno ? Icons.local_gas_station : Icons.opacity,
         color: carga.tanqueLleno ? t.colorScheme.primary : null,
@@ -250,9 +297,77 @@ class _FilaCarga extends StatelessWidget {
       subtitle: Text(
         '${formatearFecha(carga.t)} · '
         '${carga.odoTablero.toStringAsFixed(0)} km'
-        '${carga.tanqueLleno ? "" : " · parcial"}'
+        '${carga.tanqueLleno ? " · hasta el corte" : " · parcial"}'
         '${precio == null ? "" : " · ${formatearDinero(precio, carga.moneda)}/L"}'
         '${carga.estacion == null ? "" : " · ${carga.estacion}"}',
+      ),
+    );
+  }
+}
+
+/// Lo que va desde el último llenado hasta el corte (`sitd-51`). El consumo
+/// de verdad se sabe en el próximo llenado; esto es el control mientras
+/// tanto, con lo que se sabe y lo estimado dicho como estimado.
+class _TramoEnCurso extends StatelessWidget {
+  final TramoEnCurso tramo;
+  final double kmGps;
+  final double? promedio;
+
+  const _TramoEnCurso({
+    required this.tramo,
+    required this.kmGps,
+    required this.promedio,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final n = tramo.parciales.length;
+    final p = promedio;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Desde el último lleno', style: t.textTheme.titleMedium),
+            Text(
+              '${formatearFecha(tramo.apertura.t)} · '
+              '${tramo.apertura.odoTablero.toStringAsFixed(0)} km en el tablero',
+              style: t.textTheme.bodySmall?.copyWith(
+                color: t.colorScheme.outline,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 24,
+              runSpacing: 12,
+              children: [
+                _Dato(titulo: 'Andado (GPS)', valor: formatearKm(kmGps)),
+                _Dato(
+                  titulo: n == 0
+                      ? 'Cargas parciales'
+                      : '$n ${n == 1 ? "parcial" : "parciales"}',
+                  valor: n == 0
+                      ? 'ninguna'
+                      : formatearLitros(tramo.litrosParciales),
+                ),
+                if (p != null && kmGps > 0)
+                  _Dato(
+                    titulo: 'Gastado, a tu promedio',
+                    valor: '≈ ${formatearLitros(p * kmGps / 100)}',
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'El consumo de este tramo se sabe en el próximo llenado hasta '
+              'el corte: entre los dos, lo que entra es lo que se gastó, '
+              'parciales incluidas.',
+              style: t.textTheme.bodySmall,
+            ),
+          ],
+        ),
       ),
     );
   }

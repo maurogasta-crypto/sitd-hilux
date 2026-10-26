@@ -23,6 +23,17 @@ void main() {
   });
 
   group('cargas', () {
+    test('la marca de lleno o parcial se corrige (sitd-51)', () {
+      final id = cargas.guardar(
+        const Carga(t: 1000, litros: 20, odoTablero: 5000),
+      );
+      expect(cargas.todas().single.tanqueLleno, isTrue);
+      cargas.marcarLleno(id, false);
+      expect(cargas.todas().single.tanqueLleno, isFalse);
+      cargas.marcarLleno(id, true);
+      expect(cargas.todas().single.tanqueLleno, isTrue);
+    });
+
     test('una carga vuelve entera de la base', () {
       cargas.guardar(
         const Carga(

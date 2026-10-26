@@ -38,6 +38,14 @@ class RegistroDeCargas {
     return base.db.lastInsertRowId;
   }
 
+  /// Corrige si una carga fue hasta el corte o parcial (`sitd-51`). Es lo
+  /// único que se corrige de una carga ya guardada: es la marca que decide
+  /// dónde se cierra un tramo, y antes venía prendida por defecto.
+  void marcarLleno(int id, bool lleno) => base.db.execute(
+    'UPDATE cargas SET tanque_lleno = ? WHERE id = ?',
+    [lleno ? 1 : 0, id],
+  );
+
   void borrar(int id) =>
       base.db.execute('DELETE FROM cargas WHERE id = ?', [id]);
 
