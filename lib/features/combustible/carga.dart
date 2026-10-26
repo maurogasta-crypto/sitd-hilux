@@ -32,6 +32,15 @@ class Carga {
   final String? estacion;
   final String? notas;
 
+  /// Dónde se cargó (`sitd-53`): para reconocer la estación después. `null`
+  /// si al guardar el teléfono no tenía posición. **No viaja en el reporte
+  /// para desarrollo**, que no lleva una sola coordenada.
+  final double? lat;
+  final double? lon;
+
+  /// Con cuántos metros de error se tomó esa posición.
+  final double? precisionM;
+
   const Carga({
     required this.t,
     required this.litros,
@@ -42,7 +51,12 @@ class Carga {
     this.tanqueLleno = true,
     this.estacion,
     this.notas,
+    this.lat,
+    this.lon,
+    this.precisionM,
   });
+
+  bool get tieneLugar => lat != null && lon != null;
 
   /// Qué tiene de malo esta carga, o `null` si está bien.
   ///

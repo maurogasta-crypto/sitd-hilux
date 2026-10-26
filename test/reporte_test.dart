@@ -76,8 +76,18 @@ void main() {
         bandas: List<double>.filled(8, 0.1),
       ),
     );
+    // sitd-53: la carga lleva DÓNDE se hizo. La prueba de abajo comprueba
+    // que esas coordenadas tampoco salen en el reporte para desarrollo.
     cargas.guardar(
-      const Carga(t: 2000, litros: 60, costo: 3900, odoTablero: 254300),
+      const Carga(
+        t: 2000,
+        litros: 60,
+        costo: 3900,
+        odoTablero: 254300,
+        lat: lat,
+        lon: lon,
+        precisionM: 8,
+      ),
     );
   });
 

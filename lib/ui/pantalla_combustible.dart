@@ -305,7 +305,8 @@ class _FilaCarga extends StatelessWidget {
         '${carga.odoTablero.toStringAsFixed(0)} km'
         '${carga.tanqueLleno ? " · hasta el corte" : " · parcial"}'
         '${precio == null ? "" : " · ${formatearDinero(precio, carga.moneda)}/L"}'
-        '${carga.estacion == null ? "" : " · ${carga.estacion}"}',
+        '${carga.estacion == null ? "" : " · ${carga.estacion}"}'
+        '${carga.tieneLugar ? " · 📍" : ""}',
       ),
     );
   }

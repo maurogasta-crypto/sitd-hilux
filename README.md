@@ -392,9 +392,14 @@ aprendiendo de cómo vibra la camioneta a cada velocidad, y los avisos si algo
 cambió. No hay nada que tocar ahí — se mide sola mientras el viaje anda.
 
 El icono del surtidor, arriba, lleva a **Combustible**: ahí se anota cada
-carga —litros, odómetro del tablero, costo, si quedó lleno— y se ven el
-consumo, el costo por kilómetro y el factor de neumáticos. Nada de eso se
-guarda calculado: sale de las cargas cada vez que se abre la pantalla.
+carga —litros, odómetro del tablero, costo, si fue hasta el corte o
+parcial— y se ven el consumo **en km por litro** (desde `sitd-53`), el costo
+por kilómetro y el factor de neumáticos. Nada de eso se guarda calculado: sale
+de las cargas cada vez que se abre la pantalla. **Cada carga se guarda con
+dónde se hizo** (`sitd-53`, esquema 12): al abrir el formulario se toma la
+ubicación, y la lista marca con 📍 las que la tienen —para reconocer la
+estación más adelante—. Sin señal la carga se guarda igual. Esas coordenadas
+**no viajan en el reporte para desarrollo**: sí en el respaldo completo.
 
 Arriba, los kilómetros en grande y la velocidad. Abajo, lo que hay que mirar
 cuando algo no cuadra: muestras usadas, descartadas, **sin velocidad**, cortes,
@@ -651,7 +656,7 @@ android/…/MainActivity.kt    El ÚNICO código nativo: el puente con
 
 | Archivo | Sello | Dónde |
 |---|---|---|
-| Aplicación | `sitd-52` | `lib/core/version.dart` |
+| Aplicación | `sitd-53` | `lib/core/version.dart` |
 | Esquema de la base | `11` | `lib/core/db/esquema.dart` |
 
 Ante una discrepancia entre esta tabla y el sello escrito adentro del archivo,

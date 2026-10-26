@@ -42,7 +42,8 @@ void main() {
   group('combustible', () {
     test('litros y consumo van con coma', () {
       expect(formatearLitros(62.53), '62,5 L');
-      expect(formatearConsumo(10.24), '10,2 L/100 km');
+      expect(formatearConsumo(10.24), '9,8 km/L');
+      expect(formatearConsumo(0), '—');
     });
 
     test('la plata lleva su moneda adelante, y nunca se suman dos', () {

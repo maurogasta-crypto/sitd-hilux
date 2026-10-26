@@ -23,6 +23,29 @@ void main() {
   });
 
   group('cargas', () {
+    test(
+      'la carga guarda DÓNDE se hizo, y sin ubicación también (sitd-53)',
+      () {
+        cargas.guardar(
+          const Carga(
+            t: 1000,
+            litros: 40,
+            odoTablero: 5000,
+            lat: -34.9,
+            lon: -56.2,
+            precisionM: 12,
+          ),
+        );
+        cargas.guardar(const Carga(t: 2000, litros: 30, odoTablero: 5400));
+        final todas = cargas.todas();
+        expect(todas.first.lat, -34.9);
+        expect(todas.first.lon, -56.2);
+        expect(todas.first.precisionM, 12);
+        expect(todas.first.tieneLugar, isTrue);
+        expect(todas.last.tieneLugar, isFalse);
+      },
+    );
+
     test('la marca de lleno o parcial se corrige (sitd-51)', () {
       final id = cargas.guardar(
         const Carga(t: 1000, litros: 20, odoTablero: 5000),

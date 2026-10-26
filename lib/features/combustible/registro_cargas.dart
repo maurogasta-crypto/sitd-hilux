@@ -23,7 +23,8 @@ class RegistroDeCargas {
     if (problema != null) throw ArgumentError(problema);
     base.db.execute(
       'INSERT INTO cargas (t, litros, costo, moneda, odo_tablero, '
-      'tanque_lleno, estacion, notas) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'tanque_lleno, estacion, notas, lat, lon, precision_m) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         c.t,
         c.litros,
@@ -33,6 +34,9 @@ class RegistroDeCargas {
         c.tanqueLleno ? 1 : 0,
         c.estacion,
         c.notas,
+        c.lat,
+        c.lon,
+        c.precisionM,
       ],
     );
     return base.db.lastInsertRowId;
@@ -66,6 +70,9 @@ class RegistroDeCargas {
           tanqueLleno: (f['tanque_lleno'] as int) != 0,
           estacion: f['estacion'] as String?,
           notas: f['notas'] as String?,
+          lat: (f['lat'] as num?)?.toDouble(),
+          lon: (f['lon'] as num?)?.toDouble(),
+          precisionM: (f['precision_m'] as num?)?.toDouble(),
         ),
       )
       .toList();

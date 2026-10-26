@@ -37,9 +37,13 @@ String formatearDuracion(int ms) {
 String formatearLitros(double litros) =>
     '${litros.toStringAsFixed(1).replaceAll('.', ',')} L';
 
-/// Consumo en litros cada 100 km, que es como se habla en Uruguay.
-String formatearConsumo(double litrosCada100) =>
-    '${litrosCada100.toStringAsFixed(1).replaceAll('.', ',')} L/100 km';
+/// En km por litro (`sitd-53`, Mauro: «el consumo se tiene que medir en
+/// kilómetros por litro»). Adentro se sigue calculando en litros cada 100 km
+/// —es lo que se promedia por kilómetro sin sesgo—, y se da vuelta sólo para
+/// mostrarlo.
+String formatearConsumo(double litrosCada100) => litrosCada100 <= 0
+    ? '—'
+    : '${(100 / litrosCada100).toStringAsFixed(1).replaceAll('.', ',')} km/L';
 
 /// Plata, con su moneda adelante y **nunca** sumada con otra.
 ///

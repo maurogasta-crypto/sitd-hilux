@@ -13,7 +13,7 @@
 library;
 
 /// Versión del esquema. Es la que queda escrita en `PRAGMA user_version`.
-const int versionEsquema = 11;
+const int versionEsquema = 12;
 
 /// Cada elemento son las sentencias que llevan el esquema de la versión
 /// `índice` a la `índice + 1`. Nunca se edita una migración ya publicada: se
@@ -303,6 +303,15 @@ const List<List<String>> migraciones = [
     )
     ''',
     'CREATE INDEX idx_calibraciones_inicio ON calibraciones (inicio DESC)',
+  ],
+  // 11 → 12 (`sitd-53`, Mauro: «cuando se guarda un registro de carga de
+  // combustible se deben adjuntar las coordenadas GPS del lugar para
+  // identificar la estación en el futuro»). NULL si al guardar no hubo
+  // posición. Como el recorrido, NO viajan en el reporte para desarrollo.
+  [
+    'ALTER TABLE cargas ADD COLUMN lat REAL',
+    'ALTER TABLE cargas ADD COLUMN lon REAL',
+    'ALTER TABLE cargas ADD COLUMN precision_m REAL',
   ],
 ];
 

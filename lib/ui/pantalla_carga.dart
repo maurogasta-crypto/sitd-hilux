@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../features/combustible/carga.dart';
 
@@ -14,13 +15,75 @@ class PantallaCarga extends StatefulWidget {
   /// La última lectura del odómetro que se conoce, para proponerla.
   final double? odometroPrevio;
 
-  const PantallaCarga({super.key, this.odometroPrevio});
+  /// Dónde está el teléfono (`sitd-53`). Por defecto, el GPS; el banco pone
+  /// otra cosa.
+  final Future<LugarDeCarga?> Function() ubicar;
+
+  const PantallaCarga({
+    super.key,
+    this.odometroPrevio,
+    this.ubicar = ubicarConGps,
+  });
 
   @override
   State<PantallaCarga> createState() => _PantallaCargaState();
 }
 
+/// La posición de una carga: dónde y con cuánto error.
+typedef LugarDeCarga = ({double lat, double lon, double precision});
+
+/// Pide UNA posición al GPS, hasta 20 s. Si no llega, la última conocida si
+/// tiene menos de 10 minutos (parado en la estación, sigue siendo ésa). No
+/// lanza: sin posición, la carga se guarda igual.
+Future<LugarDeCarga?> ubicarConGps() async {
+  try {
+    final permiso = await Geolocator.checkPermission();
+    if (permiso == LocationPermission.denied ||
+        permiso == LocationPermission.deniedForever) {
+      return null;
+    }
+    Position? p;
+    try {
+      p = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+    } catch (_) {
+      final u = await Geolocator.getLastKnownPosition();
+      if (u != null &&
+          DateTime.now().difference(u.timestamp) <
+              const Duration(minutes: 10)) {
+        p = u;
+      }
+    }
+    if (p == null) return null;
+    return (lat: p.latitude, lon: p.longitude, precision: p.accuracy);
+  } catch (_) {
+    return null;
+  }
+}
+
 class _PantallaCargaState extends State<PantallaCarga> {
+  // sitd-53: la posición se pide al ABRIR, así cuando se termina de teclear
+  // ya está. `_buscando` mientras tanto.
+  LugarDeCarga? _lugar;
+  bool _buscando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.ubicar().then((l) {
+      if (mounted) {
+        setState(() {
+          _lugar = l;
+          _buscando = false;
+        });
+      }
+    });
+  }
+
   final _litros = TextEditingController();
   final _costo = TextEditingController();
   final _odometro = TextEditingController();
@@ -59,6 +122,9 @@ class _PantallaCargaState extends State<PantallaCarga> {
       tanqueLleno: _lleno ?? true,
       estacion: _estacion.text.trim().isEmpty ? null : _estacion.text.trim(),
       notas: _notas.text.trim().isEmpty ? null : _notas.text.trim(),
+      lat: _lugar?.lat,
+      lon: _lugar?.lon,
+      precisionM: _lugar?.precision,
     );
 
     var problema = carga.problema;
@@ -198,6 +264,28 @@ class _PantallaCargaState extends State<PantallaCarga> {
               labelText: 'Estación (opcional)',
               border: OutlineInputBorder(),
             ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                _lugar != null ? Icons.place : Icons.location_searching,
+                size: 18,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _buscando
+                      ? 'Tomando la ubicación de la estación…'
+                      : _lugar != null
+                      ? 'Ubicación de la estación guardada con la carga '
+                            '(±${_lugar!.precision.round()} m)'
+                      : 'Sin ubicación: la carga se guarda igual',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           TextField(

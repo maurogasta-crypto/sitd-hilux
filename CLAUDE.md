@@ -611,6 +611,20 @@ fe creyendo que fueron un descuido, rompen el proyecto en silencio.
   tablero no se lee solo. Una lectura que retrocede no resta. La pantalla dice
   qué parte es de cada uno.
 
+- **El consumo se MUESTRA en km por litro, y se calcula en litros cada 100**
+  (`sitd-53`, 26-oct-2026, Mauro: «el consumo se tiene que medir en kilómetros
+  por litro»). Adentro sigue `litrosCada100`, que es lo que se promedia por
+  kilómetro; `formatearConsumo` lo da vuelta sólo al mostrarlo.
+
+- **Cada carga guarda DÓNDE se hizo** (`sitd-53`, esquema 12: `lat`, `lon`,
+  `precision_m` en `cargas`; Mauro: «adjuntar las coordenadas GPS del lugar
+  para identificar la estación en el futuro»). Se toma al abrir el formulario
+  (`ubicarConGps`: hasta 20 s, si no la última conocida de menos de 10 min) y
+  nunca traba: sin señal se guarda sin lugar. **Es una coordenada, así que no
+  va en el reporte para desarrollo** —`reporte_test` siembra una carga con
+  lugar y busca la coordenada en el texto entero—; viaja en el respaldo
+  completo, como el recorrido.
+
 - **El promedio de consumo pesa por kilómetro, no por tramo.** El promedio de
   los promedios haría que una carga corta en ciudad valiera lo mismo que una
   tirada de 600 km.
