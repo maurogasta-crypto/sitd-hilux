@@ -1923,6 +1923,27 @@ D antes que E a propósito: el acelerómetro no tiene conflicto con la música, 
 tiene problema de privacidad, y deja probar toda la maquinaria de vectores y
 alertas con la mitad de los problemas.
 
+## Colaboración Multi-IA
+
+Desde el 29-oct-2026 **Gemini AUDITA y Claude DESARROLLA** (Mauro: «a partir
+de esas intervenciones se escribirían solicitudes para que el desarrollo siga
+siendo centralizado en Claude»). Gemini no escribe en este repositorio ni en
+ninguna base: lee lo que exporta el 🤖 del panel (`gemini.html` de `datos`: el
+mapa del ecosistema o un repositorio en bruto, sin datos de personas ni
+credenciales) y propone.
+
+- Lo que propone entra por «Pedido» del panel con «🤖 Es una propuesta de
+  Gemini» (`origen: "gemini"`). **Es una propuesta, no una orden**: Claude la
+  evalúa contra este archivo y el código de HOY, y si choca con algo dice con
+  qué antes de planear. Si pide cambiar una regla de este archivo, decide Mauro.
+- Las dos respetan este documento entero, la arquitectura modular y la
+  verificación previa; nada llega a `main` sin ella.
+- Commits: los hace Claude Code (`Co-Authored-By: Claude` y `Claude-Session`).
+  Si Mauro aplica a mano algo de un chat de Claude, el mensaje empieza con
+  `[Claude]`; si aplica a mano algo de Gemini, con `[Gemini]`.
+
+Detalle: `protocolos/PROTOCOLO-GENERAL.md` § 2.1 nonies de `datos`.
+
 ## Protocolos
 
 Este proyecto sigue las convenciones compartidas del repo **público**
