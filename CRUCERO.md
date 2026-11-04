@@ -1,6 +1,8 @@
 # Control crucero para la Hilux — plan
 
-> Estado: **plan, nada instalado ni escrito en código.** Pedido de Mauro,
+> Estado: **plan, nada instalado ni escrito en código.** 4-nov: Mauro midió
+> **0 V en E5-21** (la ECU no tiene crucero) y descarta la ECU nueva y el kit por
+> costo: el camino es la **Fase 3**, y su costo está en el § 6. Pedido de Mauro,
 > 4-nov-2026: «agregar este proyecto a la Hilux… la ECU de mi camioneta no tiene
 > integradas las rutinas del regulador de velocidad… instalé el joystick en el
 > volante… incorporarle un mecanismo de control del acelerador en tiempo real…
@@ -127,6 +129,55 @@ El joystick se lee ahí: una entrada analógica con divisor, un umbral por botó
 - Hacer la Fase 0 y mandar los cuatro datos (el resto depende de eso).
 - Antes de la Fase 3: es una modificación de un mando del vehículo. Puede
   afectar el seguro y la habilitación; conviene preguntar antes de construir.
+
+## 6. Cuánto cuesta la Fase 3 hecha con seguridad (estimación, 4-nov-2026)
+
+Precios aproximados en dólares, de tienda internacional (AliExpress y
+similares) y de desarmadero; en Uruguay, comprado en el país, suele ser entre
+1,5 y 2 veces más. **A confirmar antes de comprar**, igual que lo que corresponda
+pagar al importar.
+
+**La placa (lo que va en la camioneta)**
+
+| Pieza | Para qué | US$ aprox. |
+|---|---|---|
+| 2 × Arduino Nano (uno de repuesto) | el cerebro; trae watchdog interno | 10–15 |
+| DAC doble de 12 bits (MCP4822) + amplificador rail-to-rail (MCP6002) | fabricar VPA y VPA2 limpias, con la relación que espera la ECU | 6–8 |
+| 2 relés de señal DPDT de buena marca (Omron G5V-2 o similar) | **sin corriente conectan el pedal real directo a la ECU** | 6–10 |
+| Watchdog externo (TPL5010 o un monoestable) + transistores y diodos de los relés | si el programa se cuelga, los relés caen solos | 4–6 |
+| 4 optoacopladores (PC817) | freno, embrague, velocidad y contacto, aislados | 2–3 |
+| Fuente automotriz 12→5 V de calidad (p. ej. Pololu) + TVS + diodo + portafusible | la camioneta tiene picos de tensión que queman un regulador común | 12–18 |
+| Placa impresa, 5 unidades, con envío | se arma una y quedan de repuesto | 15–30 |
+| Par de fichas del pedal (macho y hembra) | **intercalar sin cortar un cable**: se saca y la camioneta queda como de fábrica | 15–30 |
+| Caja, cable automotriz, terminales, termocontraíble, fusible | | 15–25 |
+| LED y zumbador en el tablero, interruptor general | ver y oír cuándo está activo y cuándo cortó | 5–8 |
+| **Subtotal placa** | | **90–150** |
+
+**El banco de pruebas (antes de que toque la camioneta)**
+
+| Pieza | Para qué | US$ aprox. |
+|---|---|---|
+| Pedal usado de 1KD-FTV de desarmadero | probar todo en la mesa con el sensor real | 30–80 |
+| Fuente de banco regulable (si no hay una) | simular 12 V, caídas y picos | 30–50 |
+| Analizador lógico + osciloscopio de mano o USB | ver las señales que salen hacia la ECU | 50–90 |
+| **Subtotal banco** | | **110–220** |
+
+**Total con un 30 % de imprevistos: entre US$ 260 y 480**, de los que unos
+US$ 110–200 son herramientas que quedan. El programa, el banco de pruebas de
+software y la documentación los escribe Claude: no cuestan plata, cuestan las
+pruebas.
+
+**Lo que no se recorta para abaratar**, porque es la seguridad: los relés que
+sueltan solos, el watchdog externo, el corte por freno y embrague cableado al
+relé (no leído por el programa), la fuente automotriz y las fichas para no
+cortar el cableado original.
+
+**Y lo que hay que medir antes de diseñar la placa** (contacto puesto, motor
+apagado, tester entre cada señal y la masa del pedal EPA): VPA y VPA2 con el
+pedal suelto, a la mitad y a fondo. Con eso se sabe la relación entre las dos
+señales que la ECU vigila; si se emula mal, la ECU entra en modo de emergencia.
+Además: qué cable del freno da 12 V al pisar (luz de freno), si hay
+interruptor de embrague, y de dónde sale la señal de velocidad (en el tablero).
 
 ## Fuentes
 
