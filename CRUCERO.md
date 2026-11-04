@@ -118,8 +118,11 @@ INFORMA. Nunca al revés.
 la mesa, no en la camioneta).** Un emulador de pedal: un microcontrolador entre
 el pedal y la ECU que en reposo deja pasar la señal real por relés que, SIN
 CORRIENTE, conectan el pedal directo a la ECU. Lo que no se negocia:
-- freno, embrague y cualquier falla abren los relés POR HARDWARE (no por
-  software) y devuelven el pedal real;
+- cualquier falla de la placa abre los relés POR HARDWARE y devuelve el pedal
+  real; el freno y el embrague apagan el crucero en el programa, y un control
+  por cable suelta los relés si la placa no les obedece (§ 9, «Espejo
+  permanente», que reemplaza lo que decía acá: que cada frenada soltaba los
+  relés);
 - nunca entrega menos de lo que pide el pie (el pie siempre gana);
 - VPA y VPA2 se emulan con la relación exacta que la ECU espera, o la ECU entra
   en modo de emergencia y graba falla;
@@ -215,7 +218,7 @@ que se mide con el tester coincide con lo que dice la placa.
    Contacto puesto con el motor apagado: la ECU lee y evalúa el pedal sin dar
    potencia, así que si algo está mal se prende la luz y no pasa nada más.
    Después motor en marcha, en punto muerto y con freno de mano: las RPM tienen
-   que seguir al pie. Acá se prueban los cortes: pisar el freno, el embrague, y
+   que seguir al pie, sin luz del motor. Acá se prueban las fallas:
    **desenchufar la placa con el motor andando**: el pedal real vuelve solo.
 5. **Espejo andando.** Viajes cortos con la placa sólo copiando el pie.
 6. **Crucero a baja velocidad, en un lugar vacío**, con otra persona mirando la
@@ -337,6 +340,44 @@ sostener los relés solo. Un ESP32 hace las dos cosas con cuatro condiciones:
 
 Se ahorra el Nano, el cable entre los dos y un segundo programa, y el pedal lee
 la velocidad y el freno directo, sin intermediario.
+
+**Espejo permanente: los relés se mueven sólo ante una falla** (4-nov-2026).
+Mauro: «el sistema sólo debe entrar en seguridad y desactivar los relés en caso
+de una falla. En su funcionamiento normal debemos mantener siempre la
+comunicación estable de la ECU por los pulsos emulados por la placa, para
+evitar posibles reportes de fallas de la ECU al estar cambiando las señales…
+cuando se presiona el freno o el embrague… es la misma placa ESP que envía esa
+información… sólo ante una falla de funcionamiento de la placa ESP se deberían
+desactivar los relés». Tiene razón, y es lo que hacen los interceptores
+comerciales y el de comma (§ 8): **cada conmutación de un relé es un corte de
+milisegundos en VPA y VPA2**, y la ECU vigila justamente que esas dos señales
+no se corten ni se desacomoden. Si cada frenada mueve los relés, son decenas de
+cortes por viaje y tarde o temprano uno se lee como falla.
+
+Así queda:
+- **Al poner contacto la placa toma el pedal UNA vez**, con el pie suelto y
+  cuando ya fabrica exactamente lo que da el pie. Es la única conmutación de un
+  viaje normal. Los sensores del pedal siguen alimentados por la ECU (sólo se
+  conmutan las dos señales), así que la placa lee el pie todo el tiempo.
+- **Desde ahí la ECU lee siempre a la placa**: sin crucero, el pie copiado;
+  con crucero, el mayor entre el pie y el crucero.
+- **El freno, el embrague y el botón de cancelar apagan el crucero en el
+  programa**, en la misma vuelta: la salida vuelve a ser el pie, sin tocar los
+  relés.
+- **Los relés sueltan sólo ante una falla de la placa**: se cuelga (watchdog),
+  lo que fabrica no coincide con lo que tendría que salir (lectura de vuelta),
+  o no obedece al freno o al embrague.
+
+**La salvedad, y es la única: ese último control va por cable.** Si el freno
+quedara SÓLO en el programa, el caso que importa —un programa vivo pero
+equivocado que no suelta el acelerador cuando se frena— dependería del mismo
+programa que se equivocó. Por eso un comparador (LM393) mira, mientras el freno
+o el embrague están pisados, si la salida de la placa sigue más alta que el pie.
+En una frenada normal no hace nada, porque el programa ya volvió a copiar el
+pie: no hay conmutación ni corte. Si la placa sigue dando más que el pie por
+más de 0,3 s, eso ES una falla de la placa, y el comparador suelta los relés sin
+pasar por el programa. Es la regla de Mauro —sólo ante una falla— con la falla
+detectada por algo que no es la placa misma.
 
 **La guía paso a paso está en el panel**: `placa.html` de
 `maurogasta-crypto/datos` (Sitios → SITD-Hilux → «🔧 Armar la placa»), con las
