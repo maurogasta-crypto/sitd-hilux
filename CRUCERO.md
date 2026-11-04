@@ -409,6 +409,31 @@ con el motor ya en marcha. **Un viaje en el que los relés soltaron sin una
 emergencia es un error del diseño a corregir**, no una seguridad que anduvo:
 cada soltada es un corte que la ECU puede registrar.
 
+**Las ideas accesorias** (4-nov-2026). Mauro propuso sumarle a la placa un GPS,
+un micrófono, que corte el acelerador si falta el teléfono y un rastreador,
+«sólo si no amplían o complejizan de forma exagerada el diseño y la
+funcionalidad segura». Con ese criterio:
+
+- **GPS propio: entra.** US$ 5–10 y un cable. Da velocidad y posición propias,
+  sin depender del teléfono, y **controla** la velocidad de la caja: si la caja
+  deja de mandar pulsos, o andando no coincide con el GPS, el crucero se apaga
+  como con el botón de cancelar (suave, sin relés). No es la velocidad del
+  crucero: da de 1 a 10 lecturas por segundo y se corta en un túnel.
+- **RPM exactas: del cable del tacómetro, no de un micrófono.** En el vano del
+  motor hay más de 100 °C, agua y un cable que cruza el parallamas, y oír las
+  RPM es justo lo que hoy confunde la 2.ª con la 4.ª. El acelerómetro de la
+  placa queda como segunda opinión.
+- **Todo lo que mide la placa es suyo**: va marcado como de la placa, no se
+  mezcla con lo del teléfono y no se presenta como dato de la ECU.
+- **Cortar el acelerador si falta el teléfono: no.** Que falte el teléfono es
+  uso esperado; si moviera los relés, cada corte de Bluetooth sería un corte en
+  las señales de la ECU y la seguridad dependería del teléfono. Queda como
+  opción a decidir que sin teléfono el crucero no se pueda poner (suave).
+- **Rastreador: no.** Avisar dónde está la camioneta necesita una línea móvil
+  con abono mensual, y un rastreador contra robo tiene que tener batería propia
+  y estar escondido: es otro aparato. Gratis queda que la placa guarde sus
+  últimas posiciones y el teléfono las lea al conectarse.
+
 **La guía paso a paso está en el panel**: `placa.html` de
 `maurogasta-crypto/datos` (Sitios → SITD-Hilux → «🔧 Armar la placa»), con las
 compras, el armado, las pruebas y lo que se va marcando. Su contenido vive en
