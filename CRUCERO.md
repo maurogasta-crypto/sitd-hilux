@@ -27,9 +27,22 @@ mariposa de Corolla Verso 1ZZ-FE. Lo que hay que saber:
 - Lo aprovechable es la IDEA de comparar los dos canales de cada sensor
   (APP1/APP2) y caer a un modo seguro si no coinciden.
 
-**El hilo de EcoModder (`electrical-cruise-control-27176`) no se pudo leer**: el
-sitio cortó la conexión y después contestó 503, y no apareció en búsquedas.
-Hasta leerlo, no se usa como fuente.
+**El hilo de EcoModder (`electrical-cruise-control-27176`, «Electrical cruise
+control», octubre de 2013)** no se pudo abrir desde acá (503); Mauro pegó el
+texto entero el 4-nov. **Tampoco es lo que se describía**: no detalla esquemas
+para pedales electrónicos. Es un Golf III de 1994 con acelerador por CABLE: un
+Arduino Nano mueve un motor paso a paso que tira del cable, con botones + y −
+(control de mariposa CONSTANTE, todavía no de velocidad) y un corte por freno o
+embrague. Lo que deja, y vale:
+- otro usuario hizo un crucero completo con PID sobre las RPM (no la velocidad):
+  si salta una marcha o se aprieta el embrague, las RPM se disparan y el código
+  corta en el acto. La idea se lleva bien con el tacómetro que ya oye la app;
+- un actuador comercial con embrague magnético: sin corriente, suelta;
+- el PID se ajusta por puerto serie con alguien al lado con la computadora;
+- y lo único que dice de un acelerador electrónico es un párrafo: intercalar
+  el voltaje del pedal (entra el del pie, sale el mismo, y en crucero se queda
+  en el último valor), que él mismo llama «riesgoso en el mejor de los casos».
+  Es la Fase 3 de abajo, sin ninguno de sus cortes.
 
 **Y la diferencia que decide todo: la Hilux 1KD-FTV es diésel common-rail.** La
 potencia no la pone una mariposa: la pone la ECU inyectando más o menos gasoil
@@ -121,4 +134,4 @@ El joystick se lee ahí: una entrada analógica con divisor, un umbral por botó
 - https://www.newhilux.net/phpbb/viewtopic.php?t=30088 (retrofit, E5-21, embrague)
 - https://www.newhilux.net/phpbb/viewtopic.php?p=419239 (cambio de ECU para tener crucero)
 - https://www.allfourx4.com.au/Cruise-Control-Kit-Plug-n-Play-suitable-for-Hilux-KUN26-Manual-05-15-EC-TY13GS-3/ (kit para KUN26 manual 2005–2015)
-- https://ecomodder.com/forum/showthread.php/electrical-cruise-control-27176.html (no se pudo leer: 503)
+- https://ecomodder.com/forum/showthread.php/electrical-cruise-control-27176.html (texto pegado por Mauro el 4-nov: 9 mensajes, oct-2013)
