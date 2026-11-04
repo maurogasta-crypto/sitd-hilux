@@ -217,7 +217,85 @@ que se mide con el tester coincide con lo que dice la placa.
 6. **Crucero a baja velocidad, en un lugar vacío**, con otra persona mirando la
    pantalla. Recién después, ruta.
 
+## 8. Lo que enseñan otros casos (búsqueda del 4-nov-2026)
+
+No apareció ningún relato de alguien que haya hecho un crucero casero en una
+Hilux 1KD. Sí apareció lo que hacen los productos comerciales en ESTA
+camioneta, otros intentos caseros con pedal electrónico y un proyecto abierto
+que hace exactamente el intercalado. Lo que se lleva cada uno:
+
+**1. Los kits comerciales para la KUN26 hacen lo mismo que la Fase 3.**
+El Autostrada EC-TY13GS (Australia, unos AU$ 880) desenchufa la ficha del pedal
+y se intercala con un arnés en T: es un emulador de pedal, no usa el crucero de
+la ECU. O sea que **el método está probado en este mismo motor**; lo que cambia
+es quién lo garantiza. Lo que exigen esos kits es la lista de requisitos de la
+placa:
+- **aprender las dos señales del pedal** al instalar (cada pedal es un poco
+  distinto: no se escriben valores fijos en el programa);
+- **la luz de freno tiene que andar**: si el interruptor o las lamparitas fallan,
+  el kit no se activa (la placa tiene que comprobarlo antes de dejar activar);
+- **la señal de velocidad** (VSS) es el único cable que no viene en la ficha;
+- en la manual, **el interruptor de embrague**.
+Ojo: ese kit es para volante a la derecha y el vendedor dice que no sirve para
+volante a la izquierda; y vale unas tres veces lo que la placa casera.
+
+**2. Los kits de Mercado Libre Argentina «para Hilux 3.0 2012–2015»** (del orden
+de ARS 95.000) son palanca y cableado para una ECU que YA trae el crucero. Con
+0 V en E5-21 **no sirven**: no comprar uno de ésos por error.
+
+**3. La 2KD (2.5) no trae crucero en la ECU** según dueños que lo buscaron; la
+1KD a veces sí (no la de Mauro). Es la misma conclusión: sin ECU preparada, la
+única salida es intercalar el pedal.
+
+**4. El embrague:** un dueño de una 1KD manual 2010 vio que las de fábrica con
+crucero traen otro pedalero, con el interruptor de embrague al costado; dobló
+una chapa y montó un microinterruptor en el suyo. Si la de Mauro no tiene
+interruptor de embrague, ésa es la solución, y además está el corte por RPM
+del hilo de EcoModder (§ 1).
+
+**5. Intentos caseros con Arduino (foro de Arduino):**
+- el error típico es **P2135** (las dos señales del pedal no se corresponden):
+  le pasó a quien cambió el cableado de un pedal emulado. Es la ECU haciendo su
+  trabajo; la Fase 4 (contacto puesto, motor apagado) es para verlo sin riesgo;
+- **el Arduino no tiene salida analógica**: su «analogWrite» es PWM y hay que
+  filtrarlo; por eso la placa lleva un DAC de verdad;
+- en algunos pedales una señal sube y la otra baja; en Toyota suelen ir las dos
+  subiendo con una diferencia fija (en un 2UZ-FE de Land Cruiser: suelto 0,3–0,9
+  V y 1,8–2,7 V; a fondo 3,2–4,8 V y 4,7–5,1 V). **Esos números no son del
+  1KD**: se miden en la camioneta;
+- y lo que todos repiten: el corte tiene que funcionar el 100 % de las veces,
+  por hardware, independiente del programa.
+
+**6. El proyecto abierto que mejor se parece: el «comma pedal»** (comma.ai,
+STM32). Se intercala entre el pedal y la ECU, en reposo deja pasar la señal
+del pie tal cual y, activo, emula el pedal; **el pie siempre gana** (si el
+conductor pide más que el sistema, manda el conductor). Su firmware es público
+y es mejor referencia de arquitectura que DBW-Control. Ojo: comma ya no lo
+soporta, y el soporte para Toyota depende de la versión.
+
+**7. Lo que cuentan los que lo usan:** no es tan suave como el de fábrica; la
+secuencia de aprendizaje se sigue al pie de la letra; y en una camioneta con
+poco motor, en subida, el crucero se desactiva solo si no puede sostener la
+velocidad (conviene programarlo así: que suelte con aviso en vez de pedir más
+y más).
+
+**Lo que cambia en el plan:** nada de fondo, y se suman cuatro requisitos a la
+placa: aprender el pedal al instalar, no activarse si la luz de freno no anda,
+soltar con aviso si no sostiene la velocidad, y tomar el comma pedal como
+referencia del código.
+
 ## Fuentes
+
+- https://www.allfourx4.com.au/Cruise-Control-Kit-Plug-Play-suitable-for-Hilux-KUN-D4D-3Ltr-EC-TY13GS (kit para KUN 1KD, intercalado en el pedal)
+- https://www.conrad-anderson.co.uk/product/toyota-hilux-2005-2016-aftermarket-cruise-control-kit/ (aprendizaje del pedal y control del freno)
+- https://www.4x4community.co.za/forum/showthread.php/114242-Aftermarket-Cruise-control-for-Hilux-Fortuner
+- https://www.hilux4x4.co.za/views/viewtopic.php?t=20207 (programación, freno, embrague y VSS)
+- https://www.newhilux.net/phpbb/viewtopic.php?f=11&t=2542&start=140 (2KD sin crucero; microinterruptor de embrague)
+- https://forum.arduino.cc/t/cruise-control-with-the-arduino/465070
+- https://forum.arduino.cc/t/reading-a-cars-accelerator-pedal-position-sensors-and-sending-them-to-two-ecus/605050 (P2135)
+- https://lc100e.github.io/pdf/rm/rm630e/m_di_0079.pdf (valores de VPA/VPA2 de otro motor Toyota)
+- https://community.sunnypilot.ai/t/3741 (gas interceptor: el pie siempre gana)
+- https://listado.mercadolibre.com.ar/kit-control-velocidad-crucero-toyota-hilux
 
 - https://github.com/digmorepaka/DBW-Control (leído entero el 4-nov-2026)
 - https://www.newhilux.net/phpbb/viewtopic.php?t=30088 (retrofit, E5-21, embrague)
