@@ -409,6 +409,15 @@ con el motor ya en marcha. **Un viaje en el que los relés soltaron sin una
 emergencia es un error del diseño a corregir**, no una seguridad que anduvo:
 cada soltada es un corte que la ECU puede registrar.
 
+**Y la guía arranca por lo más básico** (4-nov-2026, Mauro: «el proyecto más
+básico posible para tener las herramientas que comiencen el aprendizaje de los
+instrumentos. Sin intervención»). La caja básica lee SÓLO señales que la
+camioneta ya da afuera —la luz de freno (STP), el tacómetro (TACH) y la
+velocidad (SPD) del tablero—, con optoacopladores y Posi-Tap, sin cortar un
+cable, más su GPS y su acelerómetro. **No toca el pedal**: leer VPA y VPA2 con
+el arnés en Y pasó a la etapa del crucero. Y la prueba que manda es que con la
+caja puesta las agujas y la luz de freno marquen exactamente lo mismo.
+
 **Las ideas accesorias** (4-nov-2026). Mauro propuso sumarle a la placa un GPS,
 un micrófono, que corte el acelerador si falta el teléfono y un rastreador,
 «sólo si no amplían o complejizan de forma exagerada el diseño y la
