@@ -311,6 +311,21 @@ esa caja lleve semanas andando y sus números coincidan con el tester, recién
 entonces se le agregan las salidas y los relés del crucero. **Se gana valor
 desde el primer mes y se llega a la Fase 3 con el hardware ya probado.**
 
+**Y son DOS cerebros, no uno** (decidido al armar la guía, 4-nov-2026). La caja
+de sensores es un **ESP32** —se programa con el mismo Arduino IDE, trae
+Bluetooth adentro y le sobra velocidad para leer el acelerómetro a 1.600 por
+segundo—; el interceptor de la etapa B es un **Arduino Nano aparte**, sin
+Bluetooth, con su DAC, sus relés y su watchdog, y lo único que recibe del
+ESP32 por un cable serie son los ajustes de confort, que recorta. Así un
+cuelgue del Bluetooth o de los sensores no llega al pedal: es el § 3 aplicado
+también adentro de la placa. Cuesta unos US$ 10 más.
+
+**La guía paso a paso está en el panel**: `placa.html` de
+`maurogasta-crypto/datos` (Sitios → SITD-Hilux → «🔧 Armar la placa»), con las
+compras, el armado, las pruebas y lo que se va marcando. Su contenido vive en
+`placa.js` de ese repositorio: **si cambia este archivo, cambia aquél en la
+misma tanda.**
+
 ### 9.2 Lo que la app gana con cada sensor (en orden de lo que más destraba)
 
 | Sensor | Hoy | Con la placa |
