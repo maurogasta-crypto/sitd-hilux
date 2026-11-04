@@ -355,8 +355,9 @@ no se corten ni se desacomoden. Si cada frenada mueve los relés, son decenas de
 cortes por viaje y tarde o temprano uno se lee como falla.
 
 Así queda:
-- **Al poner contacto la placa toma el pedal UNA vez**, con el pie suelto y
-  cuando ya fabrica exactamente lo que da el pie. Es la única conmutación de un
+- **La placa toma el pedal UNA vez, con el motor ya en marcha**, el ralentí
+  estable, el pie suelto y cuando ya fabrica exactamente lo que da el pie: el
+  arranque, que es cuando la batería baja a 8–9 V, nunca pasa por la placa. Es la única conmutación de un
   viaje normal. Los sensores del pedal siguen alimentados por la ECU (sólo se
   conmutan las dos señales), así que la placa lee el pie todo el tiempo.
 - **Desde ahí la ECU lee siempre a la placa**: sin crucero, el pie copiado;
@@ -378,6 +379,35 @@ pie: no hay conmutación ni corte. Si la placa sigue dando más que el pie por
 más de 0,3 s, eso ES una falla de la placa, y el comparador suelta los relés sin
 pasar por el programa. Es la regla de Mauro —sólo ante una falla— con la falla
 detectada por algo que no es la placa misma.
+
+**La cadena de seguridad: simple, por cable, y sólo para emergencias de
+verdad** (4-nov-2026). Mauro: «el diseño debe ponderar sobre todas las cosas la
+simpleza y robustez de la propuesta, y un sistema de seguridad debe correr por
+encima de todas las herramientas programables para reconectar el sistema
+original en caso de emergencia. Pero debe ser verdaderamente un caso de
+emergencia que salga del uso esperado».
+
+Todo lo de arriba se reduce a UNA cosa física: la corriente de las bobinas de
+los relés pasa por una cadena de contactos en serie —interruptor general,
+watchdog, comparador del freno, la orden de la placa—. Cualquier eslabón que
+se abra suelta los relés y el pedal original vuelve directo a la ECU. **El
+programa puede abrirla, nunca cerrarla solo.** Es el mismo esquema de las
+paradas de emergencia industriales, y es fácil de revisar con un tester.
+
+**Lo único que la abre** (lista cerrada, `EMERGENCIAS` de `placa.js`): el
+conductor apaga el interruptor; la placa deja de dar señales de vida más de
+1,5 s; con el freno o el embrague pisados la placa sigue dando más que el pie
+más de 0,3 s; la placa se queda sin corriente; y —la única por programa, que
+sólo puede soltar— la placa lee de vuelta lo que fabrica y no cierra varias
+vueltas seguidas.
+
+**Lo que NO la abre nunca** (`USO_ESPERADO`): frenar, embragar, cancelar o
+volver a poner el crucero, pisar por encima del crucero, dar arranque, prender
+luces o aire, una lectura suelta con ruido, perder el Bluetooth. Por eso los
+tiempos son holgados, la fuente aguanta el arranque y la placa toma el pedal
+con el motor ya en marcha. **Un viaje en el que los relés soltaron sin una
+emergencia es un error del diseño a corregir**, no una seguridad que anduvo:
+cada soltada es un corte que la ECU puede registrar.
 
 **La guía paso a paso está en el panel**: `placa.html` de
 `maurogasta-crypto/datos` (Sitios → SITD-Hilux → «🔧 Armar la placa»), con las
