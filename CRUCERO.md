@@ -413,8 +413,13 @@ cada soltada es un corte que la ECU puede registrar.
 básico posible para tener las herramientas que comiencen el aprendizaje de los
 instrumentos. Sin intervención»). La caja básica lee SÓLO señales que la
 camioneta ya da afuera —la luz de freno (STP), el tacómetro (TACH) y la
-velocidad (SPD) del tablero—, con optoacopladores y Posi-Tap, sin cortar un
-cable, más su GPS y su acelerómetro. **No toca el pedal**: leer VPA y VPA2 con
+velocidad (SPD) del tablero—, con optoacopladores, más su GPS y su
+acelerómetro. Las señales se toman en paralelo, **por decisión de Mauro**
+(4-nov): «pelando un poco el forro y engrosando un cable para tomar su señal…
+los interrumpidos, como los del acelerador, serán cortados y debidamente
+identificados». O sea: una ventanita pelada y soldada, aislada con buena cinta,
+y en la etapa del crucero las dos señales del pedal cortadas, rotuladas y en
+conectores que unidos entre sí devuelven el original. **No toca el pedal**: leer VPA y VPA2 con
 el arnés en Y pasó a la etapa del crucero. Y la prueba que manda es que con la
 caja puesta las agujas y la luz de freno marquen exactamente lo mismo.
 
