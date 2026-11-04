@@ -179,6 +179,44 @@ señales que la ECU vigila; si se emula mal, la ECU entra en modo de emergencia.
 Además: qué cable del freno da 12 V al pisar (luz de freno), si hay
 interruptor de embrague, y de dónde sale la señal de velocidad (en el tablero).
 
+## 7. Sin mesa ni osciloscopio: las pruebas en la camioneta, por etapas (4-nov-2026)
+
+Mauro: no arma mesa de trabajo ni compra osciloscopio; prueba en su propia
+camioneta, con las piezas en su lugar y sin instalar del todo hasta que ande.
+**Se puede, y el banco del § 6 sale del presupuesto** (queda la placa: con
+imprevistos, **US$ 120–200**; opcional, un analizador lógico de US$ 10 y un
+módulo Bluetooth de US$ 5 para leer la placa desde el teléfono).
+
+**Por qué el osciloscopio no hace falta:** las dos señales del pedal son
+tensiones CONTINUAS que cambian despacio; se miden con el tester. Y el propio
+Arduino es el instrumento: lee de vuelta lo que entrega (cada salida va también
+a una entrada) y lo manda por cable o Bluetooth, varias veces por segundo, a la
+computadora o al teléfono. La velocidad son pulsos que el Arduino cuenta solo.
+Lo que un osciloscopio vería (ruido, picos) se cubre con filtros puestos de
+entrada en el diseño, y la ECU misma avisa: si no le gusta lo que recibe,
+prende la luz del motor y pasa a emergencia. Eso, en las etapas de abajo, es
+una señal de prueba y no un accidente.
+
+**El orden de las etapas, y no se saltea ninguna.** Cada una pasa sólo si lo
+que se mide con el tester coincide con lo que dice la placa.
+
+1. **Escuchar, motor apagado.** La placa intercalada con las fichas, los relés
+   SIN conectar a la salida: sólo lee el pedal, el freno, el embrague y la
+   velocidad. Contacto puesto, se aprieta el pedal y se compara con el tester.
+2. **Salida al vacío.** La placa fabrica sus dos señales hacia una resistencia,
+   no hacia la ECU, copiando el pedal. Tester en la salida.
+3. **Paso directo.** Ya conectada a la ECU, relés apagados: el pedal pasa por los
+   contactos de reposo. La camioneta tiene que andar EXACTAMENTE igual.
+4. **Espejo, parada.** Relés encendidos, la placa copia el pedal (sin crucero).
+   Contacto puesto con el motor apagado: la ECU lee y evalúa el pedal sin dar
+   potencia, así que si algo está mal se prende la luz y no pasa nada más.
+   Después motor en marcha, en punto muerto y con freno de mano: las RPM tienen
+   que seguir al pie. Acá se prueban los cortes: pisar el freno, el embrague, y
+   **desenchufar la placa con el motor andando**: el pedal real vuelve solo.
+5. **Espejo andando.** Viajes cortos con la placa sólo copiando el pie.
+6. **Crucero a baja velocidad, en un lugar vacío**, con otra persona mirando la
+   pantalla. Recién después, ruta.
+
 ## Fuentes
 
 - https://github.com/digmorepaka/DBW-Control (leído entero el 4-nov-2026)
