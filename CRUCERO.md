@@ -7,7 +7,11 @@
 > integradas las rutinas del regulador de velocidad… instalé el joystick en el
 > volante… incorporarle un mecanismo de control del acelerador en tiempo real…
 > o quizás exclusivamente tomar la información del joystick de resistencia
-> variable para controlar esta placa de crucero».
+> variable para controlar esta placa de crucero». Y el mismo día, el § 9: «el
+> mismo componente Arduino… puede comunicarse con el teléfono de abordo y
+> compartir información en tiempo real… algún sensor dedicado dentro del motor
+> que nos haga más fuertes y claras las señales que interpreta la app… la
+> configuración en tiempo real o aprendizaje de comportamiento».
 
 ## 1. Lo que se revisó, y qué es de verdad cada cosa
 
@@ -283,6 +287,95 @@ y más).
 placa: aprender el pedal al instalar, no activarse si la luz de freno no anda,
 soltar con aviso si no sostiene la velocidad, y tomar el comma pedal como
 referencia del código.
+
+## 9. La placa también le habla al teléfono: sensores dedicados y ajuste en vivo (4-nov-2026)
+
+Pedido de Mauro, el mismo día: «el mismo componente Arduino que instalaremos
+para controlar el pedal puede comunicarse con el teléfono de abordo y compartir
+información en tiempo real… podría estar aportando la información precisa de
+algún sensor dedicado dentro del motor que nos haga más fuertes y claras las
+señales que interpreta la app. Además podría permitir la configuración en tiempo
+real o aprendizaje de comportamiento a través de las modificaciones o parámetros
+que pueda editar el teléfono en tiempo real».
+
+Es la mejor idea del proyecto hasta acá, y hay que decir por qué: **le da a la
+app medidas donde hoy tiene deducciones.** Pero son DOS canales distintos y no
+se mezclan.
+
+### 9.1 Y conviene darlo vuelta: la placa nace como caja de sensores
+
+La placa de sensores **no toca el pedal**, así que puede existir antes y sirve
+sola. Es además la etapa 1 del § 7 —«escuchar, motor apagado»— hecha permanente:
+el mismo hardware, el mismo firmware de lectura, sin relés ni salidas. Cuando
+esa caja lleve semanas andando y sus números coincidan con el tester, recién
+entonces se le agregan las salidas y los relés del crucero. **Se gana valor
+desde el primer mes y se llega a la Fase 3 con el hardware ya probado.**
+
+### 9.2 Lo que la app gana con cada sensor (en orden de lo que más destraba)
+
+| Sensor | Hoy | Con la placa |
+|---|---|---|
+| **RPM del motor** | se OYEN con el micrófono: errores de octava, la 2.ª contra la 4.ª, y abajo de 30 km/h no se oye nada (`regimen.dart`, `tacometro.dart`) | un pulso por inyección o por diente del cigüeñal, contado por el Arduino: RPM exactas, siempre, también parado |
+| **Velocidad (VSS de la caja)** | GPS: una por segundo, se cae en túneles y bajo parabrisas metalizado | pulsos contados, sin cortes. Y con RPM + velocidad **la marcha se CALCULA** en vez de deducirse: cierra el problema de la 2.ª/4.ª y `hilux:E2` |
+| **Acelerómetro en un punto rígido** | el del teléfono entrega 200 Hz, o sea que arriba de 100 Hz todo se pliega; los rodamientos **no se ven** | un acelerómetro propio a 1–2 kHz sube el techo a 500 Hz o más: rodamientos, cardán a cualquier velocidad y el encendido sin plegarse |
+| **Posición del pedal** | no se mide | es la CARGA, que es justo lo que le falta a la línea base para separar «camino áspero» de «motor haciendo fuerza» |
+| **Temperatura de refrigerante y de admisión** | no se mide | un motor frío vibra y suena distinto: hoy eso entra como ruido en las cubetas |
+
+**La forma de entrar a la app ya está escrita y no hay que inventarla:** el GPS
+entra por `FuenteDeMuestras` y el régimen por `FuenteDeRegimen`
+(`CLAUDE.md`, «El GPS entra por una interfaz, igual que va a entrar el OBD2»).
+La placa es otra implementación de esas interfaces, por Bluetooth. El motor de
+análisis no tiene que saber de dónde salen los números.
+
+**Y rige la regla de siempre: la frecuencia de muestreo que se guarda es la
+MEDIDA, no la pedida**, y las ventanas de la placa son **otra clase de
+muestreo** —como los 50 y los 200 Hz de `sitd-42`—: no se comparan con las
+viejas, y la línea base vuelve a aprender desde cero. Lo que no se borra sigue
+contando si la placa se desconecta.
+
+### 9.3 El otro canal: lo que el teléfono le puede editar, y lo que no
+
+Acá hay que ser preciso, porque «configuración en tiempo real» puede querer
+decir dos cosas muy distintas:
+
+- **Sí: los parámetros de MEDIDA y de confort.** Cada cuánto manda cada señal,
+  qué filtros usa, cuántos pulsos por vuelta tiene la rueda o la caja, la
+  relación de cada marcha, los umbrales con los que la app pide grabar 10 s, y
+  —con el crucero ya andando— la suavidad con la que persigue la velocidad
+  (las constantes del PID). Eso es exactamente lo que el hilo de EcoModder
+  ajustaba por puerto serie con alguien al lado con la computadora; hacerlo
+  desde el teléfono es mejor y es lo que pide Mauro.
+- **No: los límites de seguridad.** Cuánta autoridad tiene la placa sobre el
+  pedal, los cortes por freno y embrague, el tiempo del watchdog, el «el pie
+  siempre gana» y los relés que sin corriente devuelven el pedal real. Eso vive
+  en el firmware y en el hardware, y **no hay un mensaje que lo cambie**: si
+  existiera, el teléfono estaría otra vez en el lazo del acelerador y se cae el
+  § 3 entero.
+
+Y tres condiciones para cada cambio, que son las que lo hacen seguro:
+
+1. **Un parámetro se acepta sólo con el crucero apagado** (y los que cambian el
+   control, además con el vehículo detenido). Un cambio que llega a mitad de
+   una curva no se aplica.
+2. **El firmware recorta.** Cada parámetro tiene su rango clavado en el código;
+   lo que llega afuera de rango se descarta y se avisa. Un teléfono con un
+   error de dedo no puede pedir algo imposible.
+3. **Queda escrito de los dos lados.** La placa anota qué cambió y cuándo, y la
+   app lo guarda con el viaje: un número que se tocó y nadie anotó convierte
+   todos los viajes siguientes en incomparables.
+
+### 9.4 El aprendizaje queda en el teléfono, y no es una concesión
+
+La placa tiene que ser rápida y tonta; el teléfono tiene la historia, el SQLite,
+los respaldos y la nube. Así que **el aprendizaje sigue donde ya está** —la
+línea base por cubeta, el factor de neumáticos, el tacómetro— y lo nuevo es
+que el teléfono puede **proponerle a la placa** un parámetro mejor. Es el mismo
+reparto de siempre en este ecosistema: el que aprende propone, el que manda
+decide, y el que decide es el que tiene los cortes por hardware.
+
+**Cupo: cero.** Es Bluetooth entre dos aparatos que están en la misma cabina;
+no toca la red ni ninguna base. El módulo son los US$ 5 que ya figuran en el
+§ 6, más unos US$ 10 del acelerómetro dedicado.
 
 ## Fuentes
 
