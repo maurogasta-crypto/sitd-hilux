@@ -103,6 +103,7 @@ por una sesión con la cadena de compilación puesta.
 | `README.md` | mapa de archivos, sellos, cómo se instala el APK |
 | `PUESTA-A-PUNTO.md` | dejar de desinstalar en cada tanda: la clave de firma en Termux, el orden de los pasos y la última desinstalación |
 | `MEDICION.md` | **la ciencia de lo que muestra el panel**: la derivación de cada indicador, qué componente se puede distinguir y hasta qué velocidad, y los SEIS números que la auditoría del 2026-09-22 encontró mal |
+| `CRUCERO.md` | el plan del control crucero (4-nov-2026): qué es cada fuente que se revisó, por qué el teléfono no va en el lazo del acelerador, y las fases |
 | `CLAUDE.md` (este archivo) | las reglas |
 
 ## Secretos
