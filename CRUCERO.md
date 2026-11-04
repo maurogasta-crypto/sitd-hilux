@@ -311,14 +311,32 @@ esa caja lleve semanas andando y sus números coincidan con el tester, recién
 entonces se le agregan las salidas y los relés del crucero. **Se gana valor
 desde el primer mes y se llega a la Fase 3 con el hardware ya probado.**
 
-**Y son DOS cerebros, no uno** (decidido al armar la guía, 4-nov-2026). La caja
-de sensores es un **ESP32** —se programa con el mismo Arduino IDE, trae
-Bluetooth adentro y le sobra velocidad para leer el acelerómetro a 1.600 por
-segundo—; el interceptor de la etapa B es un **Arduino Nano aparte**, sin
-Bluetooth, con su DAC, sus relés y su watchdog, y lo único que recibe del
-ESP32 por un cable serie son los ajustes de confort, que recorta. Así un
-cuelgue del Bluetooth o de los sensores no llega al pedal: es el § 3 aplicado
-también adentro de la placa. Cuesta unos US$ 10 más.
+**Y es UN cerebro, no dos** (4-nov-2026). La primera versión de la guía ponía
+un ESP32 para los sensores y un Nano aparte para el pedal, para que un cuelgue
+del Bluetooth no llegara al acelerador. Mauro lo preguntó el mismo día: «¿por
+qué no puede ser uno solo que gestione todo, que en una primera instancia sirva
+para registrar las mediciones y en una segunda le demos la activación del
+acelerador, con un sistema de seguridad que cuando pierde active el
+funcionamiento normal por el relé?». **Puede, y queda así**, porque la
+seguridad nunca dependió de cuántos cerebros hay sino de que ninguno pueda
+sostener los relés solo. Un ESP32 hace las dos cosas con cuatro condiciones:
+
+1. **Los relés sin corriente conectan el pedal real** y los sueltan tres cosas
+   por cable, sin pedirle permiso al programa: el freno, el embrague y el
+   watchdog externo.
+2. **El programa sólo puede SOLTAR.** Cada vuelta lee de vuelta las dos
+   señales que fabrica y las compara con lo que mandó y con la relación
+   VPA/VPA2 medida; sólo si todo cierra alimenta al watchdog. Eso cubre lo que
+   el watchdog solo no ve: un programa vivo pero equivocado, que era el
+   argumento real de los dos cerebros.
+3. **El pedal tiene su núcleo**: el ESP32 tiene dos; el lazo del pedal corre
+   solo en uno, con prioridad, y el Bluetooth y los sensores en el otro.
+4. **Programa nuevo, pruebas de seguridad de nuevo**, aunque el cambio sea de
+   un sensor: con un cerebro, tocar los sensores es recargar la placa que
+   maneja el pedal. Son diez minutos con la camioneta parada.
+
+Se ahorra el Nano, el cable entre los dos y un segundo programa, y el pedal lee
+la velocidad y el freno directo, sin intermediario.
 
 **La guía paso a paso está en el panel**: `placa.html` de
 `maurogasta-crypto/datos` (Sitios → SITD-Hilux → «🔧 Armar la placa»), con las
