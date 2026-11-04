@@ -423,6 +423,14 @@ conectores que unidos entre sí devuelven el original. **No toca el pedal**: lee
 el arnés en Y pasó a la etapa del crucero. Y la prueba que manda es que con la
 caja puesta las agujas y la luz de freno marquen exactamente lo mismo.
 
+**Y con la menor complejidad posible** (4-nov-2026, Mauro: «menor complejidad
+posible»): la caja básica no tiene nada soldado adentro. El ESP32 va en una
+placa de borneras, las entradas son un módulo de optoacopladores ya armado, y
+se alimenta con un cargador USB en el encendedor (que sólo da corriente con el
+contacto). El GPS y el acelerómetro quedan opcionales. La fuente armada para la
+camioneta (con su protección contra picos y el arranque) pasa a la etapa del
+crucero, que es cuando la placa manda sobre algo.
+
 **Las ideas accesorias** (4-nov-2026). Mauro propuso sumarle a la placa un GPS,
 un micrófono, que corte el acelerador si falta el teléfono y un rastreador,
 «sólo si no amplían o complejizan de forma exagerada el diseño y la
