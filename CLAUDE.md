@@ -104,6 +104,7 @@ por una sesión con la cadena de compilación puesta.
 | `PUESTA-A-PUNTO.md` | dejar de desinstalar en cada tanda: la clave de firma en Termux, el orden de los pasos y la última desinstalación |
 | `MEDICION.md` | **la ciencia de lo que muestra el panel**: la derivación de cada indicador, qué componente se puede distinguir y hasta qué velocidad, y los SEIS números que la auditoría del 2026-09-22 encontró mal |
 | `CRUCERO.md` | el plan del control crucero (4-nov-2026): qué es cada fuente que se revisó, por qué el teléfono no va en el lazo del acelerador, las fases, y el § 9: la placa como caja de sensores que le habla al teléfono, qué le puede editar el teléfono y qué no |
+| `PLACA-FASE-1.md` | la Fase 1 de la placa (13-nov-2026): leer el pedal en paralelo y un acelerómetro propio, cómo se conecta, cómo le habla a la APK por BLE, dónde se guarda y cómo se cruza con los viajes sin mezclar |
 | `CLAUDE.md` (este archivo) | las reglas |
 
 ## Secretos

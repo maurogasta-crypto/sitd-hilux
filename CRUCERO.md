@@ -12,6 +12,12 @@
 > compartir información en tiempo real… algún sensor dedicado dentro del motor
 > que nos haga más fuertes y claras las señales que interpreta la app… la
 > configuración en tiempo real o aprendizaje de comportamiento».
+>
+> **13-nov-2026:** Mauro adelanta a la **Fase 1 de la placa** la lectura del
+> pedal (VPA y VPA2) en paralelo y de alta impedancia, y suma un acelerómetro
+> propio que le habla a la APK por Bluetooth. El detalle está en
+> `PLACA-FASE-1.md`, y **cambia lo que decía el § 9.1 sobre el pedal** (ya
+> corregido abajo).
 
 ## 1. Lo que se revisó, y qué es de verdad cada cosa
 
@@ -307,8 +313,8 @@ se mezclan.
 
 ### 9.1 Y conviene darlo vuelta: la placa nace como caja de sensores
 
-La placa de sensores **no toca el pedal**, así que puede existir antes y sirve
-sola. Es además la etapa 1 del § 7 —«escuchar, motor apagado»— hecha permanente:
+La placa de sensores **no comanda el pedal** (lo lee en paralelo desde la
+Fase 1: `PLACA-FASE-1.md`), así que puede existir antes y sirve sola. Es además la etapa 1 del § 7 —«escuchar, motor apagado»— hecha permanente:
 el mismo hardware, el mismo firmware de lectura, sin relés ni salidas. Cuando
 esa caja lleve semanas andando y sus números coincidan con el tester, recién
 entonces se le agregan las salidas y los relés del crucero. **Se gana valor
@@ -411,16 +417,19 @@ cada soltada es un corte que la ECU puede registrar.
 
 **Y la guía arranca por lo más básico** (4-nov-2026, Mauro: «el proyecto más
 básico posible para tener las herramientas que comiencen el aprendizaje de los
-instrumentos. Sin intervención»). La caja básica lee SÓLO señales que la
-camioneta ya da afuera —la luz de freno (STP), el tacómetro (TACH) y la
+instrumentos. Sin intervención»). La caja básica lee SÓLO, sin intervenir,
+señales que la camioneta ya da —la luz de freno (STP), el tacómetro (TACH) y la
 velocidad (SPD) del tablero—, con optoacopladores, más su GPS y su
-acelerómetro. Las señales se toman en paralelo, **por decisión de Mauro**
+acelerómetro. **Desde el 13-nov-2026 también VPA y VPA2 del pedal, en paralelo
+y de alta impedancia** (`PLACA-FASE-1.md`). Las señales se toman en paralelo, **por decisión de Mauro**
 (4-nov): «pelando un poco el forro y engrosando un cable para tomar su señal…
 los interrumpidos, como los del acelerador, serán cortados y debidamente
 identificados». O sea: una ventanita pelada y soldada, aislada con buena cinta,
 y en la etapa del crucero las dos señales del pedal cortadas, rotuladas y en
-conectores que unidos entre sí devuelven el original. **No toca el pedal**: leer VPA y VPA2 con
-el arnés en Y pasó a la etapa del crucero. Y la prueba que manda es que con la
+conectores que unidos entre sí devuelven el original. **No lo comanda**: leer VPA y VPA2 en
+paralelo y de alta impedancia pasó a la Fase 1 (Mauro, 13-nov-2026,
+`PLACA-FASE-1.md`); lo que sigue en la etapa del crucero es cortarlas e
+intercalarlas. Y la prueba que manda es que con la
 caja puesta las agujas y la luz de freno marquen exactamente lo mismo.
 
 **Y con la menor complejidad posible** (4-nov-2026, Mauro: «menor complejidad
@@ -460,7 +469,8 @@ funcionalidad segura». Con ese criterio:
 `maurogasta-crypto/datos` (Sitios → SITD-Hilux → «🔧 Armar la placa»), con las
 compras, el armado, las pruebas y lo que se va marcando. Su contenido vive en
 `placa.js` de ese repositorio: **si cambia este archivo, cambia aquél en la
-misma tanda.**
+misma tanda.** Lo mismo vale para `PLACA-FASE-1.md`, que desarrolla la Fase 1
+(pedal en paralelo, acelerómetro propio y Bluetooth hacia la APK).
 
 ### 9.2 Lo que la app gana con cada sensor (en orden de lo que más destraba)
 
