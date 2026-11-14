@@ -65,6 +65,12 @@ resuelve otro problema y no sirve como base.
 
 ## 2. Lo que dicen los dueños de la misma camioneta (KUN26, 1KD-FTV)
 
+> **13-nov-2026:** la placa del chasis de la camioneta de Mauro dice
+> **KUN36L-PRMSYG** (1KD-FTV, caja R151), no KUN26: ver `PLACA-FASE-1.md`
+> § 4.2 bis y `fotos/placa-chasis-KUN36L.jpg`. Lo de abajo habla de la KUN26;
+> es el mismo motor, pero **antes de comprar un kit hay que preguntar si sirve
+> para KUN36L.**
+
 Anécdotas de foros, no un manual (ver fuentes): varias ECU de la KUN26 **traen
 el crucero adentro** y sólo falta el cableado. El manual de reparación nombra la
 señal **CCS (E5-21) contra E1 (E7-7)**: con contacto puesto hay 10–14 V si esa
@@ -101,8 +107,16 @@ REGISTRARLO junto con el viaje, de sólo lectura.
 2. El joystick ya instalado: con el tester en el cable que baja del clock spring,
    la resistencia a masa en cada posición (reposo, ON/OFF, SET/−, RES/+,
    CANCEL). Una palanca Toyota manda todo por UN cable, con un valor por botón.
+   **Referencia (no medida en esta camioneta, 14-nov-2026):** en una Hilux, a masa,
+   ON/principal < 1 Ω, RES ≈ 240 Ω, SET ≈ 630 Ω, CANCEL ≈ 1,5 kΩ y reposo abierto;
+   otros Toyota usan otros valores: **manda lo que mida el tester.** Para leerla con
+   el ESP32 el pull-up debe ser de ~1 kΩ, no de 10 kΩ (`PLACA-FASE-1.md` § 4.7).
 3. Que la luz de freno (STP) y el interruptor de embrague lleguen a la ECU.
 4. Anotar el código exacto de la ECU (etiqueta) y el año del vehículo.
+   **Hecho el 13-nov-2026 para la ECU y el chasis:** ECU 89661-0K300, chasis
+   KUN36L-PRMSYG (`PLACA-FASE-1.md` § 4.2 bis, con fotos). **Año 2008** según la
+   libreta. La libreta dice además **4X2** y la placa sugiere 4x4: sin
+   resolver.
 
 **Fase 1 · El camino que recomiendo: el de fábrica o un kit hecho para esta
 camioneta.**
@@ -136,6 +150,8 @@ CORRIENTE, conectan el pedal directo a la ECU. Lo que no se negocia:
 - watchdog por hardware; se prueba primero con un pedal suelto y la ECU en la
   mesa, después en un lugar cerrado, y recién entonces en ruta.
 El joystick se lee ahí: una entrada analógica con divisor, un umbral por botón.
+**Antes** de que mande sobre algo, se prueba con un buzzer (banco de pruebas,
+`PLACA-FASE-1.md` § 4.7) hasta comprobar que no genera órdenes falsas.
 
 ## 5. Lo que hay que decidir (Mauro)
 
@@ -556,3 +572,4 @@ no toca la red ni ninguna base. El módulo son los US$ 5 que ya figuran en el
 - https://www.newhilux.net/phpbb/viewtopic.php?p=419239 (cambio de ECU para tener crucero)
 - https://www.allfourx4.com.au/Cruise-Control-Kit-Plug-n-Play-suitable-for-Hilux-KUN26-Manual-05-15-EC-TY13GS-3/ (kit para KUN26 manual 2005–2015)
 - https://ecomodder.com/forum/showthread.php/electrical-cruise-control-27176.html (texto pegado por Mauro el 4-nov: 9 mensajes, oct-2013)
+- http://skcmspvtltd.org/agh/m/toyota/hilux/repair2/html/contents/rm000000plu004x.html (valores de la palanca de crucero de una Hilux; generación sin verificar, 14-nov-2026)

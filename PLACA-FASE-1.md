@@ -60,15 +60,19 @@ teléfono pueda editar (§ 6.4 de acá) es sólo medida y confort, nunca segurid
 
 | Pieza | Para qué | Estado |
 |---|---|---|
-| ESP32 DevKit (WROOM) en placa de borneras | el cerebro; dos núcleos y BLE | A CONFIRMAR modelo exacto |
+| ESP32 DevKit en placa de borneras de 38 pines | el cerebro; dos núcleos y BLE | **Ya lo tiene Mauro** (foto 13-nov-2026): módulo «ESP-32 Wi-Fi + Bluetooth», chip USB CP2102, conector USB-C. El rótulo exacto del módulo no se leyó |
 | ADC externo ADS1115 (16 bits, I2C) | leer VPA y VPA2: el ADC interno del ESP32 es poco lineal, ruidoso y tolera 3,3 V | A CONFIRMAR |
 | Acelerómetro «MPU» (¿MPU6050?) | vibración propia; **sube el techo del espectro de 100 Hz a 500 Hz** (ver `CRUCERO.md` § 9.2) | **A CONFIRMAR modelo** |
-| 4 divisores: 68 kΩ + 100 kΩ al 1 % (señal y masa del pedal, por canal), + 100 nF en cada entrada | bajar los 5 V del pedal a ≤ 3,1 V sin cargarlo y leer diferencial contra la masa del pedal | a comprar (8 resistencias) |
-| Módulo de 4 optoacopladores (PC817) | freno, tacómetro, velocidad y contacto, aislados | A CONFIRMAR |
+| 4 divisores (señal y masa del pedal, por canal): **68 kΩ + 100 kΩ** al 1 % (plan original) **o 56 kΩ + 82 kΩ** (alternativa, § 4.1), + 100 nF en cada entrada | bajar los 5 V del pedal a ≤ 3,1 V sin cargarlo y leer diferencial contra la masa del pedal | **compra pendiente de revisión** (14-nov-2026): la tienda MakerHero no tiene esos valores al 1 %; si se compran de 5 %, se miden y se aparean (8 resistencias, mejor 10 de cada valor) |
+| Módulo de 4 optoacopladores (PC817) | freno, tacómetro, velocidad y contacto, aislados | **Ya lo tiene Mauro** (foto 13-nov-2026): rotulado «4 Channel Isolation / 817 Module», con un jumper amarillo por canal. En módulos genéricos así, la entrada tolera 3,6–24 V y el jumper fija el nivel de salida: **se confirma con el tester en la mesa** (qué lado es cuál, resistencias a bordo, efecto del jumper) |
 | Módulo microSD (SPI) + tarjeta | respaldo si el Bluetooth se corta | recomendado |
 | Reloj DS3231 | alinear sesiones con los viajes si el teléfono no está | opcional |
 | Cargador USB de encendedor | alimentación; sólo da corriente con el contacto | a confirmar |
 | Fichas macho/hembra del pedal, o una derivación fina soldada | tomar las señales sin cortar | ver § 4.2 |
+| Capacitor electrolítico 10 000 µF / 16 V | aguantar la caída de tensión al arrancar (con un diodo en serie) | **Ya lo tiene Mauro**; no hace falta en la Fase 1 |
+| Bolsa de diodos axiales | protección contra polaridad invertida / respaldo al arrancar | **Ya los tiene**; el marcado de la bolsa no se pudo leer: **pendiente** |
+| 10 resistencias de 10 kΩ, 1/4 W | resistencia en serie de protección y usos generales | **Ya las tiene Mauro** |
+| Resistencias de 1 kΩ (o 2 kΩ), 4,7 kΩ y 220/680 Ω/1,5 kΩ; buzzer activo de 5 V | banco de pruebas del mando del volante (§ 4.7) | a comprar (ver `ETAPAS-Y-CAMBIOS.md`) |
 
 **Pasar a Claude, cuando lleguen:** modelo exacto impreso en cada módulo, foto
 del chip del acelerómetro y de su plaqueta, y qué dice la etiqueta del ESP32.
@@ -82,6 +86,15 @@ Cada señal (VPA y VPA2) baja por **una resistencia de 68 kΩ puesta en el mismo
 punto de toma** y sigue hacia la placa por un cable fino, donde un divisor con
 100 kΩ a masa la deja en 0,595 de su valor: **5,1 V → 3,03 V**, dentro de lo
 que tolera el ADS1115 alimentado a 3,3 V (su límite es VDD + 0,3 V).
+
+**Par alternativo si no hay de 100 kΩ (14-nov-2026):** **56 kΩ en el punto de
+toma y 82 kΩ a masa** dejan la señal en 82 ÷ 138 = **0,594** de su valor,
+prácticamente igual a 0,595: 5,0 V → 2,97 V y 4,2 V → 2,50 V, y las constantes
+de este documento no cambian. La corriente de falla con la señal en corto sube
+de ≈ 75 µA a **5 V / 56 kΩ ≈ 89 µA** y el pedal sigue cargado con unos 36 µA.
+Lo que importa es que **las cuatro tomas usen el mismo par**. El factor real se
+mide con el tester igual (párrafo siguiente). **Todo esto es propuesta: la compra
+está a revisar** y los valores de 1 % no estaban en la tienda consultada.
 
 ```
 pedal VPA ──┬────────────── a la ECU (no se toca)
@@ -135,6 +148,136 @@ fábrica. Es más cara y más segura, y es lo que se necesita igual en la Fase 3
 reparación y se confirma con el tester antes de pelar nada. Los valores que
 aparecen en `CRUCERO.md` § 8 son de otro motor Toyota y **no son los del 1KD**.
 
+### 4.2 bis La camioneta, la ECU y el pedal: lo que dicen las etiquetas (13-nov-2026)
+
+Fotos que mandó Mauro el 13-nov-2026 de la etiqueta de la ECU y de la del pedal.
+Lo que sigue **copia lo impreso** y le agrega lo que dicen el manual de
+reparación y los catálogos de repuestos; **nada de esto está medido en la
+camioneta**.
+
+| Pieza | Lo que dice la etiqueta | Qué se sabe |
+|---|---|---|
+| **ECU** | TOYOTA «ENGINE CONTROL» **89661-0K300**; **MA175800-6625**; 12 V; DENSO; MADE IN MALAYSIA; código de barras 1758006625 | Computadora del motor de la Hilux 1KD-FTV (catálogos de repuestos y foros de inmovilizador la dan para ese motor). **El código no dice el chasis ni el año.** Lleva inmovilizador: cambiarla exige emparejarla (`CRUCERO.md` § 2) |
+| **Pedal** | TOYOTA **78120-0K010**; **VN198800-3140**; **5.0 V**; DENSO; VIETNAM; además «314» y «10 J22» (qué significan **no se verificó**; podría ser un sello de fabricación) | «Rod assy, accelerator pedal»: sensor de efecto Hall sin contacto, alimentado con 5 V. Los vendedores lo listan para Hilux 2005-2015 de **todos los motores**, así que **tampoco sirve para fijar el chasis** |
+| **Placa del chasis** (vano del motor) | «TOYOTA ARGENTINA S.A.»; MODEL **KUN36L-PRMSYG**; ENGINE **1KD-FTV 2982 cc**; FRAME No. **8AJEZ39G802513562**; COLOR **1C0**; TRIM **GZ** (la foto se lee «G2» o «GZ»); GVM (KG) en blanco; TRANS./AXLE **R151-B04B**; PLANT/BUILT **8AJ**; «0K030» suelto a la izquierda; «INDUSTRIA ARGENTINA» | Ver «Qué dice la placa» abajo |
+
+**Qué dice la placa** (lectura de la foto; el número de chasis tiene un rayón entre
+el 9 y la G, se lee 8AJEZ39G802513562 y **tiene 17 caracteres**; conviene
+comprobarlo contra la libreta de propiedad):
+
+- **KUN36L-PRMSYG.** La **L** indica volante a la izquierda (las versiones con
+  volante a la derecha llevan R). Un catálogo de repuestos da ese código como
+  Hilux 1KD-FTV, grado SR, caja manual de 5 marchas, doble cabina, para
+  Latinoamérica y armada en Argentina. **Tracción: hay un desacuerdo sin
+  resolver.** Por la numeración habitual de Toyota y por la caja R151, el **36**
+  sería **4x4**, pero la libreta (abajo) dice **4X2**. Ninguna de las dos
+  cosas está confirmada en la camioneta: **A CONFIRMAR** mirando si tiene
+  palanca o botón de doble tracción y cardán delantero (importa para la
+  vibración: un cardán y una caja de transferencia más).
+- **8AJ** es el código de planta (Toyota Argentina) y encabeza el número de
+  chasis. **La placa no trae fecha de fabricación**, y el número de chasis no
+  la codifica de forma que se pueda leer sin un decodificador. La libreta dice
+  **año 2008** (dato del registro, no la fecha de fabricación), dentro del
+  «2008-2011» de `README.md`.
+- **Caja R151**, no R150F: `CLAUDE.md` calcula las marchas con una **R150F**
+  (3,830 · 2,062 · 1,436 · 1 · 0,838) y diferencial 3,583, y dice que es
+  «la mejor hipótesis y no un hecho». **La placa dice R151: hay que revisar si
+  esas relaciones valen para la R151** y qué relación de diferencial es el
+  código de eje **B04B** (la placa no la da). No se tocó ninguna constante de
+  la app.
+- **Rueda:** el catálogo da para esta versión una 265/70R16; el proyecto usa
+  265/70R17 (`MEDICION.md`). Conviene mirar la medida impresa en la cubierta.
+- **`CRUCERO.md` habla de KUN26** (los kits, los foros del crucero): **la
+  camioneta es KUN36L.** Antes de comprar un kit, preguntar al proveedor si
+  sirve para KUN36L; es el mismo motor y casi seguro el mismo pedal, pero no
+  está verificado.
+
+**Libreta de propiedad** (Uruguay, foto del 13-nov-2026; **sólo se guardó el
+bloque de datos técnicos**, ver la nota al final de esta sección):
+
+| Campo | Dice |
+|---|---|
+| Marca / modelo | TOYOTA / **HILUX SRV TDI 4X2** |
+| Año | **2008** |
+| Tipo | CAMIONETA CAB.DOB. C/C… (cortado en la libreta) |
+| Cilindros / combustible / cilindrada | 4 / DIESEL / 3000 |
+| P.B.T. (kg) | 2800 |
+| Nº de motor | **1KD-7463163** |
+| Nº de chasis | **8AJEZ39G802513562** (**coincide con la placa**: confirma los 17 caracteres y la lectura del rayón) |
+| Ejes / pasajeros | 2 / 5 |
+
+La libreta dice **SRV** y la placa **SR** (grado en el catálogo): puede ser
+nomenclatura distinta entre el registro uruguayo y el catálogo de Toyota; no
+se resolvió.
+
+**Fotos** (en `fotos/`, tal como las mandó Mauro el 13-nov-2026; la de la ECU
+quedó girada 90°, la etiqueta se lee de costado):
+
+| Archivo | Qué muestra |
+|---|---|
+| `fotos/placa-chasis-KUN36L.jpg` | placa del chasis, vano del motor |
+| `fotos/ecu-89661-0K300.jpg` | etiqueta de la ECU |
+| `fotos/pedal-78120-0K010.jpg` | pedal con su etiqueta y la ficha con los cables |
+| `fotos/libreta-datos-tecnicos.jpg` | recorte de la libreta: sólo marca, modelo, año, motor y chasis |
+
+![Placa del chasis](fotos/placa-chasis-KUN36L.jpg)
+
+![Etiqueta de la ECU](fotos/ecu-89661-0K300.jpg)
+
+![Pedal del acelerador](fotos/pedal-78120-0K010.jpg)
+
+![Datos técnicos de la libreta](fotos/libreta-datos-tecnicos.jpg)
+
+**Qué no se copió de la libreta, a propósito:** matrícula, padrón, nombre y
+documento del titular, y la matrícula anterior. Son datos personales y este
+repositorio se distribuye por GitHub. La foto completa queda en el teléfono de
+Mauro por si hace falta.
+
+En la foto de la ECU aparecen cables finos de colores (azul, verde, rojo, rosa,
+naranja) que no parecen del arnés Toyota, y en la del pedal el arnés está sin
+forro cerca de la ficha. **A CONFIRMAR** por Mauro: si son de una intervención
+anterior, anotar a dónde va cada uno antes de tomar señales.
+
+**Los seis cables del pedal.** Fuente: Hilux Repair Manual (Argentina,
+DR201E) para 1KD-FTV / 2KD-FTV, páginas 05-43 (terminales de la ECU) y 05-188
+a 05-195 (códigos P2120…P2138 y su diagrama). **Pendiente de cruzar:** que el
+manual cubra la KUN36L y la ECU 89661-0K300 (no se verificó que lo diga); se
+confirma con el tester.
+
+| Señal | Pedal (A13) | ECU (E5) | Color | Qué es | Tensión (contacto puesto) |
+|---|---|---|---|---|---|
+| VCPA | 4 (VCP1) | 26 | verde claro/rojo | alimentación 5 V del sensor 1 | 4,5–5,0 V contra EPA |
+| VCP2 | 1 | 27 | marrón/rojo | alimentación 5 V del sensor 2 | 4,5–5,0 V contra EPA2 |
+| VPA | 6 (VPA1) | 22 | blanco/azul | señal del sensor 1 (**la que usa el motor**) | 0,6–1,0 V suelto; 2,9–4,2 V a fondo |
+| VPA2 | 3 | 23 | gris/verde | señal del sensor 2 (**detecta fallas**) | 1,4–1,8 V suelto; 3,7–5,0 V a fondo |
+| EPA | 5 (EP1) | 28 | marrón/blanco | masa del sensor 1 | ≈ 0 V |
+| EPA2 | 2 (EP2) | 29 | marrón/amarillo | masa del sensor 2 | ≈ 0 V |
+
+- **Para la placa:** se leen sólo VPA, VPA2, EPA y EPA2. **VCPA y VCP2 no se
+  tocan nunca** (§ 4.1: la placa no alimenta los sensores).
+- **Son dos masas distintas.** El canal de VPA se lee contra **EPA** y el de
+  VPA2 contra **EPA2**, cada una por su divisor; no se cruzan.
+- **Si por ahora se lee sin ADS1115** (con el ADC interno del ESP32, § 4.8),
+  **EPA y EPA2 casi no valen nada leídas**: con ≈ 0 V y el divisor quedan por
+  debajo de unos 0,1 V, donde ese ADC no es confiable. Se mide **con el tester**
+  cuántos mV hay entre EPA y el chasis; si son pocos, se ignora la masa del
+  pedal y se leen VPA y VPA2 contra la masa de la placa. El diferencial verdadero
+  sigue siendo el del ADS1115.
+- **Tres cables son marrones** (VCP2, EPA, EPA2) y se confunden: se identifica
+  cada uno con el tester y con el número grabado en la ficha, no por el color.
+- **Lo que la ECU considera falla** (según el manual): VPA fuera de 0,2–4,8 V
+  más de 0,5 s; VPA2 fuera de 0,5–4,8 V más de 0,5 s; y VPA y VPA2 con
+  diferencia de 0,02 V o menos durante 2 s (se interpreta como corto entre
+  ambas, P2138). Un puente de soldadura entre cables vecinos se ve como esto.
+- **Identificar con el tester** (contacto puesto, motor apagado, punta negra al
+  chasis, sondeando por atrás de la ficha con puntas finas): los dos que dan
+  ≈ 0 V fijos son masas; los dos con 4,5–5 V fijos son alimentaciones; los dos
+  que cambian al pisar son las señales (arranca más bajo VPA). Para emparejar
+  cada masa y cada alimentación con su sensor, el manual usa continuidad menor
+  a 1 Ω entre cada pin del pedal y su pin de la ECU, con el contacto apagado y
+  las dos fichas desconectadas.
+- **No se desconecta la ficha del pedal con el contacto puesto** (graba código).
+
 ### 4.3 El acelerómetro
 
 - Alimentado a 3,3 V desde el ESP32, por I2C (SDA/SCL), con su pin de
@@ -175,9 +318,87 @@ cuando la placa mande sobre algo (`CRUCERO.md` § 9.1).
 | STP / TACH / SPD / contacto (entradas con pull-up) | 32 / 33 / 25 / 26 |
 | LED de estado (**única** salida) | 2 |
 
-**Regla por construcción:** en la Fase 1 **ningún pin es una salida** salvo el
-LED y el CS de la microSD. El banco de pruebas lo comprueba mirando el
-firmware: cualquier salida fuera de esa lista rompe la prueba.
+**Regla por construcción:** en la Fase 1 **ningún pin es una salida hacia la
+camioneta**. Las únicas salidas son el LED, el CS de la microSD y, en el banco
+de pruebas del mando (§ 4.7), **un buzzer que no se conecta a nada del
+vehículo**. El banco de pruebas lo comprueba mirando el firmware: cualquier
+salida fuera de esa lista rompe la prueba. *(Cambio del 14-nov-2026: se agregó
+el buzzer; antes la lista era LED y CS.)*
+
+### 4.7 El mando del volante y un buzzer: banco de pruebas (propuesta, 14-nov-2026)
+
+**Objetivo.** Comprobar, sin intervenir nada, que el joystick de crucero ya
+instalado está bien conectado y que **no genera órdenes falsas**, antes de que
+mande sobre algo del vehículo. El ESP32 lee el mando y un buzzer suena según
+el botón: es un banco de pruebas, no un control.
+
+**Qué se sabe del mando (ninguna cifra medida en esta camioneta).** Según el
+manual de reparación de una Hilux (generación que **no se verificó** que sea la
+de Mauro) la palanca da, medida a masa: **principal ON < 1 Ω; RES/ACC
+216–264 Ω; SET/COAST 567–693 Ω; CANCEL 1386–1694 Ω; reposo ≥ 10 kΩ (abierto)**.
+Un foro de Corolla 2006 da casi lo mismo (210–270 / 560–700 / 1380–1700 Ω). **Otro
+modelo (Land Cruiser) usa otra escalera** (60–70 / 180–220 / 380–460 Ω), y la
+palanca de Mauro puede ser de cualquiera o no ser Toyota: **manda lo que mida el
+tester en cada posición** (`CRUCERO.md` § 4, Fase 0, paso 2). El manual nombra dos
+cables por el resorte del volante: CCS (señal) y ECC (retorno).
+
+**Por qué el pull-up no puede ser de 10 kΩ.** Con valores de unos cientos de
+ohms y 10 kΩ a 3,3 V, los tres botones darían 0,08 V, 0,20 V y 0,44 V: donde el
+ADC del ESP32 lee mal y no se distinguen. Con **1 kΩ** (o 2 kΩ) quedan separados.
+
+| Posición | R a masa (referencia) | con pull-up 1 kΩ | con pull-up 2 kΩ |
+|---|---|---|---|
+| principal ON | ≈ 0 Ω | 0 V | 0 V |
+| RES | ≈ 240 Ω | 0,64 V | 0,35 V |
+| SET | ≈ 630 Ω | 1,28 V | 0,79 V |
+| CANCEL | ≈ 1,5 kΩ | 2,00 V | 1,44 V |
+| reposo (abierto) | ∞ | 3,3 V | 3,3 V |
+
+(V = 3,3 × R ÷ (R + pull-up); con el ADC interno solo valen 0,15–2,5 V
+aproximadamente, por eso conviene el pull-up de 1 kΩ.)
+
+**Cable cortado vs reposo.** Con reposo abierto, un cable cortado se ve igual
+que reposo. Se resuelve con una **resistencia de fin de línea** en paralelo en
+el extremo de la palanca (4,7 kΩ como punto de partida, se calcula con lo medido).
+Con 1 kΩ de pull-up daría: reposo 2,72 V; RES 0,61 V; SET 1,18 V; CANCEL 1,77 V;
+**cable cortado 3,3 V** (distinto de reposo); **corto a masa 0 V** (se parece al
+botón principal, y no hay forma de separarlos con esta lectura).
+
+**Reglas del firmware de prueba (propuestas, se ajustan con las primeras mediciones)**
+
+- Una banda de voltaje por botón, con margen; lo que cae entre bandas no cuenta.
+- Un botón sólo se acepta si la lectura se mantiene en su banda **unos 30–50 ms**,
+  y hay que pasar por reposo antes de aceptar otro.
+- Una lectura fuera de todas las bandas más de un instante es **falla** y suena
+  distinto. Sonidos distintos por botón; la falla suena continua.
+- Pull-up, resistencia en serie de protección y un capacitor de 100 nF cerca del
+  pin. **Antes de conectar: medir 0 V en el cable** (con 12 V se quema el pin).
+
+**Pruebas contra falsos positivos (criterios propuestos)**
+
+1. En la mesa, resistencias fijas en lugar de la palanca, unos 50 pulsos por
+   botón: ninguno se confunde.
+2. Con la palanca real, sin tocar botones: mover el cable, golpear el volante y
+   girar de tope a tope (resorte del volante): **no debe sonar nada**.
+3. Camioneta con contacto puesto y luego en marcha, con luces y ventilador
+   (ruido del alternador).
+4. En ruta con baches y mucho giro, registrando lectura cruda y eventos:
+   **cero eventos falsos en varias horas** (el número se fija).
+
+**Pines (propuesta):** el mando entra por un **pin ADC1** (no ADC2: los de ADC2 no
+sirven para analógico mientras haya radio) y el buzzer sale por un pin
+digital a través de un módulo con transistor o un NPN con 1 kΩ en la base.
+
+### 4.8 Primera lectura del pedal con el ADC interno (exploratoria, sin ADS1115)
+
+Si se quiere ver las curvas antes de comprar el ADS1115: los 4 divisores
+(§ 4.1) + 100 nF en cada entrada, y los pines **ADC1** del ESP32 (VP, VN, D34 y
+D35, para VPA, EPA, VPA2 y EPA2). **Limitaciones, todas esperadas:** el ADC interno
+no es lineal (más en los extremos), tiene ruido de decenas de mV y hay que
+calibrarlo contra el tester. Sirve para ver la forma de las curvas, la relación
+entre VPA y VPA2 y cómo se mueven con el pie; **no** para mediciones de
+precisión. Con esta lectura, los pines propuestos en § 4.6 para STP/TACH/SPD
+(32/33/25/26) chocan con D32/D33 si se usan para el mando: se reasignan al armar.
 
 ## 5. Lo que hace el firmware
 
@@ -381,6 +602,12 @@ antes de diseñar la Fase 3**.
    del ADC contra el tester, el divisor, y el Bluetooth hasta la app (con la
    fuente falsa y con la real). **Primera medición de si el Note 9 sostiene el
    flujo.**
+0 bis. **Banco del mando (§ 4.7).** Resistencias fijas (≈ 220 Ω, 680 Ω, 1,5 kΩ)
+   y un buzzer: calibración de bandas, filtro de rebotes y la alarma de falla.
+   **Sin camioneta.**
+0 ter. **Módulo de optoacopladores en la mesa:** 12 V desde una batería o una
+   fuente, con un pulsador; se comprueba qué lado es la entrada, qué hace el
+   jumper y qué ve el ESP32.
 1. **En la camioneta, motor apagado, contacto puesto.** Primero **medir con el
    tester** VPA y VPA2 con el pedal suelto, a la mitad y a fondo. Después
    conectar la placa y repetir: **los valores de la placa tienen que
@@ -429,6 +656,13 @@ cable a una señal de mando del vehículo. Conviene dejar la toma **reversible**
    completo en el teléfono (§ 7.3).
 4. Fichas reversibles o derivación soldada para el pedal (§ 4.2).
 5. Si el reloj DS3231 entra o se usa sólo el del teléfono.
+6. **Qué dicen los diodos** de la bolsa (el marcado no se leyó en la foto).
+7. **Resistencias de los botones del joystick** medidas con el tester (§ 4.7).
+8. **Cuál par de divisores** se compra y con qué tolerancia (68/100 kΩ al 1 %
+   o 56/82 kΩ de 5 % apareadas), y si MakerHero envía a Uruguay.
+9. **¿4x2 o 4x4?** La libreta dice 4X2 y la placa (KUN36 + caja R151) sugiere
+   4x4: mirar si hay palanca/botón de doble tracción y cardán delantero.
+10. **¿Caja R151 o R150F?** `CLAUDE.md` calcula con R150F; la placa dice R151.
 
 ## 11. Qué archivos toca esto cuando se implemente (la tanda)
 
@@ -466,5 +700,18 @@ cable a una señal de mando del vehículo. Conviene dejar la toma **reversible**
 - Los números de las piezas (impedancias, rangos, direcciones, pines) son
   **valores típicos de las hojas de datos de cada chip, no medidos en esta
   camioneta**: se confirman con las piezas en la mano.
-- **Nada de lo del pedal es del 1KD**: se mide en la camioneta (`CRUCERO.md`
-  § 6 y § 8).
+- **Los valores de `CRUCERO.md` § 8 no son del 1KD**: son de otro motor Toyota.
+  Desde el 13-nov-2026 el § 4.2 bis trae los del manual de reparación de la
+  Hilux/1KD-FTV (Argentina, DR201E), que **tampoco están medidos en esta
+  camioneta**: se miden (`CRUCERO.md` § 6 y § 8).
+- **Mando del volante (§ 4.7):** valores del manual de reparación de una Hilux
+  (http://skcmspvtltd.org/agh/m/toyota/hilux/repair2/html/contents/rm000000plu004x.html,
+  que **parece de una generación más nueva** que la KUN36), del foro
+  https://www.toyotanation.com/threads/06-corolla-cruise-control-not-working.426686/
+  y de un Land Cruiser (https://lc100e.github.io/pdf/rm/rm616e/m_di_0736.pdf,
+  que da **otros** valores). Ninguno es el de la camioneta de Mauro.
+- **Módulo de optoacopladores:** fichas de módulos genéricos (p. ej.
+  https://myduino.com/product/jhs-122/ y https://oe2.open-electronics.org/?p=46325);
+  el de Mauro puede diferir.
+- **Divisores 56/82 kΩ:** cálculo propio (0,594); no está probado en el pedal.
+- Documento que resume los cambios y las etapas: `ETAPAS-Y-CAMBIOS.md`.
